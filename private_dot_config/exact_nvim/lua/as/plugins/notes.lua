@@ -1,8 +1,8 @@
-local denkwerstatt_dir = vim.g.denkwerstatt_dir
+local denkwerkstatt_dir = vim.g.denkwerkstatt_dir
 
-if as.falsy(denkwerstatt_dir) then return {} end
+if as.falsy(denkwerkstatt_dir) then return {} end
 
-local function denkwerstatt_path(path) return string.format('%s/%s', denkwerstatt_dir, path) end
+local function denkwerkstatt_path(path) return string.format('%s/%s', denkwerkstatt_dir, path) end
 
 return {
   {
@@ -23,11 +23,11 @@ return {
       workspaces = {
         {
           name = 'personal',
-          path = denkwerstatt_path('personlich'),
+          path = denkwerkstatt_path('personlich'),
         },
         {
           name = 'work',
-          path = denkwerstatt_path('arbeit'),
+          path = denkwerkstatt_path('arbeit'),
         },
       },
       picker = {
