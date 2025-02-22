@@ -188,7 +188,7 @@ symbol = " "
 
 [lua]
 symbol = " "
-detect_files = ['.lua-version', '.tool-versions', '.luarc.json']
+detect_files = ['.lua-version', '.luarc.json']
 
 [memory_usage]
 symbol = "󰍛 "
@@ -205,7 +205,7 @@ symbol = " "
 [nodejs]
 symbol = "󰎙 "
 format = "via [$symbol($version )]($style)"
-detect_files = ["package.json", ".node-version", ".tool-versions", ".nvmrc"]
+detect_files = ["package.json", ".node-version", ".nvmrc"]
 detect_folders = ["node_modules"]
 
 [ocaml]
