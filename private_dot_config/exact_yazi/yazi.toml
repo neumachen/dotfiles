@@ -32,10 +32,7 @@ play = [
   { run = 'iina --no-stdin "$@"' },
   { run = '''mediainfo "$1"; echo "Press enter to exit"; read''', block = true, desc = "Show media info" },
 ]
-archive = [
-  { run = 'unar "$1"', desc = "Extract here" },
-  { run = '/Applications/MacZip.app/Contents/MacOS/MacZip "$1"', orphan = true, desc = "MacZip" },
-]
+archive = [{ run = 'keka "$1"', desc = "Extract here" }]
 
 [open]
 rules = [
