@@ -1,7 +1,6 @@
 ---
 openai-api-key: ${AIDER_OPENAI_API_KEY}
 anthropic-api-key: ${AIDER_ANTHROPIC_API_KEY}
-openrouter-api-key: ${AIDER_OPENROUTER_API_KEY}
 
 ## Specify the model to use for the main chat
 # model: xxx
