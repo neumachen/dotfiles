@@ -1,15 +1,13 @@
 ---
-openai-api-key: ${AIDER_OPENAI_API_KEY}
-anthropic-api-key: ${AIDER_ANTHROPIC_API_KEY}
+env-file: ${AIDER_ENV_FILE}
 
-## Specify the model to use for the main chat
-# model: xxx
+model: openrouter/anthropic/claude-3.5-sonnet
 
 ## Use claude-3-opus-20240229 model for the main chat
 #opus: false
 
 ## Use claude-3-5-sonnet-20241022 model for the main chat
-sonnet: true
+# sonnet: true
 
 ## Use claude-3-5-haiku-20241022 model for the main chat
 #haiku: false
@@ -267,7 +265,7 @@ commit-prompt: |-
 #skip-sanity-check-repo: false
 
 ## Enable/disable watching files for ai coding comments (default: False)
-watch-files: False
+watch-files: false
 
 ########################
 # Fixing and committing:
