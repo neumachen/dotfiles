@@ -15,6 +15,11 @@ pathmunge "${BREW_HOME}/bin" after
 pathmunge "${BREW_HOME}/sbin" after
 {{- end }}
 
+# Using zsh's for syntax with glob
+for func in ${ZDOTDIR}/functions/*(N.); do
+  source $func
+done
+
 if [ ! -d "${HOME}/.asdf" ]; then
   echo-err "asdf not found!"
   exit 1
