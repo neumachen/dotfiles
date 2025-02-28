@@ -1,0 +1,49 @@
+# Zim modules
+zmodule environment
+zmodule git
+zmodule input
+zmodule termtitle
+zmodule utility
+zmodule fzf
+zmodule exa
+
+# Community Modules
+zmodule joke/zim-chezmoi
+zmodule joke/zim-github-cli
+zmodule joke/zim-helm
+zmodule joke/zim-istioctl
+zmodule joke/zim-k9s
+zmodule joke/zim-kubectl
+zmodule joke/zim-minikube
+zmodule joke/zim-skaffold
+zmodule kiesman99/zim-zoxide
+
+# Prompt
+zmodule joke/zim-starship
+
+# Oh-My-Zsh libraries and plugins
+zmodule ohmyzsh/ohmyzsh --root lib --source clipboard.zsh --source directories.zsh
+zmodule ohmyzsh/ohmyzsh --root plugins/git --source git.plugin.zsh
+
+# Completions
+zmodule zsh-users/zsh-completions --fpath src
+zmodule completion
+
+# Custom completions
+zmodule asdf-vm/asdf --source completions/_asdf
+zmodule docker/cli --root contrib/completion/zsh --source _docker
+zmodule eza-community/eza --root completions/zsh --source _eza
+zmodule sharkdp/fd --root contrib/completion --source _fd
+zmodule x-motemen/ghq --root misc/zsh --source _ghq
+zmodule ahmetb/kubectx --source completion/_kubectx.zsh --source completion/_kubens.zsh
+zmodule srijanshetty/zsh-pandoc-completion
+zmodule rust-lang/cargo --root src/etc --source _cargo
+zmodule mpv-player/mpv --root etc --source _mpv.zsh
+zmodule ohmyzsh/ohmyzsh --root plugins/rust --source _rustc
+
+# Syntax highlighting and suggestions (load these last)
+zmodule zdharma-continuum/fast-syntax-highlighting
+zmodule zsh-users/zsh-autosuggestions
+zmodule zsh-users/zsh-history-substring-search
+zmodule Aloxaf/fzf-tab
+zmodule wfxr/forgit

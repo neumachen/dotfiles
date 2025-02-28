@@ -6,144 +6,35 @@
 
 source "${HOME}/.shtils"
 
-function error() { print -P "%F{160}[ERROR] ---%f%b $1" >&2 && exit 1; }
-function info() { print -P "%F{34}[INFO] ---%f%b $1"; }
+# Using zsh's for syntax with glob
+for func in ${ZDOTDIR}/functions/*(N.); do
+  source $func
+done
 
-if [ ! -d "${HOME}/.local/share/zsh" ]; then
-  mkdir -p "${HOME}/.local/share/zsh"
+pathmunge ${DEVBIN} before
+
+# Initialize Zim if it's not already installed
+if [[ ! -e ${ZIM_HOME}/zimfw.zsh ]]; then
+  echo-info "Downloading zimfw" \
+    && curl -fsSL --create-dirs -o "${ZIM_HOME}/zimfw.zsh" \
+       https://github.com/zimfw/zimfw/releases/latest/download/zimfw.zsh \
+    || echo-err "Unable to download zimfw"
 fi
 
-typeset -gAH ZINIT;
-ZINIT[HOME_DIR]="${XDG_DATA_HOME:-${HOME}/.local/share}/zsh/zinit"
-ZPFX=$ZINIT[HOME_DIR]/polaris
-ZINIT[BIN_DIR]=$ZINIT[HOME_DIR]/zinit.git
-ZINIT[OPTIMIZE_OUT_DISK_ACCESSES]=1
-ZINIT[COMPLETIONS_DIR]=$ZINIT[HOME_DIR]/completions
-ZINIT[SNIPPETS_DIR]=$ZINIT[HOME_DIR]/snippets
-ZINIT[ZCOMPDUMP_PATH]=$ZINIT[HOME_DIR]/zcompdump
-ZINIT[PLUGINS_DIR]=$ZINIT[HOME_DIR]/plugins
-if [[ ! -e $ZINIT[BIN_DIR] ]]; then
-  info 'Downloading Zinit' \
-    && command git clone \
-        https://github.com/zdharma-continuum/zinit.git \
-        $ZINIT[BIN_DIR] \
-    || error 'Unable to download zinit' \
-    && info 'Installing Zinit' \
-    && command chmod g-rwX $ZINIT[HOME_DIR] \
-    && zcompile $ZINIT[BIN_DIR]/zinit.zsh \
-    && info 'Successfully installed Zinit' \
-    || error 'Unable to install Zinit'
-fi
-source $ZINIT[BIN_DIR]/zinit.zsh \
-  && autoload -Uz _zinit \
-  && (( ${+_comps} )) \
-  && _comps[zinit]=_zinit
-
-zinit lucid for \
-  as"command" \
-  from"gh-r" \
-  atload'eval "$(starship init zsh)"' \
-  starship/starship
-
-zinit ice wait lucid
-zinit snippet OMZL::clipboard.zsh
-zinit ice wait lucid
-zinit snippet OMZL::directories.zsh
-zinit ice wait lucid
-zinit snippet OMZ::plugins/git/git.plugin.zsh
-
-zinit wait lucid for \
- atinit"ZINIT[COMPINIT_OPTS]=-C; zicompinit; zicdreplay" \
-    zdharma-continuum/fast-syntax-highlighting \
- blockf \
-    zsh-users/zsh-completions \
- atload"!_zsh_autosuggest_start" \
-    zsh-users/zsh-autosuggestions
-
-zinit ice wait lucid
-zinit load 'zsh-users/zsh-history-substring-search'
-zinit ice wait lucid atload'_history_substring_search_config'
-
-zinit ice lucid wait as"completion" blockf has"asdf"
-zinit snippet https://raw.githubusercontent.com/asdf-vm/asdf/refs/tags/v0.14.1/completions/_asdf
-zinit ice lucid wait as'completion' blockf has'cargo'
-zinit snippet https://github.com/rust-lang/cargo/blob/master/src/etc/_cargo
-zinit ice lucid wait as"completion" blockf has"docker"
-zinit snippet https://raw.githubusercontent.com/docker/cli/master/contrib/completion/zsh/_docker
-zinit ice lucid wait as"completion" blockf has"fd"
-zinit snippet https://raw.githubusercontent.com/sharkdp/fd/master/contrib/completion/_fd
-zinit ice lucid wait as'completion' blockf has'ghq'
-zinit snippet https://github.com/x-motemen/ghq/blob/master/misc/zsh/_ghq
-zinit ice lucid wait as'completion' blockf has'kubectx'
-zinit snippet https://raw.githubusercontent.com/ahmetb/kubectx/master/completion/_kubectx.zsh
-zinit ice lucid wait as'completion' blockf has'kubens'
-zinit snippet https://raw.githubusercontent.com/ahmetb/kubectx/master/completion/_kubens.zsh
-zinit ice lucid wait as'completion' blockf has'mpv'
-zinit snippet https://github.com/mpv-player/mpv/blob/master/etc/_mpv.zsh
-zinit ice lucid wait as'completion' blockf has'pandoc'
-zinit light srijanshetty/zsh-pandoc-completion
-zinit ice lucid wait as'completion' blockf has'rustc'
-zinit snippet https://github.com/ohmyzsh/ohmyzsh/blob/master/plugins/rust/_rustc
-
-zinit ice lucid wait as'completion' blockf has'fzf'
-zinit snippet "${ZDOTDIR}/completions/_fzf"
-zinit ice lucid wait as'completion' blockf has'chezmoi'
-zinit snippet "${ZDOTDIR}/completions/_chezmoi"
-zinit ice lucid wait as'completion' blockf has'just'
-zinit snippet "${ZDOTDIR}/completions/_just"
-zinit ice lucid wait as'completion' blockf has'kind'
-zinit snippet "${ZDOTDIR}/completions/_kind"
-zinit ice lucid wait as'completion' blockf has'rg'
-zinit snippet "${ZDOTDIR}/completions/_rg"
-
-if command_exists eza; then
-  zinit ice lucid wait as'completion' blockf
-  zinit snippet "${ZDOTDIR}/completions/_eza"
-  unalias -m 'l'
-  unalias -m 'la'
-  unalias -m 'll'
-  unalias -m 'llm'
-  unalias -m 'ls'
-  unalias -m 'lt'
-  unalias -m 'lx'
-  unalias -m 'tree'
-  alias l='eza --git-ignore $eza_params'
-  alias la='eza -lbhHigUmuSa'
-  alias ll='eza --all --header --long $eza_params'
-  alias llm='eza --all --header --long --sort=modified $eza_params'
-  alias ls='eza $eza_params'
-  alias lt='eza --tree $eza_params'
-  alias lx='eza -lbhHigUmuSa@'
-  alias tree='eza --tree $eza_params'
+# Initialize Zim
+if [[ ! ${ZIM_HOME}/init.zsh -nt ${ZIM_CONFIG_FILE} ]]; then
+  source ${ZIM_HOME}/zimfw.zsh init -q
 fi
 
-if command_exists fzf; then
-  source <(fzf --zsh)
-  zinit ice wait lucid
-  zinit load Aloxaf/fzf-tab
-fi
-
-if command_exists git; then
-  zinit ice wait lucid
-  zinit load wfxr/forgit
-fi
-
-zi light zsh-users/zsh-history-substring-search
-  zmodload zsh/terminfo
-  [ -n "${terminfo[kcuu1]}" ] && bindkey "${terminfo[kcuu1]}" history-substring-search-up
-  [ -n "${terminfo[kcud1]}" ] && bindkey "${terminfo[kcud1]}" history-substring-search-down
-  bindkey -M emacs '^P' history-substring-search-up
-  bindkey -M emacs '^N' history-substring-search-down
-  bindkey -M vicmd 'k' history-substring-search-up
-  bindkey -M vicmd 'j' history-substring-search-down
-
-autoload -Uz compinit
-if [ $(date +'%j') != $(date -r ${ZDOTDIR:-$HOME}/.zcompdump +'%j') ]; then
-  compinit;
-else
-  compinit -C;
-fi
-zinit cdreplay -q
+# Install missing modules
+# Configure history-substring-search keybindings
+zmodload zsh/terminfo
+[ -n "${terminfo[kcuu1]}" ] && bindkey "${terminfo[kcuu1]}" history-substring-search-up
+[ -n "${terminfo[kcud1]}" ] && bindkey "${terminfo[kcud1]}" history-substring-search-down
+bindkey -M emacs '^P' history-substring-search-up
+bindkey -M emacs '^N' history-substring-search-down
+bindkey -M vicmd 'k' history-substring-search-up
+bindkey -M vicmd 'j' history-substring-search-down
 
 # setopts
 setopt extended_history       # record timestamp of command in HISTFILE
@@ -176,32 +67,11 @@ HISTIGNORE="ls:ll:la:cd:cd -:pwd:exit:date:* --help"
 HISTSIZE=10000000
 SAVEHIST=10000000
 
-if command_exists kubectl; then
-  source <(kubectl completion zsh)
-fi
-
-if command_exists helm; then
-  source <(helm completion zsh)
-fi
-
 if command_exists broot; then
   br_path="${HOME}/.config/broot/launcher/bash/br"
   if [ -f "${br_path}" ]; then
     source "${br_path}"
   fi
-fi
-
-if command_exists zoxide; then
-  eval "$(zoxide init --cmd cd zsh)"
-fi
-
-if command_exists chezmoi; then
-  chemzoi_source_path=$(chezmoi source-path)
-  export DOTFILES_DIR="$chemzoi_source_path"
-fi
-
-if command_exists starship; then
-  eval "$(starship init zsh)"
 fi
 
 function source-env() {
@@ -217,7 +87,10 @@ function source-env() {
       exit 1
     fi
 
-    source <(cat "${file}" | sed -n -e '/^#/d;/^\s*$/d' -e "s/'/'\\\''/g" -e "s/=\(.*\)/='\1'/g" -e 's/.*/export &/p')
+    source <(cat "${file}" | sed -n -e '/^#/d;/^\s*$/d' \
+      -e "s/'/'\\\''/g" \
+      -e "s/=\(.*\)/='\1'/g" \
+      -e 's/.*/export &/p')
   done
 }
 
