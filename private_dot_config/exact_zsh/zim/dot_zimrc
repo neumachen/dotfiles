@@ -76,6 +76,7 @@ function zmodule-custom() {
 }
 
 # Zim modules
+zmodule homebrew
 zmodule custom
 zmodule environment
 zmodule git
