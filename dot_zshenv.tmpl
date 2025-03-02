@@ -41,3 +41,10 @@ export REPOS_GITHUB_PERSONAL="${REPOS_GITHUB}/neumachen"
 export TASKWARRIOR_CONFIG="${XDG_CONFIG_HOME}/taskwarrior"
 export DENKWERKSTATT_DIR="${HOME}/denkwerkstatt"
 export WISSENSSPEICHER_DIR="${DENKWERKSTATT_DIR}/wissensspeicher"
+
+{{ if eq .chezmoi.os "darwin" -}}
+if [ -S "${HOME}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock" ]; then
+  export SSH_AUTH_SOCK="${HOME}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
+fi
+{{ end -}}
+
