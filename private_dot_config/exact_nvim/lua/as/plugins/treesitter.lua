@@ -145,7 +145,6 @@ return {
       'javascriptreact',
       'html',
       'vue',
-      'svelte',
     },
     dependencies = { 'nvim-treesitter/nvim-treesitter' },
     config = true,
