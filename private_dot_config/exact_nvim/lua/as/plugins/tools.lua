@@ -1,9 +1,5 @@
 return {
   {
-    'terrastruct/d2-vim',
-    lazy = false,
-  },
-  {
     'stevearc/conform.nvim',
     lazy = false,
     event = 'BufReadPre',
