@@ -36,6 +36,15 @@ if command_exists aqua; then
   export AQUA_GLOBAL_CONFIG="${HOME}/.config/aquaproj-aqua/aqua.yaml"
 fi
 
+if command_exists chezmoi; then
+  if [ -z "${CHEZMOI_CONFIG_DIR}" ]; then
+    export CHEZMOI_CONFIG_DIR="${HOME}/.config/chezmoi"
+  fi
+  if [ -z "${DOTFILES_DIR}" ]; then
+    export DOTFILES_DIR="$(chezmoi source-path)"
+  fi
+fi
+
 if [ -z "$DEVBIN" ]; then
   if [ ! -d "${HOME}/.devbin" ]; then
     echo "DEVBIN dir does not exist, custom functions will fail"
