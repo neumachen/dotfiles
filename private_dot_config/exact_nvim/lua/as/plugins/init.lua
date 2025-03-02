@@ -304,30 +304,23 @@ return {
         },
         jump = { nohlsearch = true },
       },
-      keys = {
-        { 's', function() require('flash').jump() end, mode = { 'n', 'x', 'o' } },
-        { 'S', function() require('flash').treesitter() end, mode = { 'o', 'x' } },
-        { 'r', function() require('flash').remote() end, mode = 'o', desc = 'Remote Flash' },
-        { '<c-s>', function() require('flash').toggle() end, mode = { 'c' }, desc = 'Toggle Flash Search' },
-        {
-          'R',
-          function() require('flash').treesitter_search() end,
-          mode = { 'o', 'x' },
-          desc = 'Flash Treesitter Search',
-        },
+    },
+    keys = {
+      { 's', function() require('flash').jump() end, mode = { 'n', 'x', 'o' } },
+      { 'S', function() require('flash').treesitter() end, mode = { 'o', 'x' } },
+      { 'r', function() require('flash').remote() end, mode = 'o', desc = 'Remote Flash' },
+      { '<c-s>', function() require('flash').toggle() end, mode = { 'c' }, desc = 'Toggle Flash Search' },
+      {
+        'R',
+        function() require('flash').treesitter_search() end,
+        mode = { 'o', 'x' },
+        desc = 'Flash Treesitter Search',
       },
     },
   },
   {
-    'chaoren/vim-wordmotion',
-    lazy = false,
-    init = function() vim.g.wordmotion_spaces = { '-', '_', '\\/', '\\.' } end,
-  },
-  {
-    'kylechui/nvim-surround',
+    'echasnovski/mini.surround',
     version = '*',
-    keys = { { 's', mode = 'v' }, '<C-g>s', '<C-g>S', 'ys', 'yss', 'yS', 'cs', 'ds' },
-    opts = { move_cursor = true, keymaps = { visual = 's' } },
   },
   {
     'andrewferrier/debugprint.nvim',
