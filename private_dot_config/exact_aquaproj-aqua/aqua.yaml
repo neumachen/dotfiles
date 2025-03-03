@@ -75,3 +75,4 @@ packages:
 - name: yoheimuta/protolint@v0.51.0
 - name: denoland/deno@v2.1.4
 - name: bcicen/ctop@v0.7.7
+- name: starship/starship@v1.22.1
