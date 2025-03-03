@@ -23,13 +23,4 @@ as.ftplugin_conf({
       },
     })
   end,
-  ['nvim-surround'] = function(surround)
-    surround.buffer_setup({
-      surrounds = {
-        l = {
-          add = function() return { { '[' }, { ('](%s)'):format(fn.getreg('*')) } } end,
-        },
-      },
-    })
-  end,
 })
