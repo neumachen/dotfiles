@@ -95,7 +95,6 @@ zmodule joke/zim-k9s
 zmodule joke/zim-kubectl
 zmodule joke/zim-minikube
 zmodule joke/zim-skaffold
-zmodule kiesman99/zim-zoxide
 
 # Prompt
 zmodule joke/zim-starship
@@ -117,6 +116,7 @@ zmodule srijanshetty/zsh-pandoc-completion
 zmodule rust-lang/cargo --root src/etc --fpath _cargo
 zmodule ohmyzsh/ohmyzsh --root plugins/rust --fpath _rustc
 zmodule-custom broot --source "${HOME}/.config/broot/launcher/bash/br"
+zmodule-custom zoxide --eval "zoxide init --cmd cd zsh"
 zmodule-custom starship --eval "starship init zsh"
 
 # Syntax highlighting and suggestions (load these last)
