@@ -281,7 +281,7 @@ local SYNC_DIR = fn.resolve(vim.env.SYNC_DIR)
 local function dir_env(directory)
   if not directory then return '', '' end
   local paths = {
-    [vim.g.dotfiles] = '$DOTFILES_DIR',
+    [vim.g.dotfiles_dir] = '$DOTFILES_DIR',
     [vim.env.HOME] = '~',
     [vim.g.dev_workspace_root] = '$DEV_WORKSPACE_ROOT',
     [vim.env.VIMRUNTIME] = '$VIMRUNTIME',
