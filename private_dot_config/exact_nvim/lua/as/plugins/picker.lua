@@ -12,7 +12,10 @@ local function dropdown(opts)
   opts = opts or { winopts = {} }
   return vim.tbl_deep_extend('force', {
     prompt = prompt,
-    fzf_opts = { ['--layout'] = 'reverse' },
+    fzf_opts = {
+      ['--layout'] = 'reverse',
+      ['--header'] = ':: <alt-h> to Include hidden files | <alt-i> to Disable .gitignore | <ctrl-g> to Fuzzy Search',
+    },
     winopts = {
       title = opts.winopts.title,
       title_pos = opts.winopts.title and 'center' or nil,
