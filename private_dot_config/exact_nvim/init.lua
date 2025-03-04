@@ -19,7 +19,7 @@ g.maplocalleader = ' ' -- Local leader is <Space>
 ----------------------------------------------------------------------------------------------------
 g.os = loop.os_uname().sysname
 g.open_command = g.os == 'Darwin' and 'open' or 'xdg-open'
-g.dotfiles = env.DOTFILES_DIR
+g.dotfiles_dir = env.DOTFILES_DIR
 g.vim_dir = fn.expand('~/.config/nvim')
 g.dev_workspace_root = env.DEV_WORKSPACE_ROOT
 g.vcs_repositories_dir = env.VCS_REPOSITORIES_DIR
