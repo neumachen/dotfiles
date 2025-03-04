@@ -87,7 +87,7 @@ return {
       { '<leader>fs', fzf_lua.live_grep, desc = 'live grep' },
       { '<leader>fla', fzf_lua.autocmds, desc = 'autocommands' },
       { '<leader>flc', fzf_lua.command_history, desc = 'command history' },
-      { '<localleader>fcd', function() file_picker(vim.env.DOTFILES) end, desc = 'dotfiles' },
+      { '<localleader>fcd', function() file_picker(vim.g.dotfiles_dir) end, desc = 'dotfiles' },
       { '<localleader>fcn', function() file_picker(vim.g.vim_dir) end, desc = 'nvim config' },
       { '<localleader>fr', fzf_lua.registers, desc = 'Registers' },
     },
