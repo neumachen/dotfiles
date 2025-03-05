@@ -95,7 +95,7 @@ require('lazy').setup({
     { import = 'as.plugins', cond = function() return not vim.g.vscode end },
     { import = 'as.vscode.plugins', cond = function() return vim.g.vscode end },
   },
-  defaults = { lazy = true },
+  defaults = { lazy = false },
   concurrency = vim.uv.available_parallelism() * 2,
   ui = { border = g.border },
   checker = {
