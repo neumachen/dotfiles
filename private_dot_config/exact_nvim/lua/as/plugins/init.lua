@@ -326,8 +326,8 @@ return {
   {
     'echasnovski/mini.surround',
     event = 'VeryLazy',
-    config = true,
     version = '*',
+    config = function() require('mini.surround').setup() end,
   },
   {
     'andrewferrier/debugprint.nvim',
