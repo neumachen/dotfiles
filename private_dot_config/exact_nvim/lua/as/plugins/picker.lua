@@ -67,11 +67,20 @@ as.fzf = { dropdown = dropdown, cursor_dropdown = cursor_dropdown }
 
 return {
   {
-    "nvim-telescope/telescope.nvim",
-  }
+    'nvim-telescope/telescope.nvim',
+    event = 'VeryLazy',
+    dependencies = {
+      { 'nvim-lua/popup.nvim' },
+      { 'nvim-lua/plenary.nvim' },
+      {
+        'nvim-telescope/telescope-fzf-native.nvim',
+        build = 'cmake -S. -Bbuild -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release',
+      },
+    },
+  },
   {
     'ibhagwan/fzf-lua',
-    cmd = 'FzfLua',
+    event = 'VeryLazy',
     dependencies = { 'nvim-tree/nvim-web-devicons' },
     keys = {
       { '<c-p>', fzf_lua.git_files, desc = 'find files' },
