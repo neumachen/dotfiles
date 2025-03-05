@@ -306,12 +306,17 @@ return {
       },
     },
     keys = {
-      { 's', function() require('flash').jump() end, mode = { 'n', 'x', 'o' } },
-      { 'S', function() require('flash').treesitter() end, mode = { 'o', 'x' } },
-      { 'r', function() require('flash').remote() end, mode = 'o', desc = 'Remote Flash' },
-      { '<c-s>', function() require('flash').toggle() end, mode = { 'c' }, desc = 'Toggle Flash Search' },
+      { '<localleader>s', function() require('flash').jump() end, mode = { 'n', 'x', 'o' } },
+      { '<localleader>S', function() require('flash').treesitter() end, mode = { 'o', 'x' } },
+      { '<localleader>r', function() require('flash').remote() end, mode = 'o', desc = 'Remote Flash' },
       {
-        'R',
+        '<localleader><localleader>f',
+        function() require('flash').toggle() end,
+        mode = { 'c' },
+        desc = 'Toggle Flash Search',
+      },
+      {
+        '<localleader>R',
         function() require('flash').treesitter_search() end,
         mode = { 'o', 'x' },
         desc = 'Flash Treesitter Search',
@@ -320,6 +325,7 @@ return {
   },
   {
     'echasnovski/mini.surround',
+    event = 'VeryLazy',
     version = '*',
   },
   {
@@ -519,7 +525,6 @@ return {
       'nvim-treesitter/nvim-treesitter',
     },
     config = function() require('go').setup() end,
-    event = { 'CmdlineEnter' },
     ft = { 'go', 'gomod' },
     build = ':lua require("go.install").update_all_sync()', -- if you need to install/update all binaries
   },
