@@ -67,6 +67,9 @@ as.fzf = { dropdown = dropdown, cursor_dropdown = cursor_dropdown }
 
 return {
   {
+    "nvim-telescope/telescope.nvim",
+  }
+  {
     'ibhagwan/fzf-lua',
     cmd = 'FzfLua',
     dependencies = { 'nvim-tree/nvim-web-devicons' },
