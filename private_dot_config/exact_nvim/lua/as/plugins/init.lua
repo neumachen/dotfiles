@@ -310,7 +310,7 @@ return {
       { '<localleader>S', function() require('flash').treesitter() end, mode = { 'o', 'x' } },
       { '<localleader>r', function() require('flash').remote() end, mode = 'o', desc = 'Remote Flash' },
       {
-        '<localleader><localleader>f',
+        '<c-s>',
         function() require('flash').toggle() end,
         mode = { 'c' },
         desc = 'Toggle Flash Search',
@@ -326,6 +326,7 @@ return {
   {
     'echasnovski/mini.surround',
     event = 'VeryLazy',
+    config = true,
     version = '*',
   },
   {
