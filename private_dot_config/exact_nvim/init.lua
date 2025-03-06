@@ -24,7 +24,7 @@ g.vim_dir = fn.expand('~/.config/nvim')
 g.dev_workspace_root = env.DEV_WORKSPACE_ROOT
 g.vcs_repositories_dir = env.VCS_REPOSITORIES_DIR
 g.denkwerkstatt_dir = env.DENKWERKSTATT_DIR
-g.wissensspeicher_dir = env.WISSENS_SPEICHER_DIR
+g.wissensspeicher_dir = env.WISSENSSPEICHER_DIR
 
 ----------------------------------------------------------------------------------------------------
 if vim.loader then vim.loader.enable() end

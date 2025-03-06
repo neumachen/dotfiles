@@ -15,10 +15,10 @@ return {
   },
   {
     'NeogitOrg/neogit',
-    cmd = 'Neogit',
     dependencies = {
       'nvim-lua/plenary.nvim',
     },
+    config = function() require('neogit').setup() end,
     keys = {
       { '<localleader>gs', function() neogit.open() end, desc = 'open status buffer' },
       { '<localleader>gc', function() neogit.open({ 'commit' }) end, desc = 'open commit buffer' },
@@ -43,8 +43,7 @@ return {
   },
   {
     'sindrets/diffview.nvim',
-    cmd = { 'DiffviewOpen', 'DiffviewFileHistory' },
-    keys = {
+    key = {
       { '<localleader>gd', '<Cmd>DiffviewOpen<CR>', desc = 'diffview: open', mode = 'n' },
       { 'gh', [[:'<'>DiffviewFileHistory<CR>]], desc = 'diffview: file history', mode = 'v' },
       {
