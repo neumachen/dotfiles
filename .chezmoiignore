@@ -1,6 +1,7 @@
 *.tar.gz
 **/.zcompcache
 **/.zcompdump
+**/.zcompdump.*
 **/.zsh_history
 .asdf/repository
 .asdf/downloads
