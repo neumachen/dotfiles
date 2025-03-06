@@ -81,3 +81,8 @@ tagged
 
 # Aider
 .aider*
+
+# .env files
+.env
+*.env
+^env$
