@@ -98,9 +98,7 @@ as.augroup('SmartClose', {
   -- Close quick fix window if the file containing it was closed
   event = { 'BufEnter' },
   command = function()
-    if fn.winnr('$') == 1 and vim.bo.buftype == 'quickfix' then
-      api.nvim_buf_delete(0, { force = true })
-    end
+    if fn.winnr('$') == 1 and vim.bo.buftype == 'quickfix' then api.nvim_buf_delete(0, { force = true }) end
   end,
 }, {
   -- automatically close corresponding loclist when quitting a window
@@ -127,9 +125,7 @@ as.augroup('CheckOutsideTime', {
 as.augroup('TextYankHighlight', {
   -- don't execute silently in case of errors
   event = { 'TextYankPost' },
-  command = function()
-    vim.highlight.on_yank({ timeout = 500, on_visual = false, higroup = 'Visual' })
-  end,
+  command = function() vim.highlight.on_yank({ timeout = 500, on_visual = false, higroup = 'Visual' }) end,
 })
 
 as.augroup('UpdateVim', {
@@ -149,7 +145,9 @@ as.augroup('WindowBehaviours', {
 }, {
   event = { 'BufWinEnter' },
   command = function(args)
-    if vim.wo.diff then vim.diagnostic.enable(false, args.buf) end
+    if vim.wo.diff then
+      if vim.diagnostic and vim.diagnostic.enabled ~= nil then vim.diagnostic.enable(false, args.buf) end
+    end
   end,
 }, {
   event = { 'BufWinLeave' },
@@ -260,8 +258,6 @@ as.augroup('TerminalAutocommands', {
   event = { 'TermClose' },
   command = function(args)
     --- automatically close a terminal if the job was successful
-    if as.falsy(v.event.status) and as.falsy(vim.bo[args.buf].ft) then
-      cmd.bdelete({ args.buf, bang = true })
-    end
+    if as.falsy(v.event.status) and as.falsy(vim.bo[args.buf].ft) then cmd.bdelete({ args.buf, bang = true }) end
   end,
 })

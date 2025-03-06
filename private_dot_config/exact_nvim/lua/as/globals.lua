@@ -22,8 +22,7 @@ as.list = { qf = {}, loc = {} }
 ---@param list_type "loclist" | "quickfix"
 ---@return boolean
 local function is_list_open(list_type)
-  return vim.iter(fn.getwininfo()):find(function(win) return not as.falsy(win[list_type]) end)
-    ~= nil
+  return vim.iter(fn.getwininfo()):find(function(win) return not as.falsy(win[list_type]) end) ~= nil
 end
 
 local silence = { mods = { silent = true, emsg_silent = true } }
@@ -76,8 +75,7 @@ end
 ---@return string
 function as.truncate(str, max_len)
   assert(str and max_len, 'string and max_len must be provided')
-  return api.nvim_strwidth(str) > max_len and str:sub(1, max_len) .. as.ui.icons.misc.ellipsis
-    or str
+  return api.nvim_strwidth(str) > max_len and str:sub(1, max_len) .. as.ui.icons.misc.ellipsis or str
 end
 
 ---Determine if a value of any type is empty
