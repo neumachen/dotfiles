@@ -1,5 +1,5 @@
 local wezterm = require('wezterm')
-local utils = require('utils')
+local utils = require('modules.utils')
 local keybinds = require('keybinds')
 local scheme = wezterm.get_builtin_color_schemes()['nord']
 local act = wezterm.action
