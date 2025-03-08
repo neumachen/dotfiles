@@ -2,6 +2,7 @@ local M = {}
 local wezterm = require('wezterm')
 local act = wezterm.action
 local utils = require('modules.utils')
+local workspace_switcher = wezterm.plugin.require('https://github.com/MLFlexer/smart_workspace_switcher.wezterm')
 
 ---------------------------------------------------------------
 --- keybinds
@@ -111,8 +112,8 @@ M.default_keybinds = {
     }),
   },
   {
-    key = 'W',
-    mods = 'CMD|SHIFT',
+    key = 'w',
+    mods = 'LEADER',
     action = act.PromptInputLine({
       description = wezterm.format({
         { Attribute = { Intensity = 'Bold' } },
@@ -136,14 +137,12 @@ M.default_keybinds = {
   },
   {
     key = '9',
-    mods = 'ALT',
-    action = act.ShowLauncherArgs({
-      flags = 'FUZZY|WORKSPACES',
-    }),
+    mods = 'LEADER',
+    action = workspace_switcher.switch_to_workspace(),
   },
   {
-    key = 'Z',
-    mods = 'CMD',
+    key = 'z',
+    mods = 'LEADER',
     action = wezterm.action.TogglePaneZoomState,
   },
   {
