@@ -1,8 +1,9 @@
 local keybinds = require('keybinds')
-local utils = require('utils')
+local utils = require('private_dot_config.exact_wezterm.modules.utils')
 local wezterm = require('wezterm')
 local gpus = wezterm.gui.enumerate_gpus()
 -- local scheme = wezterm.get_builtin_color_schemes()['tokyonight_storm']
+require('modules.commands')
 
 -- /etc/ssh/sshd_config
 -- AcceptEnv TERM_PROGRAM_VERSION COLORTERM TERM TERM_PROGRAM WEZTERM_REMOTE_PANE
