@@ -2,7 +2,7 @@ local M = {}
 local wezterm = require('wezterm')
 local act = wezterm.action
 local utils = require('modules.utils')
-local workspace_switcher = wezterm.plugin.require('https://github.com/MLFlexer/smart_workspace_switcher.wezterm')
+local workspace_switcher = require('modules.smart_workspace_switcher')
 
 ---------------------------------------------------------------
 --- keybinds
