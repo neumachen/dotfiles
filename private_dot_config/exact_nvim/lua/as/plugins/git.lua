@@ -3,7 +3,6 @@ local highlight = as.highlight
 local border = as.ui.current.border
 local icons = as.ui.icons.separators
 
-local neogit = as.reqidx('neogit')
 local gitlinker = as.reqidx('gitlinker')
 
 local function browser_open() return { action_callback = require('gitlinker.actions').open_in_browser } end
@@ -18,28 +17,37 @@ return {
     dependencies = {
       'nvim-lua/plenary.nvim',
     },
-    config = function() require('neogit').setup() end,
-    keys = {
-      { '<localleader>gs', function() neogit.open() end, desc = 'open status buffer' },
-      { '<localleader>gc', function() neogit.open({ 'commit' }) end, desc = 'open commit buffer' },
-      { '<localleader>gl', function() neogit.popups.pull.create() end, desc = 'open pull popup' },
-      { '<localleader>gp', function() neogit.popups.push.create() end, desc = 'open push popup' },
-    },
-    opts = {
-      disable_signs = false,
-      disable_hint = true,
-      disable_commit_confirmation = true,
-      disable_builtin_notifications = true,
-      disable_insert_on_commit = false,
-      signs = {
-        section = { '', '󰘕' }, -- "󰁙", "󰁊"
-        item = { '▸', '▾' },
-        hunk = { '󰐕', '󰍴' },
-      },
-      integrations = {
-        diffview = true,
-      },
-    },
+    config = function()
+      require('neogit').setup({
+        disable_signs = false,
+        disable_hint = true,
+        disable_commit_confirmation = true,
+        disable_builtin_notifications = true,
+        disable_insert_on_commit = false,
+        signs = {
+          section = { '', '󰘕' }, -- "󰁙", "󰁊"
+          item = { '▸', '▾' },
+          hunk = { '󰐕', '󰍴' },
+        },
+        integrations = {
+          diffview = true,
+        },
+      })
+
+      local neogit = require('neogit')
+      map('n', '<localleader>gs', function() neogit.open() end, {
+        desc = 'open status buffer',
+      })
+      map('n', '<localleader>gc', function() neogit.open({ 'commit' }) end, {
+        desc = 'open status buffer',
+      })
+      map('n', '<localleader>gpl', function() neogit.popups.pull.create() end, {
+        desc = 'open pull popup',
+      })
+      map('n', '<localleader>gpl', function() neogit.popups.push.create() end, {
+        desc = 'open push popup',
+      })
+    end,
   },
   {
     'sindrets/diffview.nvim',
