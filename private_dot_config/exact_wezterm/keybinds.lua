@@ -138,12 +138,12 @@ M.default_keybinds = {
   {
     key = 's',
     mods = 'LEADER',
-    ction = workspace_switcher.switch_workspace(),
+    action = workspace_switcher.switch_workspace(),
   },
   {
     key = 'S',
     mods = 'LEADER',
-    ction = workspace_switcher.switch_workspace(),
+    action = workspace_switcher.switch_workspace(),
   },
   {
     key = 'z',
