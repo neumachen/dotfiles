@@ -97,8 +97,8 @@ M.default_keybinds = {
   },
   { key = '`', mods = 'ALT|SHIFT', action = act.RotatePanes('Clockwise') },
   {
-    key = 'E',
-    mods = 'ALT|SHIFT',
+    key = 'e',
+    mods = 'LEADER',
     action = act.PromptInputLine({
       description = 'Enter new name for tab',
       -- selene: allow(unused_variable)
@@ -136,9 +136,14 @@ M.default_keybinds = {
     }),
   },
   {
-    key = '9',
+    key = 's',
     mods = 'LEADER',
-    action = workspace_switcher.switch_workspace(),
+    ction = workspace_switcher.switch_workspace(),
+  },
+  {
+    key = 'S',
+    mods = 'LEADER',
+    ction = workspace_switcher.switch_workspace(),
   },
   {
     key = 'z',
