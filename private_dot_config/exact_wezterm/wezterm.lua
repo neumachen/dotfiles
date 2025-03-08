@@ -143,7 +143,7 @@ local config = {
   },
   -- separate <Tab> <C-i>
   enable_csi_u_key_encoding = true,
-  leader = { key = 'ESCAPE', mods = 'SHIFT', timeout = 1500 },
+  leader = { key = 'Escape', mods = 'SHIFT', timeout = 1500 },
   keys = keybinds.create_keybinds(),
   key_tables = keybinds.key_tables,
   mouse_bindings = keybinds.mouse_bindings,
