@@ -1,7 +1,7 @@
 local M = {}
 local wezterm = require('wezterm')
 local act = wezterm.action
-local utils = require('utils')
+local utils = require('modules.utils')
 
 ---------------------------------------------------------------
 --- keybinds
