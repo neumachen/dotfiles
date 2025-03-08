@@ -71,6 +71,24 @@ return {
       })
 
       local telescope = require('telescope')
+      vim.keymap.set(
+        'n',
+        '<localleader>fcn',
+        function()
+          telescope.extensions.chezmoi.find_files({
+            targets = vim.fn.stdpath('config/nvim'),
+            args = {
+              '--path-style',
+              'absolute',
+              '--include',
+              'files',
+              '--exclude',
+              'externals',
+            },
+          })
+        end,
+        {}
+      )
       vim.keymap.set('n', '<localleader>fcd', telescope.extensions.chezmoi.find_files, {})
     end,
   },
