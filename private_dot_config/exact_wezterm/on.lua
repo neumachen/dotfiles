@@ -7,12 +7,11 @@ local act = wezterm.action
 -- selene: allow(unused_variable)
 ---@diagnostic disable-next-line: unused-local
 local function create_tab_title(tab, tabs, panes, config, hover, max_width)
-  local user_title = tab.active_pane.user_vars.panetitle
-  if user_title ~= nil and #user_title > 0 then return tab.tab_index + 1 .. ':' .. user_title end
+  -- local user_title = tab.active_pane.user_vars.panetitle
+  -- if user_title ~= nil and #user_title > 0 then return tab.tab_index + 1 .. ':' .. user_title end
   -- pane:get_foreground_process_info().status
 
-  local title =
-    wezterm.truncate_right(utils.basename(tab.active_pane.foreground_process_name), max_width)
+  local title = wezterm.truncate_right(utils.basename(tab.active_pane.foreground_process_name), max_width)
   if title == '' then
     local dir = string.gsub(tab.active_pane.title, '(.*[: ])(.*)]', '%2')
     dir = utils.convert_useful_path(dir)
@@ -25,7 +24,9 @@ local function create_tab_title(tab, tabs, panes, config, hover, max_width)
   else
     copy_mode = copy_mode .. ': '
   end
-  return copy_mode .. tab.tab_index + 1 .. ':' .. title
+  local zoomed = ''
+  if tab.active_pane.zoomed then zoomed = '[Z]' end
+  return zoomed .. copy_mode .. tab.tab_index + 1 .. ':' .. title
 end
 
 ---------------------------------------------------------------
@@ -148,10 +149,7 @@ wezterm.on('toggle-tmux-keybinds', function(window, pane)
 end)
 
 -- workspace
-wezterm.on(
-  'update-right-status',
-  function(window, _) window:set_right_status(window:active_workspace()) end
-)
+wezterm.on('update-right-status', function(window, _) window:set_right_status(window:active_workspace()) end)
 
 local io = require('io')
 local os = require('os')

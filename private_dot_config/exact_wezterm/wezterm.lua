@@ -3,7 +3,6 @@ local utils = require('utils')
 local wezterm = require('wezterm')
 local gpus = wezterm.gui.enumerate_gpus()
 -- local scheme = wezterm.get_builtin_color_schemes()['tokyonight_storm']
-require('on')
 
 -- /etc/ssh/sshd_config
 -- AcceptEnv TERM_PROGRAM_VERSION COLORTERM TERM TERM_PROGRAM WEZTERM_REMOTE_PANE
@@ -72,7 +71,7 @@ local local_config = load_local_config('local')
 ---------------------------------------------------------------
 local config = {
   font = wezterm.font('Cartograph CF'),
-  font_size = 13.75,
+  font_size = 13.5,
   cell_width = 1.0,
   line_height = 1.0,
   font_rules = {

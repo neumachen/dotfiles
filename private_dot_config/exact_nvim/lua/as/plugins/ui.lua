@@ -1,6 +1,6 @@
 ---@diagnostic disable: missing-fields
 local api, fn = vim.api, vim.fn
-local highlight, ui, falsy, augroup = as.highlight, as.ui, as.falsy, as.augroup
+local highlight, ui, augroup = as.highlight, as.ui, as.augroup
 local icons, border = ui.icons.lsp, ui.current.border
 
 local lspkind = require('lspkind')
