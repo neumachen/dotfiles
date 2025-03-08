@@ -1,5 +1,5 @@
 local keybinds = require('keybinds')
-local utils = require('private_dot_config.exact_wezterm.modules.utils')
+local utils = require('modules.utils')
 local wezterm = require('wezterm')
 local gpus = wezterm.gui.enumerate_gpus()
 -- local scheme = wezterm.get_builtin_color_schemes()['tokyonight_storm']

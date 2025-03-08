@@ -138,7 +138,7 @@ M.default_keybinds = {
   {
     key = '9',
     mods = 'LEADER',
-    action = workspace_switcher.switch_to_workspace(),
+    action = workspace_switcher.switch_workspace(),
   },
   {
     key = 'z',
