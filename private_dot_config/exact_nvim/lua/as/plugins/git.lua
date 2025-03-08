@@ -44,7 +44,7 @@ return {
       map('n', '<localleader>gc', function() neogit.open({ 'commit' }) end, {
         desc = 'open status buffer',
       })
-      map('n', '<localleader>gpl', function() neogit.action({ 'pull' }) end, {
+      map('n', '<localleader>gpl', function() neogit.open({ 'pull' }) end, {
         desc = 'open pull popup',
       })
       map('n', '<localleader>gps', function() neogit.open({ 'push' }) end, {
