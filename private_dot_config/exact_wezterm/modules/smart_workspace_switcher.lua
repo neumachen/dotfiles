@@ -16,7 +16,7 @@ local is_windows = string.find(wezterm.target_triple, 'windows') ~= nil
 ---@field zoxide_path string
 ---@field choices {get_zoxide_elements: (fun(choices: InputSelector_choices, opts: choice_opts?): InputSelector_choices), get_workspace_elements: (fun(choices: InputSelector_choices): (InputSelector_choices, workspace_ids))}
 ---@field workspace_formatter fun(label: string): string
-local M = {
+local pub = {
   zoxide_path = 'zoxide',
   choices = {},
   workspace_formatter = function(label)
@@ -39,12 +39,12 @@ end
 
 ---@param choice_table InputSelector_choices
 ---@return InputSelector_choices, workspace_ids
-function M.choices.get_workspace_elements(choice_table)
+function pub.choices.get_workspace_elements(choice_table)
   local workspace_ids = {}
   for _, workspace in ipairs(mux.get_workspace_names()) do
     table.insert(choice_table, {
       id = workspace,
-      label = M.workspace_formatter(workspace),
+      label = pub.workspace_formatter(workspace),
     })
     workspace_ids[workspace] = true
   end
@@ -54,10 +54,10 @@ end
 ---@param choice_table InputSelector_choices
 ---@param opts? choice_opts
 ---@return InputSelector_choices
-function M.choices.get_zoxide_elements(choice_table, opts)
+function pub.choices.get_zoxide_elements(choice_table, opts)
   if opts == nil then opts = { extra_args = '', workspace_ids = {} } end
 
-  local stdout = run_child_process(M.zoxide_path .. ' query -l ' .. (opts.extra_args or ''))
+  local stdout = run_child_process(pub.zoxide_path .. ' query -l ' .. (opts.extra_args or ''))
 
   for _, path in ipairs(wezterm.split_by_newlines(stdout)) do
     local updated_path = string.gsub(path, wezterm.home_dir, '~')
@@ -74,12 +74,12 @@ end
 ---Returns choices for the InputSelector
 ---@param opts? choice_opts
 ---@return InputSelector_choices
-function M.get_choices(opts)
+function pub.get_choices(opts)
   if opts == nil then opts = { extra_args = '' } end
   ---@type InputSelector_choices
   local choices = {}
-  choices, opts.workspace_ids = M.choices.get_workspace_elements(choices)
-  choices = M.choices.get_zoxide_elements(choices, opts)
+  choices, opts.workspace_ids = pub.choices.get_workspace_elements(choices)
+  choices = pub.choices.get_zoxide_elements(choices, opts)
   return choices
 end
 
@@ -125,7 +125,7 @@ local function zoxide_chosen(window, pane, path, label_path)
     label_path
   )
   -- increment zoxide path score
-  run_child_process(M.zoxide_path .. ' add ' .. path)
+  run_child_process(pub.zoxide_path .. ' add ' .. path)
 end
 
 ---InputSelector callback when workspace element is chosen
@@ -150,10 +150,10 @@ end
 
 ---@param opts? choice_opts
 ---@return action_callback
-function M.switch_workspace(opts)
+function pub.switch_workspace(opts)
   return wezterm.action_callback(function(window, pane)
     wezterm.emit('smart_workspace_switcher.workspace_switcher.start', window, pane)
-    local choices = M.get_choices(opts)
+    local choices = pub.get_choices(opts)
 
     window:perform_action(
       act.InputSelector({
@@ -183,26 +183,7 @@ function M.switch_workspace(opts)
   end)
 end
 
----sets default keybind to ALT-s
----@param config table
-function M.apply_to_config(config)
-  if config == nil then config = {} end
-
-  if config.keys == nil then config.keys = {} end
-
-  table.insert(config.keys, {
-    key = 's',
-    mods = 'LEADER',
-    action = M.switch_workspace(),
-  })
-  table.insert(config.keys, {
-    key = 'S',
-    mods = 'LEADER',
-    action = M.switch_workspace(),
-  })
-end
-
-function M.switch_to_prev_workspace()
+function pub.switch_to_prev_workspace()
   return wezterm.action_callback(function(window, pane)
     local current_workspace = window:active_workspace()
     local previous_workspace = wezterm.GLOBAL.previous_workspace
@@ -226,4 +207,4 @@ wezterm.on(
   function(window, _, _) wezterm.GLOBAL.previous_workspace = window:active_workspace() end
 )
 
-return M
+return pub
