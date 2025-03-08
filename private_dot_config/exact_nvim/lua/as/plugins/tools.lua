@@ -71,7 +71,10 @@ return {
       })
 
       local telescope = require('telescope')
-      vim.keymap.set(
+      map('n', '<localleader>fcd', telescope.extensions.chezmoi.find_files, {
+        desc = 'edit dotfiles',
+      })
+      map(
         'n',
         '<localleader>fcn',
         function()
@@ -87,9 +90,26 @@ return {
             },
           })
         end,
-        {}
+        { desc = 'edit nvim config' }
       )
-      vim.keymap.set('n', '<localleader>fcd', telescope.extensions.chezmoi.find_files, {})
+      map(
+        'n',
+        '<localleader>fcw',
+        function()
+          telescope.extensions.chezmoi.find_files({
+            targets = vim.fn.stdpath('config/wezterm'),
+            args = {
+              '--path-style',
+              'absolute',
+              '--include',
+              'files',
+              '--exclude',
+              'externals',
+            },
+          })
+        end,
+        { desc = 'edit wezterm config' }
+      )
     end,
   },
   {
