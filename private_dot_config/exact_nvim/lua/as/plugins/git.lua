@@ -16,6 +16,8 @@ return {
     'NeogitOrg/neogit',
     dependencies = {
       'nvim-lua/plenary.nvim',
+      'nvim-telescope/telescope.nvim',
+      'sindrets/diffview.nvim',
     },
     config = function()
       require('neogit').setup({
@@ -30,6 +32,7 @@ return {
           hunk = { '󰐕', '󰍴' },
         },
         integrations = {
+          telescope = true,
           diffview = true,
         },
       })
@@ -41,10 +44,10 @@ return {
       map('n', '<localleader>gc', function() neogit.open({ 'commit' }) end, {
         desc = 'open status buffer',
       })
-      map('n', '<localleader>gpl', function() neogit.popups.pull.create() end, {
+      map('n', '<localleader>gpl', function() neogit.action({ 'pull' }) end, {
         desc = 'open pull popup',
       })
-      map('n', '<localleader>gpl', function() neogit.popups.push.create() end, {
+      map('n', '<localleader>gps', function() neogit.open({ 'push' }) end, {
         desc = 'open push popup',
       })
     end,
