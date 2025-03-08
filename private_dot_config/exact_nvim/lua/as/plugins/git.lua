@@ -2,6 +2,7 @@ local cwd = vim.fn.getcwd
 local highlight = as.highlight
 local border = as.ui.current.border
 local icons = as.ui.icons.separators
+local map = map or vim.keymap.set
 
 local gitlinker = as.reqidx('gitlinker')
 
