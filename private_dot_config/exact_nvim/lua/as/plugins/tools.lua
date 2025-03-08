@@ -74,42 +74,6 @@ return {
       map('n', '<localleader>fcd', telescope.extensions.chezmoi.find_files, {
         desc = 'edit dotfiles',
       })
-      map(
-        'n',
-        '<localleader>fcn',
-        function()
-          telescope.extensions.chezmoi.find_files({
-            targets = vim.fn.stdpath('config/nvim'),
-            args = {
-              '--path-style',
-              'absolute',
-              '--include',
-              'files',
-              '--exclude',
-              'externals',
-            },
-          })
-        end,
-        { desc = 'edit nvim config' }
-      )
-      map(
-        'n',
-        '<localleader>fcw',
-        function()
-          telescope.extensions.chezmoi.find_files({
-            targets = vim.fn.stdpath('config/wezterm'),
-            args = {
-              '--path-style',
-              'absolute',
-              '--include',
-              'files',
-              '--exclude',
-              'externals',
-            },
-          })
-        end,
-        { desc = 'edit wezterm config' }
-      )
     end,
   },
   {
