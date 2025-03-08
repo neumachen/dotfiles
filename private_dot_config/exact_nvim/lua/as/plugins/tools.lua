@@ -48,7 +48,10 @@ return {
   },
   {
     'xvzc/chezmoi.nvim',
-    dependencies = { 'nvim-lua/plenary.nvim' },
+    dependencies = {
+      'nvim-lua/plenary.nvim',
+      'nvim-telescope/telescope.nvim',
+    },
     config = function()
       require('chezmoi').setup({
         {
@@ -66,6 +69,9 @@ return {
           },
         },
       })
+
+      local telescope = require('telescope')
+      vim.keymap.set('n', '<localleader>fcd', telescope.extensions.chezmoi.find_files, {})
     end,
   },
   {
