@@ -6,7 +6,7 @@ local function wissensspeicher_path(path) return string.format('%s/%s', wissenss
 
 return {
   {
-    'epwalsh/obsidian.nvim',
+    'obsidian-nvim/obsidian.nvim',
     dependencies = {
       'nvim-lua/plenary.nvim',
       'nvim-telescope/telescope.nvim',
