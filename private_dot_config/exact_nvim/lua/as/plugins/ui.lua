@@ -1,22 +1,11 @@
 ---@diagnostic disable: missing-fields
 local api, fn = vim.api, vim.fn
 local highlight, ui, augroup = as.highlight, as.ui, as.augroup
-local icons, border = ui.icons.lsp, ui.current.border
+local icons = ui.icons.lsp
 
 local lspkind = require('lspkind')
 
 return {
-  {
-    'folke/zen-mode.nvim',
-    cmd = 'ZenMode',
-    opts = {
-      plugins = {
-        wezterm = { enabled = true, font = '+4' },
-        kitty = { enabled = true, font = '+2' },
-        tmux = { enabled = true },
-      },
-    },
-  },
   {
     'Bekaboo/dropbar.nvim',
     event = 'VeryLazy',
@@ -107,56 +96,6 @@ return {
       hooks.register(hooks.type.SCOPE_HIGHLIGHT, hooks.builtin.scope_highlight_from_extmark)
       hooks.register(hooks.type.WHITESPACE, hooks.builtin.hide_first_space_indent_level)
     end,
-  },
-  {
-    'stevearc/dressing.nvim',
-    init = function()
-      ---@diagnostic disable-next-line: duplicate-set-field
-      vim.ui.select = function(...)
-        require('lazy').load({ plugins = { 'dressing.nvim' } })
-        return vim.ui.select(...)
-      end
-    end,
-    opts = {
-      input = { enabled = false },
-      select = {
-        backend = { 'fzf_lua', 'builtin' },
-        builtin = {
-          border = border,
-          min_height = 10,
-          win_options = { winblend = 10 },
-          mappings = { n = { ['q'] = 'Close' } },
-        },
-        get_config = function(opts)
-          opts.prompt = opts.prompt and opts.prompt:gsub(':', '')
-          if opts.kind == 'codeaction' then
-            return {
-              backend = 'fzf_lua',
-              fzf_lua = as.fzf.cursor_dropdown({
-                winopts = { title = opts.prompt },
-              }),
-            }
-          end
-          return {
-            backend = 'fzf_lua',
-            fzf_lua = as.fzf.dropdown({
-              winopts = { title = opts.prompt, height = 0.33, row = 0.5 },
-            }),
-          }
-        end,
-        nui = {
-          min_height = 10,
-          win_options = {
-            winhighlight = table.concat({
-              'Normal:Italic',
-              'FloatBorder:PickerBorder',
-              'FloatTitle:Title',
-              'CursorLine:Visual',
-            }, ','),
-          },
-        },
-      },
-    },
   },
   {
     'rcarriga/nvim-notify',
