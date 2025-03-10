@@ -75,11 +75,10 @@ return {
     end,
   },
   {
-      '2kabhishek/nerdy.nvim',
-      dependencies = {
-          'stevearc/dressing.nvim',
-          'nvim-telescope/telescope.nvim',
-      },
-      cmd = 'Nerdy',
+    '2kabhishek/nerdy.nvim',
+    dependencies = {
+      'folke/snacks.nvim',
+    },
+    cmd = 'Nerdy',
   },
 }
