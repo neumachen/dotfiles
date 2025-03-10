@@ -289,10 +289,6 @@ return {
   -- Utilities {{{1
   --------------------------------------------------------------------------------
   {
-    'famiu/bufdelete.nvim',
-    keys = { { '<leader>qq', '<Cmd>Bdelete<CR>', desc = 'buffer delete' } },
-  },
-  {
     'folke/flash.nvim',
     event = 'VeryLazy',
     ---@type Flash.Config
@@ -663,6 +659,26 @@ return {
   ---------------------------------------------------------------------------------
   { 'tweekmonster/helpful.vim', cmd = 'HelpfulVersion', ft = 'help' },
   { 'rafcamlet/nvim-luapad', cmd = 'Luapad' },
+  {
+    'folke/snacks.nvim',
+    priority = 1000,
+    lazy = false,
+    ---@type snacks.Config
+    opts = {
+      bigfile = { enabled = true },
+      dashboard = { enabled = true },
+      explorer = { enabled = true },
+      indent = { enabled = true },
+      input = { enabled = true },
+      picker = { enabled = true },
+      notifier = { enabled = true },
+      quickfile = { enabled = true },
+      scope = { enabled = true },
+      scroll = { enabled = true },
+      statuscolumn = { enabled = true },
+      words = { enabled = true },
+    },
+  },
   -- }}}
 }
 --}}}
