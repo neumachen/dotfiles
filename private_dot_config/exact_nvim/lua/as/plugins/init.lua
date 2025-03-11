@@ -58,20 +58,20 @@ return {
   {
     'olimorris/persisted.nvim',
     lazy = false,
-    init = function()
-      as.augroup('PersistedEvents', {
-        event = 'User',
-        pattern = 'PersistedSavePre',
-        -- Arguments are always persisted in a session and can't be removed using 'sessionoptions'
-        -- so remove them when saving a session
-        command = function() cmd('%argdelete') end,
-      })
-    end,
     opts = {
+      autoload = false,
+      autosave = true,
       use_git_branch = true,
-      allowed_dirs = { vim.g.dotfiles, vim.g.dev_workspace_root },
-      ignored_dirs = { fn.stdpath('data') },
     },
+    config = function(_, opts)
+      -- NOTE: https://github.com/olimorris/persisted.nvim/discussions/149
+      local persisted = require('persisted')
+      persisted.branch = function()
+        local branch = vim.fn.systemlist('git branch --show-current')[1]
+        return vim.v.shell_error == 0 and branch or nil
+      end
+      persisted.setup(opts)
+    end,
   },
   {
     'mrjones2014/smart-splits.nvim',
@@ -659,24 +659,6 @@ return {
   ---------------------------------------------------------------------------------
   { 'tweekmonster/helpful.vim', cmd = 'HelpfulVersion', ft = 'help' },
   { 'rafcamlet/nvim-luapad', cmd = 'Luapad' },
-  {
-    'olimorris/persisted.nvim',
-    lazy = false,
-    opts = {
-      autoload = true,
-      autosave = true,
-      use_git_branch = true,
-    },
-    config = function(_, opts)
-      -- NOTE: https://github.com/olimorris/persisted.nvim/discussions/149
-      local persisted = require('persisted')
-      persisted.branch = function()
-        local branch = vim.fn.systemlist('git branch --show-current')[1]
-        return vim.v.shell_error == 0 and branch or nil
-      end
-      persisted.setup(opts)
-    end,
-  },
   {
     'folke/snacks.nvim',
     priority = 1000,
