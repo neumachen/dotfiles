@@ -105,7 +105,7 @@
   },
   "fzf-lua": {
     "branch": "main",
-    "commit": "832985ce64a5e32393112fab3ef2c15304e6a4bb"
+    "commit": "15d5cd9a74da7f8739030a5c411c046c70f66a60"
   },
   "git-conflict.nvim": {
     "branch": "main",
@@ -133,7 +133,7 @@
   },
   "helpful.vim": {
     "branch": "master",
-    "commit": "4da200d88d59443c7f05121779bd901ae1f87692"
+    "commit": "e5ba20a370cce3f2396c792cd98398bc7d3205fe"
   },
   "inc-rename.nvim": {
     "branch": "main",
@@ -273,7 +273,7 @@
   },
   "nvim-lspconfig": {
     "branch": "master",
-    "commit": "fd26f8626c03b424f7140d454031d1dcb8d23513"
+    "commit": "8a1529e46eef5efc86c34c8d9bdd313abc2ecba0"
   },
   "nvim-luapad": {
     "branch": "master",
@@ -293,7 +293,7 @@
   },
   "nvim-treesitter": {
     "branch": "master",
-    "commit": "38959800c2439c890e3238af559f0dc3be45e393"
+    "commit": "cf0eabc16cf32d69f7612d0e023ef210d84cdde6"
   },
   "nvim-treesitter-context": {
     "branch": "master",
@@ -323,6 +323,10 @@
     "branch": "master",
     "commit": "548587d68b55e632d8a69c92cefd981f360634fa"
   },
+  "package-info.nvim": {
+    "branch": "master",
+    "commit": "3de4f3569ce60e248707df042b72769b3ec343b8"
+  },
   "persisted.nvim": {
     "branch": "main",
     "commit": "b4b7a281307f8b52d47b0fd5b6798a453681d44e"
@@ -349,7 +353,7 @@
   },
   "render-markdown.nvim": {
     "branch": "main",
-    "commit": "a03ed82dfdeb1a4980093609ffe94c171ace8059"
+    "commit": "1a73fa4195316faec9e028911a122df9dfd7f9dd"
   },
   "rest.nvim": {
     "branch": "main",
@@ -361,7 +365,7 @@
   },
   "schemastore.nvim": {
     "branch": "main",
-    "commit": "c183ec0ee5847642f3e8a2de881fc9cfebec1536"
+    "commit": "e03b50ce453b1ce9f6b7805239c52db604d740dc"
   },
   "sibling-swap.nvim": {
     "branch": "main",
