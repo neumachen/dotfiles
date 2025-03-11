@@ -660,11 +660,30 @@ return {
   { 'tweekmonster/helpful.vim', cmd = 'HelpfulVersion', ft = 'help' },
   { 'rafcamlet/nvim-luapad', cmd = 'Luapad' },
   {
+    'olimorris/persisted.nvim',
+    lazy = false,
+    opts = {
+      autoload = true,
+      autosave = true,
+      use_git_branch = true,
+    },
+    config = function(_, opts)
+      -- NOTE: https://github.com/olimorris/persisted.nvim/discussions/149
+      local persisted = require('persisted')
+      persisted.branch = function()
+        local branch = vim.fn.systemlist('git branch --show-current')[1]
+        return vim.v.shell_error == 0 and branch or nil
+      end
+      persisted.setup(opts)
+    end,
+  },
+  {
     'folke/snacks.nvim',
     priority = 1000,
     lazy = false,
     ---@type snacks.Config
     opts = {
+      animate = { enabled = true },
       bigfile = { enabled = true },
       dashboard = { enabled = true },
       explorer = { enabled = true },
