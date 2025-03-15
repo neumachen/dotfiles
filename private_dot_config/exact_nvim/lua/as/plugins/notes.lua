@@ -13,6 +13,10 @@ return {
     },
     config = function()
       require('obsidian').setup({
+        ui = {
+          -- NOTE: https://github.com/MeanderingProgrammer/render-markdown.nvim?tab=readme-ov-file#obsidiannvim
+          enable = false,
+        },
         log_level = vim.log.levels.INFO,
         completion = {
           -- Set to false to disable completion.
