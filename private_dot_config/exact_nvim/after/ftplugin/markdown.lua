@@ -7,6 +7,9 @@ opt.spell = true
 opt.number = true
 opt.relativenumber = true
 opt.wrap = true
+opt.tabstop = 2
+opt.softtabstop = 2
+opt.shiftwidth = 2
 
 map('n', '<localleader>p', '<Plug>MarkdownPreviewToggle', { desc = 'markdown preview', buffer = 0 })
 
