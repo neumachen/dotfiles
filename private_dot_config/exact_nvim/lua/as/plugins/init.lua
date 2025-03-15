@@ -526,15 +526,6 @@ return {
     build = ':lua require("go.install").update_all_sync()', -- if you need to install/update all binaries
   },
   {
-    'iamcco/markdown-preview.nvim',
-    build = function() fn['mkdp#util#install']() end,
-    ft = { 'markdown' },
-    config = function()
-      vim.g.mkdp_auto_start = 0
-      vim.g.mkdp_auto_close = 1
-    end,
-  },
-  {
     'saecki/crates.nvim',
     version = '*',
     event = 'BufRead Cargo.toml',
