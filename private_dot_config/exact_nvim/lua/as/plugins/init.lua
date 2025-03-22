@@ -46,15 +46,15 @@ return {
       })
     end,
   },
-  {
-    'm4xshen/hardtime.nvim',
-    lazy = false,
-    dependencies = {
-      'MunifTanjim/nui.nvim',
-      'nvim-lua/plenary.nvim',
-    },
-    opts = {},
-  },
+  -- {
+  --   'm4xshen/hardtime.nvim',
+  --   lazy = false,
+  --   dependencies = {
+  --     'MunifTanjim/nui.nvim',
+  --     'nvim-lua/plenary.nvim',
+  --   },
+  --   opts = {},
+  -- },
   {
     'olimorris/persisted.nvim',
     lazy = false,
