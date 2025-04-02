@@ -27,11 +27,11 @@ return {
         workspaces = {
           {
             name = 'personal',
-            path = wissensspeicher_path('personlich'),
+            path = wissensspeicher_path('notizen/personlich'),
           },
           {
-            name = 'work',
-            path = wissensspeicher_path('arbeit'),
+            name = 'specterops',
+            path = wissensspeicher_path('notizen/arbeit/specterops'),
           },
         },
         picker = {
