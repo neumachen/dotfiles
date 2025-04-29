@@ -16,12 +16,6 @@ if [[ ! -e ${ZIM_HOME}/zimfw.zsh ]]; then
     || echo-err "Unable to download zimfw"
 fi
 
-# Using zsh's for syntax with glob
-for func in ${ZDOTDIR}/functions/*(N.); do
-  source $func
-done
-
-
 # Initialize Zim
 if [[ ! ${ZIM_HOME}/init.zsh -nt ${ZIM_CONFIG_FILE} ]]; then
   source ${ZIM_HOME}/zimfw.zsh init -q
