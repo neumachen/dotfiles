@@ -13,7 +13,7 @@ fi
 {{ template "script_caffeinate" . }}
 
 ~/.devbin/echo-run brew update
-~/.devbin/echo-run brew bundle --file "${HOME}/.Brewfile" {{ if (env "CI") }}--verbose {{ end }}--global --no-lock
+~/.devbin/echo-run brew bundle --file "${HOME}/.Brewfile" {{ if (env "CI") }}--verbose {{ end }}--global
 
 ~/.devbin/echo-run echo-run linuxify install
 
