@@ -1,7 +1,14 @@
 #!/bin/sh
 
+#!/usr/bin/sh -
+
 command_exists() {
-	command -v "$1" >/dev/null 2>&1
+    for mycommand do
+        printf >&2 '%s\n' "Checking $mycommand"
+        if ! command -v -- "$mycommand" > /dev/null 2>&1; then
+            printf >&2 '%s\n' "command not found $mycommand"
+        fi
+    done
 }
 
 # Usage: is_not_set_or_empty VAR_NAME
