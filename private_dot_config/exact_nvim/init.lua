@@ -9,22 +9,20 @@
 --
 ----------------------------------------------------------------------------------------------------
 
-local g, fn, opt, loop, env, cmd = vim.g, vim.fn, vim.opt, vim.uv, vim.env, vim.cmd
-
 ----------------------------------------------------------------------------------------------------
 -- Leader bindings
 ----------------------------------------------------------------------------------------------------
-g.mapleader = ',' -- Remap leader key
-g.maplocalleader = ' ' -- Local leader is <Space>
+vim.g.mapleader = ',' -- Remap leader key
+vim.g.maplocalleader = ' ' -- Local leader is <Space>
 ----------------------------------------------------------------------------------------------------
-g.os = loop.os_uname().sysname
-g.open_command = g.os == 'Darwin' and 'open' or 'xdg-open'
-g.dotfiles_dir = env.DOTFILES_DIR
-g.vim_dir = fn.expand('~/.config/nvim')
-g.dev_workspace_root = env.DEV_WORKSPACE_ROOT
-g.vcs_repositories_dir = env.VCS_REPOSITORIES_DIR
-g.denkwerkstatt_dir = env.DENKWERKSTATT_DIR
-g.wissensspeicher_dir = env.WISSENSSPEICHER_DIR
+vim.g.os = vim.uv.os_uname().sysname
+vim.g.open_command = vim.g.os == 'Darwin' and 'open' or 'xdg-open'
+vim.g.dotfiles_dir = vim.env.DOTFILES_DIR
+vim.g.vim_dir = vim.fn.expand('~/.config/nvim')
+vim.g.dev_workspace_root = vim.env.DEV_WORKSPACE_ROOT
+vim.g.vcs_repositories_dir = vim.env.VCS_REPOSITORIES_DIR
+vim.g.denkwerkstatt_dir = vim.env.DENKWERKSTATT_DIR
+vim.g.wissensspeicher_dir = vim.env.WISSENSSPEICHER_DIR
 
 ----------------------------------------------------------------------------------------------------
 if vim.loader then vim.loader.enable() end
@@ -33,7 +31,7 @@ if vim.g.vscode then
   ----------------------------------------------------------------------------------------------------
   -- GUI
   ----------------------------------------------------------------------------------------------------
-  require('as.vscode')
+  require('config.vscode')
 else
   ----------------------------------------------------------------------------------------------------
   -- Global namespace
@@ -51,28 +49,28 @@ else
 
   -- This table is a globally accessible store to facilitating accessing
   -- helper functions and variables throughout my config
-  _G.as = as or namespace
+  _G.config = config or namespace
   _G.map = vim.keymap.set
   _G.P = vim.print
   ----------------------------------------------------------------------------------------------------
   -- TUI
   ----------------------------------------------------------------------------------------------------
   -- Order matters here as globals needs to be instantiated first etc.
-  require('as.globals')
-  require('as.highlights')
-  require('as.ui')
-  require('as.settings')
+  require('config.globals')
+  require('config.highlights')
+  require('config.ui')
+  require('config.settings')
 end
 
 ----------------------------------------------------------------------------------------------------
-g.border = not vim.g.vscode and g.border or 'single'
+vim.g.border = not vim.g.vscode and vim.g.border or 'single'
 ------------------------------------------------------------------------------------------------------
 -- Plugins
 ------------------------------------------------------------------------------------------------------
-local data = fn.stdpath('data')
+local data = vim.fn.stdpath('data')
 local lazypath = data .. '/lazy/lazy.nvim'
-if not loop.fs_stat(lazypath) then
-  fn.system({
+if not vim.uv.fs_stat(lazypath) then
+  vim.fn.system({
     'git',
     'clone',
     '--filter=blob:none',
@@ -82,22 +80,22 @@ if not loop.fs_stat(lazypath) then
   })
   vim.notify('Installed lazy.nvim')
 end
-opt.runtimepath:prepend(lazypath)
+vim.opt.runtimepath:prepend(lazypath)
 ----------------------------------------------------------------------------------------------------
 --  $NVIM
 ----------------------------------------------------------------------------------------------------
 -- NOTE: this must happen after the lazy path is setup
 -- If opening from inside neovim terminal then do not load other plugins
-if env.NVIM then return require('lazy').setup({ { 'willothy/flatten.nvim', config = true } }) end
+if vim.env.NVIM then return require('lazy').setup({ { 'willothy/flatten.nvim', config = true } }) end
 ------------------------------------------------------------------------------------------------------
 require('lazy').setup({
   spec = {
-    { import = 'as.plugins', cond = function() return not vim.g.vscode end },
-    { import = 'as.vscode.plugins', cond = function() return vim.g.vscode end },
+    { import = 'config.plugins', cond = function() return not vim.g.vscode end },
+    { import = 'config.vscode.plugins', cond = function() return vim.g.vscode end },
   },
   defaults = { lazy = false },
   concurrency = vim.uv.available_parallelism() * 2,
-  ui = { border = g.border },
+  ui = { border = vim.g.border },
   checker = {
     concurrency = 15,
     enabled = true,
@@ -137,23 +135,18 @@ require('lazy').setup({
     root = vim.fn.stdpath('data') .. '/lazy-rocks',
     server = 'https://nvim-neorocks.github.io/rocks-binaries/',
   },
-  dev = {
-    path = g.vcs_repositories_dir,
-    patterns = { 'github.com/neumachen' },
-    fallback = true,
-  },
 })
 
 ------------------------------------------------------------------------------------------------------
 -- Builtin Packages
 ------------------------------------------------------------------------------------------------------
 -- cfilter plugin allows filtering down an existing quickfix list
-cmd.packadd('cfilter')
+vim.cmd.packadd('cfilter')
 if not vim.g.vscode then
   map('n', '<leader>pm', '<Cmd>Lazy<CR>', { desc = 'manage' })
   ------------------------------------------------------------------------------------------------------
   -- Colour Scheme {{{1
   ------------------------------------------------------------------------------------------------------
   vim.g.high_contrast_theme = false -- set to true for themes like github_dark or night-owl
-  as.pcall('theme failed to load because', cmd.colorscheme, 'tokyonight-storm')
+  config.pcall('theme failed to load because', vim.cmd.colorscheme, 'tokyonight-storm')
 end
