@@ -9,7 +9,7 @@ local workspace_switcher = require('modules.smart_workspace_switcher')
 ---------------------------------------------------------------
 M.tmux_keybinds = {
   { key = 'k', mods = 'CMD|SHIFT', action = act({ SpawnTab = 'CurrentPaneDomain' }) },
-  { key = 'j', mods = 'CMD|SHIFT', action = act({ CloseCurrentTab = { confirm = true } }) },
+  { key = 'w', mods = 'CMD', action = act({ CloseCurrentTab = { confirm = true } }) },
   { key = 'h', mods = 'CMD|SHIFT', action = act({ ActivateTabRelative = -1 }) },
   { key = 'l', mods = 'CMD|SHIFT', action = act({ ActivateTabRelative = 1 }) },
   { key = 'h', mods = 'ALT|CTRL', action = act({ MoveTabRelative = -1 }) },
