@@ -1,15 +1,3 @@
-vim.g.rainbow_delimiters = {
-  highlight = {
-    'RainbowDelimiterRed',
-    'RainbowDelimiterYellow',
-    'RainbowDelimiterBlue',
-    'RainbowDelimiterOrange',
-    'RainbowDelimiterGreen',
-    'RainbowDelimiterViolet',
-    'RainbowDelimiterCyan',
-  },
-}
-
 return {
   {
     'nvim-lua/plenary.nvim', -- THE LIBRARY
@@ -23,3 +11,4 @@ return {
     opts = { library = { { path = 'luvit-meta/library', words = { 'vim%.uv' } } } },
   },
 }
+
