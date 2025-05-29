@@ -57,7 +57,6 @@ return {
         'python',
         'query',
         'regex',
-        'regex',
         'ruby',
         'rust',
         'ssh_config',
@@ -137,18 +136,6 @@ return {
     },
   },
   { 'JoosepAlviste/nvim-ts-context-commentstring' },
-  {
-    'windwp/nvim-ts-autotag',
-    ft = {
-      'typescriptreact',
-      'javascript',
-      'javascriptreact',
-      'html',
-      'vue',
-    },
-    dependencies = { 'nvim-treesitter/nvim-treesitter' },
-    config = true,
-  },
   {
     'nvim-treesitter/playground',
     cmd = { 'TSPlaygroundToggle' },
