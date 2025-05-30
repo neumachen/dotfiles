@@ -1,6 +1,5 @@
 return {
   'mfussenegger/nvim-lint',
-  lazy = false,
   event = 'BufReadPre',
   init = function()
     vim.api.nvim_create_autocmd({ 'TextChanged' }, {

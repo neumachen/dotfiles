@@ -4,7 +4,7 @@ return {
   {
     'nvim-treesitter/nvim-treesitter',
     build = ':TSUpdate',
-    event = { 'VeryLazy' },
+    event = 'VeryLazy',
     -- lazy = vim.fn.argc(-1) == 0, -- load treesitter early when opening a file from the cmdline
     init = function(plugin)
       -- PERF: add nvim-treesitter queries to the rtp and it's custom query predicates early
@@ -135,7 +135,6 @@ return {
       { 'nvim-treesitter/nvim-treesitter-textobjects' },
     },
   },
-  { 'JoosepAlviste/nvim-ts-context-commentstring' },
   {
     'nvim-treesitter/playground',
     cmd = { 'TSPlaygroundToggle' },
