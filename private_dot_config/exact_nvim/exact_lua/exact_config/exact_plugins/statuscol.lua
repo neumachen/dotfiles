@@ -1,19 +1,24 @@
 return {
   'luukvbaal/statuscol.nvim',
   event = 'VeryLazy',
-  opts = function()
+  config = function()
     local builtin = require('statuscol.builtin')
-    return {
+    require('statuscol').setup({
+      -- configuration goes here, for example:
+      relculright = true,
       ft_ignore = { 'lazy', 'mason', 'snacks_dashboard' },
       segments = {
-        { text = { builtin.foldfunc }, click = 'v:lua.ScLa' },
+        { text = { builtin.foldfunc }, click = 'v:lua.ScFa' },
         {
-          sign = { name = { 'Diagnostic*' }, text = { '.*' }, maxwidth = 3, colwidth = 3, auto = true },
+          sign = { namespace = { 'diagnostic/signs' }, maxwidth = 2, auto = true },
           click = 'v:lua.ScSa',
         },
-        { text = { builtin.foldfunc, ' ' }, click = 'v:lua.ScFa' },
+        { text = { builtin.lnumfunc }, click = 'v:lua.ScLa' },
+        {
+          sign = { name = { '.*' }, maxwidth = 2, colwidth = 1, auto = true, wrap = true },
+          click = 'v:lua.ScSa',
+        },
       },
-    }
+    })
   end,
-  config = function(_, opts) require('statuscol').setup(opts) end,
 }
