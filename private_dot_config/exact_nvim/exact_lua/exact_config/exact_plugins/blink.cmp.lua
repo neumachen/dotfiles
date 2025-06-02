@@ -4,7 +4,7 @@ local trigger_text = ';'
 
 return {
   'saghen/blink.cmp',
-  enabled = true,
+  build = 'cargo build --release',
   -- In case there are breaking changes and you want to go back to the last
   -- working release
   -- https://github.com/Saghen/blink.cmp/releases
@@ -38,7 +38,6 @@ return {
           name = 'lsp',
           enabled = true,
           module = 'blink.cmp.sources.lsp',
-          kind = 'LSP',
           min_keyword_length = 2,
           -- When linking markdown notes, I would get snippets and text in the
           -- suggestions, I want those to show only if there are no LSP
@@ -223,14 +222,13 @@ return {
       },
     }
 
-    -- opts.fuzzy = {
-    --   -- Disabling this matches the behavior of fzf
-    --   use_typo_resistance = false,
-    --   -- Frecency tracks the most recently/frequently used items and boosts the score of the item
-    --   use_frecency = true,
-    --   -- Proximity bonus boosts the score of items matching nearby words
-    --   use_proximity = false,
-    -- }
+    opts.fuzzy = {
+      implementation = 'prefer_rust_with_warning',
+      -- Frecency tracks the most recently/frequently used items and boosts the score of the item
+      use_frecency = true,
+      -- Proximity bonus boosts the score of items matching nearby words
+      use_proximity = false,
+    }
 
     opts.snippets = {
       preset = 'luasnip', -- Choose LuaSnip as the snippet engine
