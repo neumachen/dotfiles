@@ -70,39 +70,6 @@ nnoremap('<localleader>z', [[zMzvzz]], { desc = 'center viewport' })
 -- cursor happens to be.
 nnoremap('zO', [[zCzO]])
 
--- TLDR: Conditionally modify character at end of line
--- Description:
--- This function takes a delimiter character and:
---   * removes that character from the end of the line if the character at the end
---     of the line is that character
---   * removes the character at the end of the line if that character is a
---     delimiter that is not the input character and appends that character to
---     the end of the line
---   * adds that character to the end of the line if the line does not end with
---     a delimiter
--- Delimiters:
--- - ","
--- - ";"
----@param character string
----@return function
-local function modify_line_end_delimiter(character)
-  local delimiters = { ',', ';' }
-  return function()
-    local line = api.nvim_get_current_line()
-    local last_char = line:sub(-1)
-    if last_char == character then
-      api.nvim_set_current_line(line:sub(1, #line - 1))
-    elseif vim.tbl_contains(delimiters, last_char) then
-      api.nvim_set_current_line(line:sub(1, #line - 1) .. character)
-    else
-      api.nvim_set_current_line(line .. character)
-    end
-  end
-end
-
-nnoremap('<localleader>,', modify_line_end_delimiter(','), { desc = "add ',' to end of line" })
-nnoremap('<localleader>;', modify_line_end_delimiter(';'), { desc = "add ';' to end of line" })
-
 -----------------------------------------------------------------------------//
 nnoremap('<leader>E', '<Cmd>Inspect<CR>', { desc = 'Inspect the cursor position' })
 -----------------------------------------------------------------------------//
@@ -312,7 +279,9 @@ nnoremap('cN', '*``cgN')
 -- 2. Hit cq to start recording the macro.
 -- 3. Once you are done with the macro, go back to normal mode.
 -- 4. Hit Enter to repeat the macro over search matches.
-function config.mappings.setup_map() nnoremap('M', [[:nnoremap M n@z<CR>q:<C-u>let @z=strpart(@z,0,strlen(@z)-1)<CR>n@z]]) end
+function config.mappings.setup_map()
+  nnoremap('M', [[:nnoremap M n@z<CR>q:<C-u>let @z=strpart(@z,0,strlen(@z)-1)<CR>n@z]])
+end
 
 vim.g.mc = vim.keycode([[y/\V<C-r>=escape(@", '/')<CR><CR>]])
 xnoremap('cn', [[g:mc . "``cgn"]], { expr = true, silent = true })
