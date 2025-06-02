@@ -1,10 +1,19 @@
 local cwd = vim.fn.getcwd
 local map = map or vim.keymap.set
+local icons = config.ui.icons.separators
 
 return {
   'lewis6991/gitsigns.nvim',
   event = { 'BufReadPre', 'BufNewFile' },
   opts = {
+    signs = {
+      add = { text = icons.right_block },
+      change = { text = icons.right_block },
+      delete = { text = icons.right_block },
+      topdelete = { text = icons.right_block },
+      changedelete = { text = icons.right_block },
+      untracked = { text = icons.light_shade_block },
+    },
     current_line_blame = not cwd():match('dotfiles'),
     current_line_blame_formatter = ' <author>, <author_time> · <summary>',
     on_attach = function(bufnr)
