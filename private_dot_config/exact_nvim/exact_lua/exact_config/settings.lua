@@ -1,4 +1,10 @@
 local o, opt, fn, icons = vim.o, vim.opt, vim.fn, config.ui.icons
+
+-- Borrow those settings from LazyVim
+opt.autowrite = true -- Enable auto write
+-- only set clipboard if not in ssh, to make sure the OSC 52
+-- integration works automatically. Requires Neovim >= 0.10.0
+opt.clipboard = vim.env.SSH_TTY and '' or 'unnamedplus' -- Sync with system clipboard
 -----------------------------------------------------------------------------//
 -- Message output on vim actions {{{1
 -----------------------------------------------------------------------------//
@@ -156,7 +162,6 @@ o.confirm = true -- make vim prompt me to save before doing destructive things
 opt.completeopt = { 'menuone' }
 o.hlsearch = true
 o.autowriteall = true -- automatically :write before running commands and changing files
-opt.clipboard = { 'unnamedplus' }
 o.laststatus = 3
 o.termguicolors = true
 o.guifont = 'CartographCF Nerd Font Mono:h14,codicon'
