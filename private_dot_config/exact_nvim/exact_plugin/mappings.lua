@@ -245,32 +245,8 @@ imap('jk', [[col('.') == 1 ? '<esc>' : '<esc>l']], { expr = true })
 nmap('zz', [[(winline() == (winheight (0) + 1)/ 2) ?  'zt' : (winline() == 1)? 'zb' : 'zz']], { expr = true })
 
 -----------------------------------------------------------------------------//
--- Open Common files
------------------------------------------------------------------------------//
--- nnoremap('<leader>ev', [[<Cmd>edit $MYVIMRC<CR>]], { desc = 'open $VIMRC' })
--- nnoremap('<leader>ez', '<Cmd>edit $ZDOTDIR/.zshrc<CR>', { desc = 'open zshrc' })
--- nnoremap('<leader>et', '<Cmd>edit $XDG_CONFIG_HOME/tmux/tmux.conf<CR>', {
---   desc = 'open tmux.conf',
--- })
--- nnoremap('<leader>ep', fmt('<Cmd>edit %s/lua/as/plugins/init.lua<CR>', fn.stdpath('config')), {
---   desc = 'open plugins file',
--- })
--- -- This line allows the current file to source the vimrc allowing me use bindings as they're added
--- nnoremap('<leader>sv', [[<Cmd>source $MYVIMRC<cr> <bar> :lua vim.notify('Sourced init.vim')<cr>]], {
---   desc = 'source $VIMRC',
--- })
--- nnoremap('<leader>yf', ":let @*=expand('%:p')<CR>", { desc = 'yank file path into the clipboard' })
------------------------------------------------------------------------------//
--- Quotes
------------------------------------------------------------------------------//
-nnoremap([[<leader>"]], [[ciw"<c-r>""<esc>]], { desc = 'surround with double quotes' })
-nnoremap('<leader>`', [[ciw`<c-r>"`<esc>]], { desc = 'surround with backticks' })
-nnoremap("<leader>'", [[ciw'<c-r>"'<esc>]], { desc = 'surround with single quotes' })
-nnoremap('<leader>)', [[ciw(<c-r>")<esc>]], { desc = 'surround with parentheses' })
-nnoremap('<leader>}', [[ciw{<c-r>"}<esc>]], { desc = 'surround with curly braces' })
------------------------------------------------------------------------------//
 -- Multiple Cursor Replacement
--- http://www.kevinli.co/posts/2017-01-19-multiple-cursors-in-500-bytes-of-vimscript/
+-- http://www.kevinlir.co/posts/2017-01-19-multiple-cursors-in-500-bytes-of-vimscript/
 -----------------------------------------------------------------------------//
 nnoremap('cn', '*``cgn')
 nnoremap('cN', '*``cgN')
