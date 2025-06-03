@@ -4,6 +4,7 @@ local trigger_text = ';'
 
 return {
   'saghen/blink.cmp',
+  event = 'InsertEnter',
   build = 'cargo build --release',
   -- In case there are breaking changes and you want to go back to the last
   -- working release
