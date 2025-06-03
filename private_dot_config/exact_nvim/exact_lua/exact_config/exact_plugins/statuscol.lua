@@ -10,12 +10,36 @@ return {
       segments = {
         { text = { builtin.foldfunc }, click = 'v:lua.ScFa' },
         {
-          sign = { namespace = { 'diagnostic/signs' }, maxwidth = 2, auto = true },
+          sign = {
+            namespace = { 'diagnostic' },
+            maxwidth = 1,
+            colwidth = 2,
+            auto = true,
+            foldclosed = true,
+          },
           click = 'v:lua.ScSa',
         },
         { text = { builtin.lnumfunc }, click = 'v:lua.ScLa' },
         {
-          sign = { name = { '.*' }, maxwidth = 2, colwidth = 1, auto = true, wrap = true },
+          sign = {
+            name = { '.*' },
+            text = { '.*' },
+            maxwidth = 2,
+            colwidth = 1,
+            auto = true,
+            foldclosed = true,
+          },
+          click = 'v:lua.ScSa',
+        },
+        {
+          sign = {
+            namespace = { 'gitsigns' },
+            fillchar = '│',
+            maxwidth = 1,
+            colwidth = 1,
+            wrap = true,
+            foldclosed = true,
+          },
           click = 'v:lua.ScSa',
         },
       },
