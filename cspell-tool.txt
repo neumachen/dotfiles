@@ -36,3 +36,7 @@ devicons
 keymaps
 dependencies
 yazi
+oxlint
+rubocop
+codespell
+netrw
