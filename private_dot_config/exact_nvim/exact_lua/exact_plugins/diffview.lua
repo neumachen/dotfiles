@@ -1,5 +1,3 @@
-local highlight = config.highlight
-
 return {
   'sindrets/diffview.nvim',
   key = {
