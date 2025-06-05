@@ -1,5 +1,3 @@
-local highlight = config.highlight
-
 return {
   {
     'nvim-treesitter/nvim-treesitter',
@@ -143,13 +141,6 @@ return {
   {
     'nvim-treesitter/nvim-treesitter-context',
     event = 'VeryLazy',
-    init = function()
-      highlight.plugin('treesitter-context', {
-        { TreesitterContextSeparator = { link = 'Dim' } },
-        { TreesitterContext = { inherit = 'Normal' } },
-        { TreesitterContextLineNumber = { inherit = 'LineNr' } },
-      })
-    end,
     opts = {
       multiline_threshold = 4,
       separator = '─', -- alternatives: ▁ ─ ▄
