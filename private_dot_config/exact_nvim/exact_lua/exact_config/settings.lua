@@ -1,5 +1,17 @@
-local o, opt, fn, icons = vim.o, vim.opt, vim.fn, config.ui.icons
+local opt, fn = vim.opt, vim.fn
 
+-----------------------------------------------------------------------------//
+-- Leader Bindings {{{1
+-----------------------------------------------------------------------------//
+vim.g.mapleader = ',' -- Remap leader key
+vim.g.maplocalleader = ' ' -- Local leader is <Space>
+-----------------------------------------------------------------------------//
+-- Disable providers {{{1
+-----------------------------------------------------------------------------//
+vim.g.loaded_ruby_provider = 0
+vim.g.loaded_perl_provider = 0
+vim.g.loaded_node_provider = 0
+vim.g.loaded_python3_provider = 0
 -- Borrow those settings from LazyVim
 opt.autowrite = true -- Enable auto write
 -- only set clipboard if not in ssh, to make sure the OSC 52
@@ -22,20 +34,20 @@ opt.shortmess = {
 -----------------------------------------------------------------------------//
 -- Timings {{{1
 -----------------------------------------------------------------------------//
-o.updatetime = 300
-o.timeout = true
-o.timeoutlen = 500
-o.ttimeoutlen = 10
+opt.updatetime = 300
+opt.timeout = true
+opt.timeoutlen = 500
+opt.ttimeoutlen = 10
 -----------------------------------------------------------------------------//
 -- Window splitting and buffers {{{1
 -----------------------------------------------------------------------------//
-o.splitkeep = 'screen'
-o.splitbelow = true
-o.splitright = true
-o.eadirection = 'hor'
+opt.eadirection = 'hor'
+opt.splitbelow = true
+opt.splitkeep = 'screen'
+opt.splitright = true
 -- exclude usetab as we do not want to jump to buffers in already open tabs
 -- do not use split or vsplit to ensure we don't open any new windows
-o.switchbuf = 'useopen,uselast'
+opt.switchbuf = 'useopen,uselast'
 opt.fillchars = {
   eob = ' ', -- suppress ~ at EndOfBuffer
   diff = '╱', -- alternatives = ⣿ ░ ─
@@ -89,56 +101,51 @@ opt.foldtext = ''
 -- Grepprg {{{1
 -----------------------------------------------------------------------------//
 -- Use faster grep alternatives if possible
-if config and not config.falsy(fn.executable('rg')) then
-  vim.o.grepprg = [[rg --glob "!.git" --no-heading --vimgrep --follow $*]]
-  opt.grepformat = opt.grepformat ^ { '%f:%l:%c:%m' }
-elseif config and not config.falsy(fn.executable('ag')) then
-  vim.o.grepprg = [[ag --nogroup --nocolor --vimgrep]]
-  opt.grepformat = opt.grepformat ^ { '%f:%l:%c:%m' }
-end
+opt.grepprg = [[rg --glob "!.git" --no-heading --vimgrep --follow $*]]
+opt.grepformat = opt.grepformat ^ { '%f:%l:%c:%m' }
 -----------------------------------------------------------------------------//
 -- Wild and file globbing stuff in command mode {{{1
 -----------------------------------------------------------------------------//
-o.wildcharm = ('\t'):byte()
-o.wildmode = 'list:full' -- Shows a menu bar as opposed to an enormous list
-o.wildignorecase = true -- Ignore case when completing file names and directories
+opt.wildcharm = ('\t'):byte()
+opt.wildmode = 'list:full' -- Shows a menu bar as opposed to an enormous list
+opt.wildignorecase = true -- Ignore case when completing file names and directories
 opt.wildignore = {
-  '*.o',
-  '*.obj',
-  '*.dll',
-  '*.jar',
-  '*.pyc',
-  '*.rbc',
+  '*.avi',
   '*.class',
+  '*.dll',
   '*.gif',
   '*.ico',
-  '*.jpg',
+  '*.jar',
   '*.jpeg',
+  '*.jpg',
+  '*.o',
+  '*.obj',
   '*.png',
-  '*.avi',
-  '*.wav',
+  '*.pyc',
+  '*.rbc',
   '*.swp',
+  '*.wav',
   '.lock',
   '.DS_Store',
   'tags.lock',
 }
 opt.wildoptions = { 'pum', 'fuzzy' }
-o.pumblend = 0 -- Make popup window translucent
+opt.pumblend = 0 -- Make popup window translucent
 -----------------------------------------------------------------------------//
 -- Display {{{1
 -----------------------------------------------------------------------------//
-o.colorcolumn = '+1'
-o.conceallevel = 2
-o.breakindentopt = 'sbr'
-o.linebreak = true -- lines wrap at words rather than random characters
-o.signcolumn = 'yes:1'
-o.ruler = false
-o.cmdheight = 0
-o.showbreak = [[↪ ]] -- Options include -> '…', '↳ ', '→','↪ '
+opt.colorcolumn = '+1'
+opt.conceallevel = 2
+opt.breakindentopt = 'sbr'
+opt.linebreak = true -- lines wrap at words rather than random characters
+opt.signcolumn = 'yes:1'
+opt.ruler = false
+opt.cmdheight = 0
+opt.showbreak = [[↪ ]] -- Options include -> '…', '↳ ', '→','↪ '
 -----------------------------------------------------------------------------//
 -- List chars {{{1
 -----------------------------------------------------------------------------//
-o.list = true -- invisible chars
+opt.list = true -- invisible chars
 opt.listchars = {
   eol = nil,
   tab = '  ', -- Alternatives: '▷▷',
@@ -149,29 +156,32 @@ opt.listchars = {
 -----------------------------------------------------------------------------//
 -- Indentation
 -----------------------------------------------------------------------------//
-o.wrap = false
-o.wrapmargin = 2
-o.textwidth = 80
-o.autoindent = true
-o.shiftround = true
-o.expandtab = true
-o.shiftwidth = 2
+opt.autoindent = true
+opt.expandtab = true
+opt.shiftround = true
+opt.shiftwidth = 2
+opt.textwidth = 80
+opt.wrap = false
+opt.wrapmargin = 2
 -----------------------------------------------------------------------------//
-o.pumheight = 15
-o.confirm = true -- make vim prompt me to save before doing destructive things
-opt.completeopt = { 'menuone' }
-o.hlsearch = true
-o.autowriteall = true -- automatically :write before running commands and changing files
-o.laststatus = 3
-o.termguicolors = true
-o.guifont = 'CartographCF Nerd Font Mono:h14,codicon'
+opt.autowriteall = true -- automatically :write before running commands and changing files
+opt.completeopt = 'menu,menuone,noselect,fuzzy'
+opt.confirm = true -- make vim prompt me to save before doing destructive things
+opt.guifont = 'CartographCF Nerd Font Mono:h14,codicon'
+opt.hlsearch = true
+opt.laststatus = 3
+opt.pumheight = 15
+opt.termguicolors = true
+-----------------------------------------------------------------------------//
+opt.number = true
+opt.relativenumber = true
 -----------------------------------------------------------------------------//
 -- Emoji {{{1
 -----------------------------------------------------------------------------//
 -- emoji is true by default but makes (n)vim treat all emoji as double width
 -- which breaks rendering so we turn this off.
 -- CREDIT: https://www.youtube.com/watch?v=F91VWOelFNE
-o.emoji = false
+opt.emoji = false
 -----------------------------------------------------------------------------//
 -- Cursor {{{1
 -----------------------------------------------------------------------------//
@@ -186,31 +196,29 @@ opt.cursorlineopt = { 'both' }
 -----------------------------------------------------------------------------//
 -- Title {{{1
 -----------------------------------------------------------------------------//
-function config.modified_icon() return vim.bo.modified and icons.misc.circle or '' end
-o.titlestring = '%{fnamemodify(getcwd(), ":t")}%( %{v:lua.config.modified_icon()}%)'
-o.titleold = fn.fnamemodify(vim.uv.os_getenv('SHELL'), ':t') or ''
-o.title = true
-o.titlelen = 70
+opt.titleold = fn.fnamemodify(vim.uv.os_getenv('SHELL'), ':t') or ''
+opt.title = true
+opt.titlelen = 70
 -----------------------------------------------------------------------------//
 -- Utilities {{{1
 -----------------------------------------------------------------------------//
-o.showmode = false
+opt.showmode = false
 -- NOTE: Don't remember
 -- * help files since that will error if they are from a lazy loaded plugin
 -- * folds since they are created dynamically and might be missing on startup
 opt.sessionoptions = {
-  'globals',
   'buffers',
   'curdir',
-  'winpos',
-  'winsize',
+  'folds',
+  'globals',
   'help',
   'tabpages',
   'terminal',
-  'folds',
+  'winpos',
+  'winsize',
 }
 opt.viewoptions = { 'cursor', 'folds' } -- save/restore just these (with `:{mk,load}view`)
-o.virtualedit = 'block' -- allow cursor to move where there is no text in visual block mode
+opt.virtualedit = 'block' -- allow cursor to move where there is no text in visual block mode
 -----------------------------------------------------------------------------//
 -- Jumplist
 -----------------------------------------------------------------------------//
@@ -218,19 +226,20 @@ opt.jumpoptions = { 'stack' } -- make the jumplist behave like a browser stack
 -------------------------------------------------------------------------------
 -- BACKUP AND SWAPS {{{
 -------------------------------------------------------------------------------
-o.backup = false
-o.undofile = true
-o.swapfile = false
+opt.backup = false
+opt.swapfile = false
+opt.undofile = true
+opt.undolevels = 10000
 --}}}
 -----------------------------------------------------------------------------//
 -- Match and search {{{1
 -----------------------------------------------------------------------------//
-o.ignorecase = true
-o.smartcase = true
-o.wrapscan = true -- Searches wrap around the end of the file
-o.scrolloff = 9
-o.sidescrolloff = 10
-o.sidescroll = 1
+opt.ignorecase = true
+opt.scrolloff = 9
+opt.sidescroll = 1
+opt.sidescrolloff = 10
+opt.smartcase = true
+opt.wrapscan = true -- Searches wrap around the end of the file
 -----------------------------------------------------------------------------//
 -- Spelling {{{1
 -----------------------------------------------------------------------------//
@@ -240,10 +249,35 @@ opt.spellcapcheck = '' -- don't check for capital letters at start of sentence
 -----------------------------------------------------------------------------//
 -- Mouse {{{1
 -----------------------------------------------------------------------------//
-o.mousefocus = true
-o.mousemoveevent = true
+opt.mousefocus = true
+opt.mousemoveevent = true
 opt.mousescroll = { 'ver:1', 'hor:6' }
 -----------------------------------------------------------------------------//
--- Allow project local vimrc files example, .nvim.lua or .nvimrc see :h exrc
-o.exrc = config.has('nvim-0.9')
+-- Diagnostic Settings {{{1
+-----------------------------------------------------------------------------//
+local diagnostics = {
+  Error = ' ',
+  Warn = ' ',
+  Hint = ' ',
+  Info = ' ',
+}
+vim.diagnostic.config({
+  underline = true,
+  update_in_insert = false,
+  virtual_text = {
+    spacing = 4,
+    source = 'if_many',
+    prefix = '●',
+  },
+  severity_sort = true,
+  signs = {
+    text = {
+      [vim.diagnostic.severity.ERROR] = diagnostics.Error,
+      [vim.diagnostic.severity.WARN] = diagnostics.Warn,
+      [vim.diagnostic.severity.HINT] = diagnostics.Hint,
+      [vim.diagnostic.severity.INFO] = diagnostics.Info,
+    },
+  },
+})
+-----------------------------------------------------------------------------//
 -- vim:foldmethod=marker

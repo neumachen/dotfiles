@@ -1,5 +1,4 @@
 local fn = vim.fn
-local border, highlight = config.ui.current.border, config.highlight
 local L = vim.log.levels
 
 return {
@@ -16,7 +15,6 @@ return {
     lsp = {
       documentation = {
         opts = {
-          border = { style = border },
           position = { row = 2 },
         },
       },
@@ -40,20 +38,20 @@ return {
       vsplit = { size = { width = 'auto' } },
       split = { win_options = { winhighlight = { Normal = 'Normal' } } },
       popup = {
-        border = { style = border, padding = { 0, 1 } },
+        border = { padding = { 0, 1 } },
       },
       cmdline_popup = {
         position = { row = 5, col = '50%' },
         size = { width = 'auto', height = 'auto' },
-        border = { style = border, padding = { 0, 1 } },
+        border = { padding = { 0, 1 } },
       },
       confirm = {
-        border = { style = border, padding = { 0, 1 }, text = { top = '' } },
+        border = { padding = { 0, 1 }, text = { top = '' } },
       },
       popupmenu = {
         relative = 'editor',
         position = { row = 9, col = '50%' },
-        border = { style = border, padding = { 0, 1 } },
+        border = { padding = { 0, 1 } },
         win_options = { winhighlight = { Normal = 'NormalFloat', FloatBorder = 'FloatBorder' } },
       },
     },
@@ -144,43 +142,15 @@ return {
   config = function(_, opts)
     require('noice').setup(opts)
 
-    highlight.plugin('noice', {
-      { NoiceMini = { inherit = 'MsgArea', bg = { from = 'Normal' } } },
-      { NoicePopupBaseGroup = { inherit = 'NormalFloat', fg = { from = 'DiagnosticSignInfo' } } },
-      { NoicePopupWarnBaseGroup = { inherit = 'NormalFloat', fg = { from = 'Float' } } },
-      { NoicePopupInfoBaseGroup = { inherit = 'NormalFloat', fg = { from = 'Conditional' } } },
-      { NoiceCmdlinePopup = { bg = { from = 'NormalFloat' } } },
-      { NoiceCmdlinePopupBorder = { link = 'FloatBorder' } },
-      { NoiceCmdlinePopupTitle = { link = 'FloatTitle' } },
-      { NoiceCmdlinePopupBorderCmdline = { link = 'NoicePopupBaseGroup' } },
-      { NoiceCmdlinePopupBorderSearch = { link = 'NoicePopupWarnBaseGroup' } },
-      { NoiceCmdlinePopupBorderFilter = { link = 'NoicePopupWarnBaseGroup' } },
-      { NoiceCmdlinePopupBorderHelp = { link = 'NoicePopupInfoBaseGroup' } },
-      { NoiceCmdlinePopupBorderSubstitute = { link = 'NoicePopupWarnBaseGroup' } },
-      { NoiceCmdlinePopupBorderIncRename = { link = 'NoicePopupWarnBaseGroup' } },
-      { NoiceCmdlinePopupBorderInput = { link = 'NoicePopupBaseGroup' } },
-      { NoiceCmdlinePopupBorderLua = { link = 'NoicePopupBaseGroup' } },
-      { NoiceCmdlineIconCmdline = { link = 'NoicePopupBaseGroup' } },
-      { NoiceCmdlineIconSearch = { link = 'NoicePopupWarnBaseGroup' } },
-      { NoiceCmdlineIconFilter = { link = 'NoicePopupWarnBaseGroup' } },
-      { NoiceCmdlineIconHelp = { link = 'NoicePopupInfoBaseGroup' } },
-      { NoiceCmdlineIconIncRename = { link = 'NoicePopupWarnBaseGroup' } },
-      { NoiceCmdlineIconSubstitute = { link = 'NoicePopupWarnBaseGroup' } },
-      { NoiceCmdlineIconInput = { link = 'NoicePopupBaseGroup' } },
-      { NoiceCmdlineIconLua = { link = 'NoicePopupBaseGroup' } },
-      { NoiceConfirm = { bg = { from = 'NormalFloat' } } },
-      { NoiceConfirmBorder = { link = 'NoicePopupBaseGroup' } },
-    })
-
-    map({ 'n', 'i', 's' }, '<c-f>', function()
+    vim.keymap.set({ 'n', 'i', 's' }, '<c-f>', function()
       if not require('noice.lsp').scroll(4) then return '<c-f>' end
     end, { silent = true, expr = true })
 
-    map({ 'n', 'i', 's' }, '<c-b>', function()
+    vim.keymap.set({ 'n', 'i', 's' }, '<c-b>', function()
       if not require('noice.lsp').scroll(-4) then return '<c-b>' end
     end, { silent = true, expr = true })
 
-    map('c', '<M-CR>', function() require('noice').redirect(fn.getcmdline()) end, {
+    vim.keymap.set('c', '<M-CR>', function() require('noice').redirect(fn.getcmdline()) end, {
       desc = 'redirect Cmdline',
     })
   end,
