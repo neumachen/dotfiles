@@ -9,34 +9,32 @@ return {
       show_help = '<F1>',
     },
     future_features = {
-      -- Whether to use `ya emit reveal` to reveal files in the file manager.
-      -- Requires yazi 0.4.0 or later (from 2024-12-08).
-      ya_emit_reveal = true,
-
-      -- Use `ya emit open` as a more robust implementation for opening files
-      -- in yazi. This can prevent conflicts with custom keymappings for the enter
-      -- key. Requires yazi 0.4.0 or later (from 2024-12-08).
-      ya_emit_open = true,
+      -- By default, this is `true`, which means yazi.nvim processes events
+      -- before yazi has been closed. If this is `false`, events are processed
+      -- in a batch when the user closes yazi. If this is `true`, events are
+      -- processed immediately.
+      process_events_live = true,
     },
   },
   keys = {
-    -- 👇 in this section, choose your own keymappings!
     {
-      '<leader>-',
+      '<leader><F1>',
       mode = { 'n', 'v' },
       '<cmd>Yazi<cr>',
       desc = 'Open yazi at the current file',
     },
     {
       -- Open in the current working directory
-      '<leader>cw',
+      '<leader><F2>',
+      mode = { 'n', 'v' },
       '<cmd>Yazi cwd<cr>',
       desc = "Open the file manager in nvim's working directory",
     },
     {
       -- NOTE: this requires a version of yazi that includes
       -- https://github.com/sxyazi/yazi/pull/1305 from 2024-07-18
-      '<c-up>',
+      '<leader><F3>',
+      mode = { 'n' },
       '<cmd>Yazi toggle<cr>',
       desc = 'Resume the last yazi session',
     },
