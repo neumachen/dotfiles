@@ -23,7 +23,7 @@ return {
     })
 
     local telescope = require('telescope')
-    map('n', '<localleader>fcd', telescope.extensions.chezmoi.find_files, {
+    vim.keymap.set('n', '<localleader>fcd', telescope.extensions.chezmoi.find_files, {
       desc = 'edit dotfiles',
     })
   end,
