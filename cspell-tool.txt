@@ -28,3 +28,11 @@ tabnext
 tabclose
 tabprevious
 nvim_create_user_command
+nohlsearch
+bufferline
+nvim
+folke
+devicons
+keymaps
+dependencies
+yazi
