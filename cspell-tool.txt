@@ -79,3 +79,4 @@ msgsep
 foldopen
 foldclose
 foldsep
+colorschemes
