@@ -80,3 +80,5 @@ foldopen
 foldclose
 foldsep
 colorschemes
+Neovide
+CartographCF
