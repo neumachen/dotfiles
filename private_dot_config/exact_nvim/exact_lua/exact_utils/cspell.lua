@@ -66,7 +66,7 @@ function M.add_word_to_c_spell_dictionary()
     -- Reload buffer to update the dictionary
     vim.cmd('e!')
   else
-    vim.notify('Could not open cSpell dictionary', vim.log.levels.WARN, { title = 'cSpell' })
+    vim.notify('Could not open cspell dictionary', vim.log.levels.WARN, { title = 'cspell' })
   end
 end
 
@@ -86,16 +86,16 @@ function M.add_word_from_diagnostics_to_c_spell_dictionary()
   -- E.g. "Unknown word ( word )"
   local word = cspell_diagnostics[1].message:match('%((.+)%)')
   if word == nil then
-    vim.notify('Could not find unknown word', vim.log.levels.WARN, { title = 'cSpell' })
+    vim.notify('Could not find unknown word', vim.log.levels.WARN, { title = 'cspell' })
     return
   end
 
   -- Show popup to confirm the action
-  local confirm = vim.fn.confirm("Add '" .. word .. "' to cSpell dictionary?", '&Yes\n&No', 2)
+  local confirm = vim.fn.confirm("Add '" .. word .. "' to cspell dictionary?", '&Yes\n&No', 2)
   if confirm ~= 1 then return end
 
   M.create_cspell_json_if_not_exist()
-  local dictionary_path = Path.get_root_directory() .. '/cspell-tool.txt'
+  local dictionary_path = Path.get_root_directory() .. '/en.utf-8.add'
 
   -- Append the word to the dictionary file
   local file = io.open(dictionary_path, 'a')
@@ -109,7 +109,7 @@ function M.add_word_from_diagnostics_to_c_spell_dictionary()
     -- Reload buffer to update the dictionary
     vim.cmd('e!')
   else
-    vim.notify('Could not open cSpell dictionary', vim.log.levels.WARN, { title = 'cSpell' })
+    vim.notify('Could not open cspell dictionary', vim.log.levels.WARN, { title = 'cspell' })
   end
 end
 
