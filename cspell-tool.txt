@@ -82,3 +82,10 @@ foldsep
 colorschemes
 Neovide
 CartographCF
+pathmunge
+MANPATH
+INFOPATH
+subshell
+fs_stat
+getcwd
+fs_stat
