@@ -10,9 +10,21 @@
 --  \___|\____\) |___|\__/|___|
 -----------------------------------------------------------------------------//
 require('config.settings')
+
+-- Load project setting if available, e.g: .nvim-config.lua
+-- This file is not tracked by git
+-- It can be used to set project specific settings
+local project_setting = vim.fn.getcwd() .. '/.nvim-config.lua'
+-- Check if the file exists and load it
+if vim.loop.fs_stat(project_setting) then
+  -- Read the file and run it with pcall to catch any errors
+  local ok, err = pcall(dofile, project_setting)
+  if not ok then vim.notify('Error loading project setting: ' .. err, vim.log.levels.ERROR) end
+end
+
 require('config.autocmds')
 require('config.lazy')
-require('config.key_mappings')
+require('config.keymaps')
 -----------------------------------------------------------------------------//
 -- LazyNVIM {{{1
 -----------------------------------------------------------------------------//
