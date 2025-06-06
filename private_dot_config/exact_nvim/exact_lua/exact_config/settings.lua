@@ -26,7 +26,7 @@ opt.shortmess = {
   o = true, -- file-read message overwrites previous
   O = true, -- file-read message overwrites previous
   T = true, -- truncate non-file messages in middle
-  F = true, -- Don't give file info when editing a file, NOTE: this breaks autocommand messages
+  F = true, -- Don't give file info when editing a file, NOTE: this breaks autocommand meages
   s = true,
   c = true,
   W = true, -- Don't show [w] or written when writing
@@ -34,10 +34,9 @@ opt.shortmess = {
 -----------------------------------------------------------------------------//
 -- Timings {{{1
 -----------------------------------------------------------------------------//
-opt.updatetime = 300
+opt.updatetime = 200
 opt.timeout = true
-opt.timeoutlen = 500
-opt.ttimeoutlen = 10
+opt.timeoutlen = vim.g.vscode and 1000 or 300 -- Lower than default (1000) to quickly trigger which-key
 -----------------------------------------------------------------------------//
 -- Window splitting and buffers {{{1
 -----------------------------------------------------------------------------//
@@ -243,9 +242,10 @@ opt.wrapscan = true -- Searches wrap around the end of the file
 -----------------------------------------------------------------------------//
 -- Spelling {{{1
 -----------------------------------------------------------------------------//
-opt.spellsuggest:prepend({ 12 })
-opt.spelloptions:append({ 'camel', 'noplainbuffer' })
 opt.spellcapcheck = '' -- don't check for capital letters at start of sentence
+opt.spelllang = { 'en' }
+opt.spelloptions:append({ 'camel', 'noplainbuffer' })
+opt.spellsuggest:prepend({ 12 })
 -----------------------------------------------------------------------------//
 -- Mouse {{{1
 -----------------------------------------------------------------------------//
@@ -279,5 +279,15 @@ vim.diagnostic.config({
     },
   },
 })
+
+-- Setup options for Neovide
+-- Install neovide: ❯ brew install --ignore-dependencies  neovide
+if vim.g.neovide then
+  vim.o.guifont = 'CartographCF NF:h20'
+  vim.g.neovide_hide_mouse_when_typing = true
+  vim.g.neovide_cursor_antialiasing = false
+  vim.g.neovide_input_macos_option_key_is_meta = 'only_left'
+  vim.g.neovide_input_ime = true
+end
 -----------------------------------------------------------------------------//
 -- vim:foldmethod=marker
