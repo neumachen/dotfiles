@@ -1,12 +1,12 @@
-local Path = require "utils.path"
+local Path = require('utils.path')
 
 local M = {}
 
 function M.create_cspell_json_if_not_exist()
-  local cspell_json_path = Path.get_root_directory() .. "/cspell.json"
+  local cspell_json_path = Path.get_root_directory() .. '/cspell.json'
 
   if vim.fn.filereadable(cspell_json_path) == 0 then
-    local file = io.open(cspell_json_path, "w")
+    local file = io.open(cspell_json_path, 'w')
     if file then
       local default_content = [[
 {
@@ -17,7 +17,7 @@ function M.create_cspell_json_if_not_exist()
   "dictionaryDefinitions": [
     {
       "name": "cspell-tool",
-      "path": "./cspell-tool.txt",
+      "path": "./.config/spell/en.utf-8.add",
       "addWords": true
     }
   ],
@@ -28,47 +28,45 @@ function M.create_cspell_json_if_not_exist()
     "node_modules",
     "dist",
     "build",
-    "/cspell-tool.txt"
+    "/spell/en.utf-8.add",
   ]
 }
 ]]
       file:write(default_content)
       file:close()
     else
-      vim.notify("Could not create cSpell.json", vim.log.levels.WARN, { title = "cSpell" })
+      vim.notify('Could not create cspell.json', vim.log.levels.WARN, { title = 'create cspell config' })
     end
   end
 end
 
 -- Add unknown word under cursor to dictionary
 function M.add_word_to_c_spell_dictionary()
-  local word = vim.fn.expand "<cword>"
+  local word = vim.fn.expand('<cword>')
 
   -- Show popup to confirm the action
-  local confirm = vim.fn.confirm("Add '" .. word .. "' to cSpell dictionary?", "&Yes\n&No", 2)
+  local confirm = vim.fn.confirm("Add '" .. word .. "' to cSpell dictionary?", '&Yes\n&No', 2)
   if confirm ~= 1 then
     M.add_word_from_diagnostics_to_c_spell_dictionary()
     return
   end
 
   M.create_cspell_json_if_not_exist()
-  local dictionary_path = Path.get_root_directory() .. "/cspell-tool.txt"
+  local dictionary_path = Path.get_root_directory() .. '/cspell-tool.txt'
 
   -- Append the word to the dictionary file
-  local file = io.open(dictionary_path, "a")
+  local file = io.open(dictionary_path, 'a')
   if file then
     -- Detect new line at the end of the file or not
-    local last_char = file:seek("end", -1)
-    if last_char ~= nil and last_char ~= "\n" then
-      word = "\n" .. word
-    end
+    local last_char = file:seek('end', -1)
+    if last_char ~= nil and last_char ~= '\n' then word = '\n' .. word end
 
-    file:write(word .. "")
+    file:write(word .. '')
     file:close()
     -- Reload buffer to update the dictionary
-    vim.cmd "e!"
+    vim.cmd('e!')
   else
-    vim.notify("Could not open cSpell dictionary", vim.log.levels.WARN, { title = "cSpell" })
+    vim.notify('Could not open cSpell dictionary', vim.log.levels.WARN, { title = 'cSpell' })
   end
 end
 
@@ -81,43 +79,37 @@ function M.add_word_from_diagnostics_to_c_spell_dictionary()
   local diagnostics = vim.lsp.diagnostic.get_line_diagnostics(bufnr, cursor[1] - 1)
   local cspell_diagnostics = {}
   for _, diagnostic in ipairs(diagnostics) do
-    if diagnostic.source == "cspell" then
-      table.insert(cspell_diagnostics, diagnostic)
-    end
+    if diagnostic.source == 'cspell' then table.insert(cspell_diagnostics, diagnostic) end
   end
 
   -- Get the first word from the first cspell diagnostic
   -- E.g. "Unknown word ( word )"
-  local word = cspell_diagnostics[1].message:match "%((.+)%)"
+  local word = cspell_diagnostics[1].message:match('%((.+)%)')
   if word == nil then
-    vim.notify("Could not find unknown word", vim.log.levels.WARN, { title = "cSpell" })
+    vim.notify('Could not find unknown word', vim.log.levels.WARN, { title = 'cSpell' })
     return
   end
 
   -- Show popup to confirm the action
-  local confirm = vim.fn.confirm("Add '" .. word .. "' to cSpell dictionary?", "&Yes\n&No", 2)
-  if confirm ~= 1 then
-    return
-  end
+  local confirm = vim.fn.confirm("Add '" .. word .. "' to cSpell dictionary?", '&Yes\n&No', 2)
+  if confirm ~= 1 then return end
 
   M.create_cspell_json_if_not_exist()
-  local dictionary_path = Path.get_root_directory() .. "/cspell-tool.txt"
+  local dictionary_path = Path.get_root_directory() .. '/cspell-tool.txt'
 
   -- Append the word to the dictionary file
-  local file = io.open(dictionary_path, "a")
+  local file = io.open(dictionary_path, 'a')
   if file then
     -- Detect new line at the end of the file or not
-    local last_char = file:seek("end", -1)
-    if last_char ~= nil and last_char ~= "\n" then
-      word = "\n" .. word
-    end
+    local last_char = file:seek('end', -1)
+    if last_char ~= nil and last_char ~= '\n' then word = '\n' .. word end
 
-    file:write(word .. "")
+    file:write(word .. '')
     file:close()
     -- Reload buffer to update the dictionary
-    vim.cmd "e!"
+    vim.cmd('e!')
   else
-    vim.notify("Could not open cSpell dictionary", vim.log.levels.WARN, { title = "cSpell" })
+    vim.notify('Could not open cSpell dictionary', vim.log.levels.WARN, { title = 'cSpell' })
   end
 end
 
