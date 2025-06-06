@@ -6,7 +6,7 @@
   "dictionaryDefinitions": [
     {
       "name": "cspell-tool",
-      "path": "./cspell-tool.txt",
+      "path": "./spell/en.utf-8.add",
       "addWords": true
     }
   ],
@@ -17,6 +17,6 @@
     "node_modules",
     "dist",
     "build",
-    "/cspell-tool.txt"
+    "/spell/en.utf-8.add"
   ]
 }
