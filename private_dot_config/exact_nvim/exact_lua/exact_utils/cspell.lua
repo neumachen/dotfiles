@@ -3,7 +3,7 @@ local Path = require('utils.path')
 local M = {}
 
 function M.create_cspell_json_if_not_exist()
-  local cspell_json_path = Path.get_root_directory() .. '/cspell.json'
+  local cspell_json_path = Path.get_root_directory() .. '/en.utf-8.add'
 
   if vim.fn.filereadable(cspell_json_path) == 0 then
     local file = io.open(cspell_json_path, 'w')
@@ -17,7 +17,7 @@ function M.create_cspell_json_if_not_exist()
   "dictionaryDefinitions": [
     {
       "name": "cspell-tool",
-      "path": "./.config/spell/en.utf-8.add",
+      "path": "~/.config/spell/en.utf-8.add",
       "addWords": true
     }
   ],
@@ -52,7 +52,7 @@ function M.add_word_to_c_spell_dictionary()
   end
 
   M.create_cspell_json_if_not_exist()
-  local dictionary_path = Path.get_root_directory() .. '/cspell-tool.txt'
+  local dictionary_path = Path.get_root_directory() .. '/en.utf-8.add'
 
   -- Append the word to the dictionary file
   local file = io.open(dictionary_path, 'a')
