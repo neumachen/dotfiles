@@ -1,7 +1,7 @@
 local map = vim.keymap.set
 
-map({ 'n', 'v' }, '<F1>', ':', { desc = 'command line without colon', silent = true })
-map({ 'n', 'v' }, '<F2>', '@:', { desc = 'replay recent command without colon', silent = true })
+map({ 'n', 'v' }, '<F1>', ':', { desc = 'command line without colon' })
+map({ 'n', 'v' }, '<F2>', '@:', { desc = 'replay recent command without colon' })
 
 -- Better up/down
 map({ 'n', 'x' }, 'j', "v:count == 0 ? 'gj' : 'j'", { desc = 'Down', expr = true, silent = true })
