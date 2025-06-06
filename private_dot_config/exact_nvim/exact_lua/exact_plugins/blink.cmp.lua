@@ -15,7 +15,7 @@ return {
     'Kaiser-Yang/blink-cmp-dictionary',
   },
   opts = function(_, opts)
-    -- I noticed that telescope was extremeley slow and taking too long to open,
+    -- I noticed that telescope was extremely slow and taking too long to open,
     -- assumed related to blink, so disabled blink and in fact it was related
     -- :lua print(vim.bo[0].filetype)
     -- So I'm disabling blink.cmp for Telescope
@@ -158,11 +158,10 @@ return {
             --
             -- Do not specify a file, just the path, and in the path you need to
             -- have your .txt files
-            dictionary_directories = { vim.fn.expand('~/github/dotfiles-latest/dictionaries') },
+            -- dictionary_directories = { vim.fn.expand('~/.config/nvim/dictionaries') },
             -- Notice I'm also adding the words I add to the spell dictionary
             dictionary_files = {
-              vim.fn.expand('~/github/dotfiles-latest/neovim/neobean/spell/en.utf-8.add'),
-              vim.fn.expand('~/github/dotfiles-latest/neovim/neobean/spell/es.utf-8.add'),
+              vim.fn.expand('~/.config/nvim/spell/en.utf-8.add'),
             },
             -- --  NOTE: To disable the definitions uncomment this section below
             --
@@ -197,15 +196,15 @@ return {
     }
 
     opts.completion = {
-      -- accept = {
-      --   auto_brackets = {
-      --     enabled = true,
-      --     default_brackets = { ";", "" },
-      --     override_brackets_for_filetypes = {
-      --       markdown = { ";", "" },
-      --     },
-      --   },
-      -- },
+      accept = {
+        auto_brackets = {
+          enabled = true,
+          -- default_brackets = { ";", "" },
+          -- override_brackets_for_filetypes = {
+          --   markdown = { ";", "" },
+          -- },
+        },
+      },
       --   keyword = {
       --     -- 'prefix' will fuzzy match on the text before the cursor
       --     -- 'full' will fuzzy match on the text before *and* after the cursor
