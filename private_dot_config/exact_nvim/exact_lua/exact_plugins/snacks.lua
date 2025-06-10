@@ -88,7 +88,7 @@ return {
     -- Other
     { '<leader>z', function() Snacks.zen() end, desc = 'Toggle Zen Mode' },
     { '<leader>Z', function() Snacks.zen.zoom() end, desc = 'Toggle Zoom' },
-    { '<leader>.', function() Snacks.scratch() end, desc = 'Toggle Scratch Buffer' },
+    { '<leader>bs.', function() Snacks.scratch() end, desc = 'Toggle Scratch Buffer' },
     { '<leader>S', function() Snacks.scratch.select() end, desc = 'Select Scratch Buffer' },
     { '<leader>n', function() Snacks.notifier.show_history() end, desc = 'Notification History' },
     { '<leader>bd', function() Snacks.bufdelete() end, desc = 'Delete Buffer' },
@@ -112,7 +112,6 @@ return {
 
         -- Create some toggle mappings
         Snacks.toggle.diagnostics():map('<leader>ud')
-        Snacks.toggle.line_number():map('<leader>ul')
         Snacks.toggle.treesitter():map('<leader>uT')
         Snacks.toggle.inlay_hints():map('<leader>uh')
         Snacks.toggle.indent():map('<leader>ug')
