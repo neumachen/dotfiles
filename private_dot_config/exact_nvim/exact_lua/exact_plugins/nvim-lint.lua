@@ -58,14 +58,8 @@ return {
         if #names > 0 then
           -- Check the if the linter is available, otherwise it will throw an error.
           for _, name in ipairs(names) do
-            local cmd = vim.fn.executable(name)
-            if cmd == 0 then
-              vim.notify('Linter ' .. name .. ' is not available', vim.log.levels.INFO)
-              return
-            else
-              -- Run the linter
-              lint.try_lint(name)
-            end
+            -- Run the linter
+            lint.try_lint(name)
           end
         end
       end,
