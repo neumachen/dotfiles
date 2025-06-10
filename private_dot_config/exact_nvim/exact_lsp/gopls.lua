@@ -1,8 +1,8 @@
-local Lsp = require "utils.lsp"
+local Lsp = require('utils.lsp')
 -- go install golang.org/x/tools/gopls@latest
 return {
-  cmd = { "gopls" },
+  cmd = { 'gopls' },
   on_attach = Lsp.on_attach,
-  filetypes = { "go", "gomod", "gowork", "gotmpl" },
-  root_markers = { "go.sum", "go.mod", ".git" },
+  filetypes = { 'go', 'gomod', 'gowork', 'gotmpl' },
+  root_markers = { 'go.sum', 'go.mod', '.git', 'go.work' },
 }
