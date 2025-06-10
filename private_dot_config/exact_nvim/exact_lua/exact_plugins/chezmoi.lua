@@ -1,5 +1,6 @@
 return {
   'xvzc/chezmoi.nvim',
+  event = 'VeryLazy',
   dependencies = {
     'nvim-lua/plenary.nvim',
     'nvim-telescope/telescope.nvim',
@@ -23,8 +24,8 @@ return {
     })
 
     local telescope = require('telescope')
-    vim.keymap.set('n', '<localleader>fcd', telescope.extensions.chezmoi.find_files, {
-      desc = 'edit dotfiles',
+    vim.keymap.set('n', '<leader>fc', telescope.extensions.chezmoi.find_files, {
+      desc = 'Find Chezmoi Managed Config Files',
     })
   end,
 }
