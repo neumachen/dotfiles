@@ -78,8 +78,8 @@ return {
     { '<leader>su', function() Snacks.picker.undo() end, desc = 'Undo History' },
     { '<leader>uC', function() Snacks.picker.colorschemes() end, desc = 'Colorschemes' },
     -- LSP
-    { 'gd', function() Snacks.picker.lsp_definitions() end, desc = 'Goto Definition' },
-    { 'gD', function() Snacks.picker.lsp_declarations() end, desc = 'Goto Declaration' },
+    { 'gd', function() snacks.picker.lsp_definitions() end, desc = 'goto definition' },
+    { 'gd', function() snacks.picker.lsp_declarations() end, desc = 'goto declaration' },
     { 'gr', function() Snacks.picker.lsp_references() end, nowait = true, desc = 'References' },
     { 'gI', function() Snacks.picker.lsp_implementations() end, desc = 'Goto Implementation' },
     { 'gy', function() Snacks.picker.lsp_type_definitions() end, desc = 'Goto T[y]pe Definition' },
@@ -97,7 +97,6 @@ return {
     { '<leader>gg', function() Snacks.lazygit() end, desc = 'Lazygit' },
     { '<leader>un', function() Snacks.notifier.hide() end, desc = 'Dismiss All Notifications' },
     { '<c-/>', function() Snacks.terminal() end, desc = 'Toggle Terminal' },
-    { '<c-_>', function() Snacks.terminal() end, desc = 'which_key_ignore' },
     { ']]', function() Snacks.words.jump(vim.v.count1) end, desc = 'Next Reference', mode = { 'n', 't' } },
     { '[[', function() Snacks.words.jump(-vim.v.count1) end, desc = 'Prev Reference', mode = { 'n', 't' } },
   },
