@@ -36,7 +36,7 @@ if vim.g.vscode then
 else
   local ext = require('utils.ext')
   -- Load the theme
-  ext.pcall('theme failed to load because', vim.cmd.colorscheme, 'catppuccin-macchiato')
+  ext.pcall('theme failed to load because', vim.cmd.colorscheme, 'nord')
 
   local ts_server = vim.g.lsp_typescript_server or 'ts_ls' -- "ts_ls" or "vtsls" for TypeScript
 

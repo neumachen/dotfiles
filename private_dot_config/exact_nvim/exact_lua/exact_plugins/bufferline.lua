@@ -14,9 +14,13 @@ return {
     { '[B', '<cmd>BufferLineMovePrev<cr>', desc = 'Move buffer prev' },
     { ']B', '<cmd>BufferLineMoveNext<cr>', desc = 'Move buffer next' },
   },
-  opts = {
-    options = {
-      always_show_bufferline = false,
-    },
-  },
+  config = function()
+    require('bufferline').setup({
+      options = {
+        always_show_bufferline = false,
+        separator_style = 'thin',
+      },
+      highlights = require('nord.plugins.bufferline').akinsho(),
+    })
+  end,
 }
