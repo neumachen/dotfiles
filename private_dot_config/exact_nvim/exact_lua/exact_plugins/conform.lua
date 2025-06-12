@@ -35,21 +35,19 @@ return {
           return { 'isort', 'black' }
         end
       end,
-      -- Install prettier globally.
-      -- npm install -g prettier@latest
-      -- Install dprint globally.
-      ['json'] = { 'biome', 'dprint', stop_after_first = true },
-      ['markdown'] = { 'prettierd', 'prettier', 'dprint', stop_after_first = true },
+      ruby = { 'rubyfmt' },
+      json = { 'biome', 'dprint', stop_after_first = true },
+      markdown = { 'prettierd', 'prettier', 'dprint', stop_after_first = true },
       ['markdown.mdx'] = { 'prettierd', 'prettier', 'dprint', stop_after_first = true },
-      ['javascript'] = { 'biome', 'deno_fmt', 'prettierd', 'prettier', 'dprint', stop_after_first = true },
-      ['javascriptreact'] = function(bufnr)
+      javascript = { 'biome', 'deno_fmt', 'prettierd', 'prettier', 'dprint', stop_after_first = true },
+      javascriptreact = function(bufnr)
         return { 'rustywind', first(bufnr, 'biome', 'deno_fmt', 'prettierd', 'prettier', 'dprint') }
       end,
-      ['typescript'] = { 'biome', 'deno_fmt', 'prettierd', 'prettier', 'dprint', stop_after_first = true },
-      ['typescriptreact'] = function(bufnr)
+      typescript = { 'biome', 'deno_fmt', 'prettierd', 'prettier', 'dprint', stop_after_first = true },
+      typescriptreact = function(bufnr)
         return { 'rustywind', first(bufnr, 'biome', 'deno_fmt', 'prettierd', 'prettier', 'dprint') }
       end,
-      ['svelte'] = function(bufnr)
+      svelte = function(bufnr)
         return { 'rustywind', first(bufnr, 'biome', 'deno_fmt', 'prettierd', 'prettier', 'dprint') }
       end,
     },
