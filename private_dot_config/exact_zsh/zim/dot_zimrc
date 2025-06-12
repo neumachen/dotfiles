@@ -119,6 +119,7 @@ zmodule ohmyzsh/ohmyzsh --root plugins/rust --fpath _rustc
 zmodule-custom broot --source "${HOME}/.config/broot/launcher/bash/br"
 zmodule-custom zoxide --eval "zoxide init --cmd cd zsh"
 zmodule-custom starship --eval "starship init zsh"
+zmodule-custom mise --eval "mise activate zsh"
 
 # Syntax highlighting and suggestions (load these last)
 zmodule zdharma-continuum/fast-syntax-highlighting
