@@ -46,6 +46,7 @@ else
     'lua_ls', -- Lua
     'biome', -- Biome = Eslint + Prettier
     'json', -- JSON
+    'ruby-lsp', -- Ruby
     'pyright', -- Python
     'gopls', -- Go
     'tailwindcss', -- Tailwind CSS
