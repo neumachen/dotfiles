@@ -95,6 +95,7 @@ zmodule joke/zim-k9s
 zmodule joke/zim-kubectl
 zmodule joke/zim-minikube
 zmodule joke/zim-skaffold
+zmodule jeffreytse/zsh-vi-mode
 
 # Prompt
 zmodule joke/zim-starship
