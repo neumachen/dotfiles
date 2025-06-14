@@ -10,7 +10,7 @@ return {
       {
         edit = {
           watch = true,
-          force = false,
+          force = true,
         },
         notification = {
           on_open = true,
