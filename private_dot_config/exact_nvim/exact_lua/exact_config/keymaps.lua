@@ -179,9 +179,6 @@ end, { desc = 'Toggle Autoformat' })
 -- ------------------------------------------------------------------------- }}}
 -- {{{ Folding commands.
 
--- Author: Karl Yngve Lervåg
---    See: https://github.com/lervag/dotnvim
-
 -- Close all fold except the current one.
 map('n', 'zv', 'zMzvzz', {
   desc = 'Close all folds except the current one',
@@ -195,6 +192,20 @@ map('n', 'zj', 'zcjzOzz', {
 -- Close current fold when open. Always open previous fold.
 map('n', 'zk', 'zckzOzz', {
   desc = 'Close current fold when open. Always open previous fold.',
+})
+
+-- Evaluates whether there is a fold on the current line if so unfold it else return a normal space
+map('n', '<space><space>', [[@=(foldlevel('.')?'za':"\<Space>")<CR>]], {
+  desc = 'toggle fold under cursor',
+})
+
+-- Refocus folds
+map('n', '<localleader>z', [[zMzvzz]], { desc = 'center viewport' })
+
+-- Make zO recursively open whatever top level fold we're in, no matter where the
+-- cursor happens to be.
+map('n', 'zO', [[zCzO]], {
+  desc = 'recursively open current top level fold',
 })
 
 -- Refer [FAQ - Neovide](https://neovide.dev/faq.html#how-can-i-use-cmd-ccmd-v-to-copy-and-paste)
