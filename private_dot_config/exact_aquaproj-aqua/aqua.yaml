@@ -77,3 +77,4 @@ packages:
 - name: bcicen/ctop@v0.7.7
 - name: starship/starship@v1.22.1
 - name: mr-karan/doggo@v1.0.5
+- name: astral-sh/uv@0.7.11
