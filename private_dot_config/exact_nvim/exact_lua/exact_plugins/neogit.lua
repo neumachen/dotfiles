@@ -16,7 +16,7 @@ return {
       disable_insert_on_commit = false,
       disable_line_numbers = false,
       disable_relative_line_numbers = false,
-      process_spinner = true,
+      process_spinner = false,
       floating = {
         relative = 'editor',
         width = 0.8,
