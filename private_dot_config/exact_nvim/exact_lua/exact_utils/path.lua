@@ -1,6 +1,6 @@
 local M = {}
 
---- Check if current directory is a git repo
+r-- Check if current directory is a git repo
 ---@return boolean
 function M.is_git_repo()
   vim.fn.system('git rev-parse --is-inside-work-tree')
@@ -17,6 +17,13 @@ function M.get_root_directory()
   if M.is_git_repo() then return M.get_git_root() end
 
   return vim.fn.getcwd()
+end
+
+--- Get nvim config directory
+---@return string|nil
+function M.get_nvim_config_directory()
+  -- Returns the path to the Neovim config directory
+  return vim.fn.stdpath("config")
 end
 
 return M
