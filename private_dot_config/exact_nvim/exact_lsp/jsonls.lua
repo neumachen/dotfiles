@@ -1,8 +1,11 @@
+local Lsp = require('utils.lsp')
+
 ---@diagnostic disable: inject-field
 ---@type vim.lsp.Config
 return {
   -- NOTE: npm i -g vscode-langservers-extracted
   cmd = { 'vscode-json-language-server', '--stdio' },
+  on_attach = Lsp.on_attach,
   filetypes = { 'json', 'jsonc' },
   root_markers = { '.git' },
   settings = {
