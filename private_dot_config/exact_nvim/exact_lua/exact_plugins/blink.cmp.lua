@@ -13,6 +13,7 @@ return {
   dependencies = {
     'moyiz/blink-emoji.nvim',
     'Kaiser-Yang/blink-cmp-dictionary',
+    'ribru17/blink-cmp-spell',
   },
   opts = function(_, opts)
     -- I noticed that telescope was extremely slow and taking too long to open,
