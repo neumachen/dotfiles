@@ -1,6 +1,6 @@
 local M = {}
 
-r-- Check if current directory is a git repo
+-- Check if current directory is a git repo
 ---@return boolean
 function M.is_git_repo()
   vim.fn.system('git rev-parse --is-inside-work-tree')
