@@ -19,6 +19,12 @@ return {
       typescriptreact = { 'oxlint', 'eslint_d' },
     },
     linters = {
+      cspell = {
+        args = {
+          '--config',
+          '~/.config/cspell.yaml',
+        },
+      },
       eslint_d = {
         args = {
           '--no-warn-ignored', -- Ignore warnings, support Eslint 9
