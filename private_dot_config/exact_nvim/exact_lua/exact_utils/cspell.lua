@@ -57,9 +57,11 @@ function M.add_word_from_diagnostics_to_c_spell_dictionary()
   -- Append the word to the dictionary file
   local file = io.open(cspell_json_path, 'a')
   if file then
+    -- NOTE: there is no need to add new line given that the file being opened
+    -- is appended.
     -- Detect new line at the end of the file or not
-    local last_char = file:seek('end', -1)
-    if last_char ~= nil and last_char ~= '\n' then word = '\n' .. word end
+    -- local last_char = file:seek('end', -1)
+    -- if last_char ~= nil and last_char ~= '\n' then word = '\n' .. word end
 
     file:write(word .. '')
     file:close()
