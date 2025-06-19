@@ -3,12 +3,16 @@
 version: '0.2'
 language: en
 globRoot: "."
+import:
+  # npm i -g @cspell/dict-vim
+  - "@cspell/dict-vim/cspell-ext.json"
 dictionaryDefinitions:
   - name: nvim-spell-en
     path: "~/.config/nvim/spell/en.utf-8.add"
     addWords: true
 dictionaries:
   - nvim-spell-en
+  - vim
 ignorePaths:
   - node_modules
   - dist
