@@ -15,8 +15,8 @@ Lazydev
 Lazygit
 Lervåg
 Mebibits
-Munif
 Multiple
+Munif
 Mzvzz
 NVIM
 Neogen
@@ -40,6 +40,7 @@ autocmd
 autocmds
 autopairs
 autowrite
+available_parallelism
 avante
 bnext
 bprevious
@@ -48,6 +49,8 @@ btop
 bufdelete
 bufferline
 buflisted
+bufnr
+bufnr
 bufnr
 buftype
 bunx
@@ -62,6 +65,7 @@ cnext
 codecompanion
 codespell
 colorschemes
+colorschemes
 commentstring
 commitizen
 completeopt
@@ -74,6 +78,7 @@ curdir
 cursorline
 cword
 d2
+dadbod
 danymat
 dbout
 default_keybinds
@@ -148,9 +153,11 @@ langserver
 langservers
 laststatus
 lazydev
+lazydev
 lazygit
 lazypath
 lazyrepo
+lazyvim
 lazyvim
 lclose
 lcount
@@ -162,6 +169,7 @@ lspinfo
 luap
 luap
 luarc
+luasnip
 luasnip
 luvit
 mapleader
@@ -191,6 +199,7 @@ oldfiles
 olimorris
 orta
 oxlint
+packspec
 pmenu
 premade
 previm
@@ -204,6 +213,7 @@ ravitemer
 realpath
 rebelot
 relativenumber
+rockspec
 rustywind
 saghen
 scrollback
@@ -229,9 +239,11 @@ startuptime
 statuscolumn
 statusline
 stdpath
+stdpath
 stevearc
 strftime
 sugarss
+synic
 sysname
 systemlist
 tabclose
@@ -279,6 +291,7 @@ wincmd
 winhighlight
 winid
 winminwidth
+winnr
 winnr
 winsize
 xiyaowong
