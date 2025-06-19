@@ -7,7 +7,7 @@
     "cast-local-type",
     "missing-fields"
   ],
-  "Lua.workspace.checkThirdParty": false,
+  "Lua.workspace.checkThirdParty": true,
   "diagnostics.globals": [
     "vim",
     "P",
