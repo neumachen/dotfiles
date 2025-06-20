@@ -1,3 +1,4 @@
+#gsub!
 APPNAME
 Autocmds
 Avante
@@ -42,6 +43,8 @@ autopairs
 autowrite
 available_parallelism
 avante
+betterdisplay
+bettermouse
 bnext
 bprevious
 btop
@@ -59,6 +62,7 @@ cclose
 changedelete
 checkhealth
 checktime
+chromedriver
 cmdline
 cmdline
 cnext
@@ -84,6 +88,7 @@ dbout
 default_keybinds
 denotest
 devicons
+devicons
 diffthis
 diffupdate
 dmmulroy
@@ -95,6 +100,7 @@ eruby
 expandtab
 filereadable
 fillchars
+fira
 fnameescape
 fnamemodify
 foldclose
@@ -111,6 +117,7 @@ getcwd
 getloclist
 getnf
 getqflist
+ghostty
 gitbrowse
 gitsigns
 goctl
@@ -146,6 +153,8 @@ jcroqlnt
 jellydn
 jsregexp
 kanagawa
+karabiner
+keka
 keymap
 keymaps
 keywordprg
@@ -175,6 +184,7 @@ luvit
 mapleader
 maplocalleader
 mcphub
+mediainfo
 menuone
 mermaidjs
 mfussenegger
@@ -182,6 +192,7 @@ modeline
 mountpoint
 neogen
 neotest
+neovide
 neovide
 nocombine
 nofile
@@ -197,9 +208,16 @@ nunjucks
 nvim
 oldfiles
 olimorris
+orbstack
 orta
+ossp
 oxlint
 packspec
+pearcleaner
+pearcleaner
+pgadmin4
+pgadmin4
+pinentry
 pmenu
 premade
 previm
@@ -209,6 +227,7 @@ pyright
 qflist
 quickfile
 rafamadriz
+raindropio
 ravitemer
 realpath
 rebelot
@@ -257,6 +276,8 @@ tabonly
 tabpagenr
 tabpages
 tabprevious
+tasksh
+taskwarrior
 tcqj
 templ
 termguicolors
@@ -274,8 +295,10 @@ tsplayground
 tterm
 twoslash
 typst
+unar
 undofile
 undolevels
+unixodbc
 unnamedplus
 updatetime
 vimdoc
@@ -283,7 +306,9 @@ vimdoc
 vimgrep
 virtualedit
 vitest
+voiceink
 vtsls
+wezterm
 wezterm
 wildmode
 winblend
