@@ -1,4 +1,6 @@
 # vim: ft=zsh
+# -*- mode: sh; sh-set-shell: zsh -*-
+# vim: ft=zsh
 
 source "${HOME}/.shtils"
 
@@ -15,24 +17,8 @@ pathmunge "${BREW_HOME}/bin" after
 pathmunge "${BREW_HOME}/sbin" after
 {{- end }}
 
-if [ ! -d "${HOME}/.asdf" ]; then
-  echo-err "asdf not found!"
-  exit 1
-else
-  source "${HOME}/.asdf/asdf.sh"
-  if [ -d "${HOME}/.asdf/shims" ]; then
-    pathmunge "${HOME}/.asdf/shims" before
-  fi
-fi
-
-if command_exists aqua; then
-  pathmunge "$(aqua root-dir)/bin" before
-
-  export AQUA_GLOBAL_CONFIG="${HOME}/.config/aquaproj-aqua/aqua.yaml"
-fi
-
-if command_exists chezmoi; then
-  if [ -z "${CHEZMOI_CONFIG_DIR}" ]; then
+if [ -z "${CHEZMOI_CONFIG_DIR}" ]; then
+  if command_exists chezmoi; then
     export CHEZMOI_CONFIG_DIR="${HOME}/.config/chezmoi"
   fi
   if [ -z "${DOTFILES_DIR}" ]; then
@@ -131,23 +117,6 @@ else
 fi
 pathmunge "${LOCAL_BIN}" after
 pathmunge "${LOCAL_SBIN}" after
-
-if [ -z "${GOBIN_PATH+x}" ] || [ -z "$GOBIN_PATH" ]; then
-  if asdf where golang >/dev/null 2>&1; then
-    GOBIN_PATH="$(asdf where golang)/bin"
-
-    if [ ! -d "${GOBIN_PATH}" ]; then
-      mkdir -p "${GOBIN_PATH}"
-    fi
-    if [ -z $(go env GOBIN) ]; then
-      go env -u $GOBIN_PATH
-    fi
-
-    go env -w GOBIN=$GOBIN_PATH
-    export GOBIN_PATH
-    pathmunge "${GOBIN_PATH}" after
-  fi
-fi
 
 {{- if (hasKey . "envvars") }}
  {{ range .envvars }}
