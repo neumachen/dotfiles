@@ -45,7 +45,25 @@ export TASKWARRIOR_CONFIG="${XDG_CONFIG_HOME}/taskwarrior"
 export DENKWERKSTATT_DIR="${HOME}/denkwerkstatt"
 export WISSENSSPEICHER_DIR="${DENKWERKSTATT_DIR}/wissensspeicher"
 
+local_bin="${HOME}/.local/bin"
+if [[ ! -d "${local_bin}" ]]; then
+  echo-info "local bin directory not found, creating"
+  mkdir -p "${local_bin}"
+fi
+export LOCAL_BIN="${local_bin}"
+
+local_sbin="${HOME}/.local/sbin"
+if [ ! -d "${local_sbin}" ]; then
+  echo-info "local sbin directory not found, creating"
+  mkdir -p "${local_sbin}"
+fi
+export LOCAL_SBIN="${local_sbin}"
+
 {{ if eq .chezmoi.os "darwin" -}}
+if [ -f "${HOME}/.gnubin_path" ]; then
+  source "${HOME}/.gnubin_path"
+fi
+
 if [ -S "${HOME}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock" ]; then
   export SSH_AUTH_SOCK="${HOME}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
 fi
