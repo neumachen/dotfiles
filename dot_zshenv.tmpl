@@ -3,13 +3,16 @@
 
 source "${HOME}/.shtils"
 
+# ZSH only and most performant way to check existence of an executable
+# https://www.topbug.net/blog/2016/10/11/speed-test-check-the-existence-of-a-command-in-bash-and-zsh/
+command_exists() { (( $+commands[$1] )); }
+
 manual_pathmunge "/usr/local/man" before
 
 export XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
 export ZDOTDIR=${ZDOTDIR:-$XDG_CONFIG_HOME/zsh}
 export ZIM_HOME=${ZDOTDIR}/zim
 export ZIM_CONFIG_FILE=${ZIM_HOME}/.zimrc
-export ASDF_DIR=${HOME}/.asdf
 
 # You can use .zprofile to set environment vars for non-login, non-interactive shells.
 if [[ ( "$SHLVL" -eq 1 && ! -o LOGIN ) && -s "${ZDOTDIR:-$HOME}/.zprofile" ]]; then
@@ -47,4 +50,3 @@ if [ -S "${HOME}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
   export SSH_AUTH_SOCK="${HOME}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
 fi
 {{ end -}}
-
