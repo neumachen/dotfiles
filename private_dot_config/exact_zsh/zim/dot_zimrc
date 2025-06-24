@@ -116,7 +116,7 @@ zmodule ahmetb/kubectx --fpath completion/_kubectx.zsh --fpath completion/_kuben
 zmodule srijanshetty/zsh-pandoc-completion
 zmodule rust-lang/cargo --root src/etc --fpath _cargo
 zmodule ohmyzsh/ohmyzsh --root plugins/rust --fpath _rustc
-zmodule-custom broot --source "${HOME}/.config/broot/launcher/bash/br"
+# zmodule-custom broot --source "${HOME}/.config/broot/launcher/bash/br"
 zmodule-custom zoxide --eval "zoxide init --cmd cd zsh"
 zmodule-custom starship --eval "starship init zsh"
 
