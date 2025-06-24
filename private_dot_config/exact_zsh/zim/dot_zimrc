@@ -74,7 +74,7 @@ function zmodule-custom() {
 
   zmodule custom-${zcommand} --name ${zname} --use mkdir --if-command ${zcommand} ${zargs}
 }
-
+ 
 # Zim modules
 zmodule homebrew
 zmodule custom
@@ -87,6 +87,7 @@ zmodule fzf
 zmodule exa
 
 # Community Modules
+zmodule joke/zim-mise
 zmodule joke/zim-chezmoi
 zmodule joke/zim-github-cli
 zmodule joke/zim-helm
@@ -107,7 +108,6 @@ zmodule ohmyzsh/ohmyzsh --root lib --source clipboard.zsh
 zmodule zsh-users/zsh-completions --fpath src
 
 # Custom completions
-zmodule asdf-vm/asdf --fpath internal/completions/asdf.zsh
 zmodule docker/cli --root contrib/completion/zsh --fpath _docker
 zmodule eza-community/eza --root completions/zsh --fpath _eza
 zmodule sharkdp/fd --root contrib/completion --fpath _fd
@@ -119,8 +119,6 @@ zmodule ohmyzsh/ohmyzsh --root plugins/rust --fpath _rustc
 zmodule-custom broot --source "${HOME}/.config/broot/launcher/bash/br"
 zmodule-custom zoxide --eval "zoxide init --cmd cd zsh"
 zmodule-custom starship --eval "starship init zsh"
-zmodule-custom mise --eval "mise activate zsh"
-zmodule-custom mise --eval "mise completion zsh"
 
 # Syntax highlighting and suggestions (load these last)
 zmodule zdharma-continuum/fast-syntax-highlighting
