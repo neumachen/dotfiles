@@ -1,4 +1,3 @@
-# vim: ft=zsh
 # -*- mode: sh; sh-set-shell: zsh -*-
 # vim: ft=zsh
 
@@ -7,12 +6,6 @@ source "${HOME}/.shtils"
 # ZSH only and most performant way to check existence of an executable
 # https://www.topbug.net/blog/2016/10/11/speed-test-check-the-existence-of-a-command-in-bash-and-zsh/
 command_exists() { (( $+commands[$1] )); }
-
-{{ if eq .chezmoi.os "darwin" -}}
-if [ -f "${HOME}/.gnubin_path" ]; then
-  source "${HOME}/.gnubin_path"
-fi
-{{ end -}}
 
 {{ if eq .chezmoi.os "darwin" -}}
 BREW_PREFIX=$([[ "$(arch)" == "arm64" ]] && echo "/opt/homebrew" || echo "/usr/local")
@@ -98,20 +91,6 @@ fi
 # this should only be used when gpg was installed using brew
 # https://stackoverflow.com/questions/39494631/gpg-failed-to-sign-the-data-fatal-failed-to-write-commit-object-git-2-10-0
 export GPG_TTY=$(command tty)
-
-local_bin="${HOME}/.local/bin"
-if [[ ! -d "${local_bin}" ]]; then
-  echo-info "local bin directory not found, creating"
-  mkdir -p "${local_bin}"
-fi
-export LOCAL_BIN="${local_bin}"
-
-local_sbin="${HOME}/.local/sbin"
-if [ ! -d "${local_sbin}" ]; then
-  echo-info "local sbin directory not found, creating"
-  mkdir -p "${local_sbin}"
-fi
-export LOCAL_SBIN="${local_sbin}"
 
 fzf_bin="${HOME}/.local/share/fzf/bin"
 if [[ ! -d "${fzf_bin}" ]]; then
