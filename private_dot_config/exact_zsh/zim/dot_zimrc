@@ -75,6 +75,9 @@ function zmodule-custom() {
   zmodule custom-${zcommand} --name ${zname} --use mkdir --if-command ${zcommand} ${zargs}
 }
  
+# load first in order for dependent qpps to detect mise managed tools
+zmodule joke/zim-mise
+
 # Zim modules
 zmodule homebrew
 zmodule custom
@@ -87,7 +90,6 @@ zmodule fzf
 zmodule exa
 
 # Community Modules
-zmodule joke/zim-mise
 zmodule joke/zim-chezmoi
 zmodule joke/zim-github-cli
 zmodule joke/zim-helm
