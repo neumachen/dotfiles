@@ -60,6 +60,8 @@ fi
 export LOCAL_SBIN="${local_sbin}"
 
 {{ if eq .chezmoi.os "darwin" -}}
+BREW_PREFIX=$([[ "$(arch)" == "arm64" ]] && echo "/opt/homebrew" || echo "/usr/local")
+
 if [ -f "${HOME}/.gnubin_path" ]; then
   source "${HOME}/.gnubin_path"
 fi
