@@ -18,14 +18,14 @@ return {
   },
   keys = {
     {
-      '<leader><F1>',
+      '<F1>',
       mode = { 'n', 'v' },
       '<cmd>Yazi<cr>',
       desc = 'Open yazi at the current file',
     },
     {
       -- Open in the current working directory
-      '<leader><F2>',
+      '<leader><F1>',
       mode = { 'n', 'v' },
       '<cmd>Yazi cwd<cr>',
       desc = "Open the file manager in nvim's working directory",
@@ -33,7 +33,7 @@ return {
     {
       -- NOTE: this requires a version of yazi that includes
       -- https://github.com/sxyazi/yazi/pull/1305 from 2024-07-18
-      '<leader><F3>',
+      '<leader><leader><F1>',
       mode = { 'n' },
       '<cmd>Yazi toggle<cr>',
       desc = 'Resume the last yazi session',
