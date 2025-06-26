@@ -30,7 +30,7 @@ fi
 if [ -z "$MEINE_HELFERLEIN" ]; then
   meine_helferlein_dir="${HOME}/.local/share/meine-helferlein"
   if [ ! -d "$meine_helferlein_dir" ]; then
-    echo-warn "$meine_helferlein_dir dir does not exist, custom functions will fail"
+    echo_warn "$meine_helferlein_dir dir does not exist, custom functions will fail"
   else
     export MEINE_HELFERLEIN="$meine_helferlein_dir"
     pathmunge "${MEINE_HELFERLEIN}" after
@@ -115,3 +115,4 @@ pathmunge "${LOCAL_SBIN}" after
  {{ range .envvars }}
 export {{ . }}
  {{- end -}}
+{{ end }}
