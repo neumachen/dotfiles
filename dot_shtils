@@ -117,9 +117,9 @@ autoload_script() {
   }"
 }
 
-autoload_script echo_eval "${DEVBIN}/echo-eval"
-autoload_script echo_run "${DEVBIN}/echo-run"
-autoload_script safe_run "${DEVBIN}/safe-run"
+autoload_script echo_eval "${MEINE_HELFERLEIN}/echo-eval"
+autoload_script echo_run "${MEINE_HELFERLEIN}/echo-run"
+autoload_script safe_run "${MEINE_HELFERLEIN}/safe-run"
 
 take() {
 	# shellcheck disable=SC2164

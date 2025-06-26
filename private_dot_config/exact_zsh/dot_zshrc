@@ -6,7 +6,7 @@
 
 source "${HOME}/.shtils"
 
-pathmunge ${DEVBIN} before
+pathmunge ${MEINE_HELFERLEIN} before
 
 # Initialize Zim if it's not already installed
 if [[ ! -e ${ZIM_HOME}/zimfw.zsh ]]; then
