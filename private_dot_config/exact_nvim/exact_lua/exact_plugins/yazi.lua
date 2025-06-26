@@ -6,7 +6,7 @@ return {
     -- if you want to open yazi instead of netrw, see below for more info
     open_for_directories = true,
     keymaps = {
-      show_help = '<F1>',
+      show_help = '<F5>',
     },
     future_features = {
       -- By default, this is `true`, which means yazi.nvim processes events
