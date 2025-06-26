@@ -120,6 +120,10 @@ autoload_script() {
 autoload_script echo_eval "${MEINE_HELFERLEIN}/echo-eval"
 autoload_script echo_run "${MEINE_HELFERLEIN}/echo-run"
 autoload_script safe_run "${MEINE_HELFERLEIN}/safe-run"
+autoload_script echo_info "${MEINE_HELFERLEIN}/echo-info"
+autoload_script echo_err "${MEINE_HELFERLEIN}/echo-err"
+autoload_script echo_warn "${MEINE_HELFERLEIN}/echo-warn"
+autoload_script echo_ok "${MEINE_HELFERLEIN}/echo-ok"
 
 take() {
 	# shellcheck disable=SC2164
@@ -137,7 +141,7 @@ restart_sh() {
 	set -- "$(command -v "$1")"
 
 	if [ "$(jobs)" != "" ]; then
-		echo-warn "Current shell has backgrounded jobs. Not restarting ${1}"
+		echo_warn "Current shell has backgrounded jobs. Not restarting ${1}"
 		return 1
 	fi
 
@@ -215,7 +219,7 @@ save_venv() {
 	fi
 
 	if [ "${1:-}" != "--quiet" ]; then
-		echo "Saving venv '${VIRTUAL_ENV}'."
+		echo_info "Saving venv '${VIRTUAL_ENV}'."
 	fi
 	SAVED_VENVS="${VIRTUAL_ENV}:${SAVED_VENVS:-}"
 	deactivate
@@ -228,7 +232,7 @@ restore_venv() {
 
 	if [ "${SAVED_VENVS:-}" != "" ]; then
 		if [ "${1:-}" != "--quiet" ]; then
-			echo "Restoring '${SAVED_VENVS%%:*}'."
+			echo_info "Restoring '${SAVED_VENVS%%:*}'."
 		fi
 		# shellcheck disable=SC1090,SC1091
 		. "${SAVED_VENVS%%:*}/bin/activate"
@@ -313,11 +317,11 @@ venv() {
 
 presentation_setup() {
 	new_home="$(mktemp -d)"
-	echo "Copying .terminfo to new HOME"
+	echo_info "Copying .terminfo to new HOME"
 	cp -r ~/.terminfo "${new_home}/.terminfo"
-	echo "Copying .vim to new HOME"
+	echo_info "Copying .vim to new HOME"
 	cp -r ~/.vim "${new_home}/.vim"
-	echo "Adding empty .zshrc"
+	echo_info "Adding empty .zshrc"
 	touch "${new_home}/.zshrc"
 	cd "$new_home" || return
 	clear
@@ -351,3 +355,4 @@ if [ "$VIRTUAL_ENV" != "" ]; then
 	# shellcheck disable=SC1090
 	echo_run . "$VIRTUAL_ENV/bin/activate"
 fi
+
