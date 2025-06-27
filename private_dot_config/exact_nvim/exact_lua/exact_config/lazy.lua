@@ -42,10 +42,39 @@ require('lazy').setup({
     { import = 'vscode.plugins', cond = function() return vim.g.vscode end },
   },
   defaults = { lazy = false },
-  concurrency = vim.uv.available_parallelism() * 2,
-  ui = { border = vim.g.border },
+  concurrency = jit.os:find("Windows") and (vim.uv.available_parallelism() * 2) or nil,
+  ui = {
+    border = vim.g.border,
+    custom_keys = {
+      ["<localleader>lg"] = {
+        function(plugin)
+          require("lazy.util").float_term({ "lazygit", "log" }, {
+            cwd = plugin.dir,
+          })
+        end,
+        desc = "Open lazygit log",
+      },
+      ["<localleader>li"] = {
+        function(plugin)
+          Util.notify(vim.inspect(plugin), {
+            title = "Inspect " .. plugin.name,
+            lang = "lua",
+          })
+        end,
+        desc = "Inspect Plugin",
+      },
+      ["<localleader>lt"] = {
+        function(plugin)
+          require("lazy.util").float_term(nil, {
+            cwd = plugin.dir,
+          })
+        end,
+        desc = "Open terminal in plugin dir",
+      },
+    },
+  },
   checker = {
-    concurrency = 15,
+    concurrency = 16,
     enabled = true,
     notify = true,
     frequency = 3600, -- check for updates every hour
@@ -82,6 +111,26 @@ require('lazy').setup({
     enabled = true,
     root = vim.fn.stdpath('data') .. '/lazy-rocks',
     server = 'https://nvim-neorocks.github.io/rocks-binaries/',
+  },
+
+  -- lazy can generate helptags from the headings in markdown readme files,
+  -- so :help works even for plugins that don't have vim docs.
+  -- when the readme opens with :help it will be correctly displayed as markdown
+  readme = {
+    enabled = true,
+    root = vim.fn.stdpath("state") .. "/lazy/readme",
+    files = { "README.md", "lua/**/README.md" },
+    -- only generate markdown helptags for plugins that don't have docs
+    skip_if_doc_exists = true,
+  },
+  -- Enable profiling of lazy.nvim. This will add some overhead,
+  -- so only enable this when you are debugging lazy.nvim
+  profiling = {
+    -- Enables extra stats on the debug tab related to the loader cache.
+    -- Additionally gathers stats about all package.loaders
+    loader = false,
+    -- Track each new require in the Lazy profiling tab
+    require = false,
   },
 })
 -----------------------------------------------------------------------------//
