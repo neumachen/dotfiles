@@ -38,7 +38,7 @@ if vim.env.NVIM then return require('lazy').setup({ { 'willothy/flatten.nvim', c
 -- Setup lazy.nvim
 require('lazy').setup({
   spec = {
-    { import = 'plugins', cond = function() return not vim.g.vscode end },
+    { import = 'plugins',        cond = function() return not vim.g.vscode end },
     { import = 'vscode.plugins', cond = function() return vim.g.vscode end },
   },
   defaults = { lazy = false },
@@ -65,7 +65,7 @@ require('lazy').setup({
     -- install missing plugins on startup. This doesn't increase startup time.
     missing = true,
     -- try to load one of these colorschemes when starting an installation during startup
-    colorscheme = { 'nord' },
+    colorscheme = { 'tokyonight-storm' },
   },
   pkg = {
     enabled = true,
