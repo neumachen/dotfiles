@@ -100,6 +100,12 @@ fi
 
 HISTFILE="${HOME}/.local/share/zsh/history"
 
+# Ensure the directory for HISTFILE exists
+histfile_dir="$(dirname "${HISTFILE}")"
+if [[ ! -d "${histfile_dir}" ]]; then
+  mkdir -p "${histfile_dir}"
+fi
+
 # make some commands not show up in history
 HISTIGNORE="ls:ll:la:cd:cd -:pwd:exit:date:* --help"
 HISTSIZE=10000000
