@@ -33,26 +33,93 @@ bindkey -M emacs '^N' history-substring-search-down
 bindkey -M vicmd 'k' history-substring-search-up
 bindkey -M vicmd 'j' history-substring-search-down
 
-# setopts
-setopt extended_history       # record timestamp of command in HISTFILE
-setopt hist_expire_dups_first # delete duplicates first when HISTFILE size exceeds HISTSIZE
-setopt hist_ignore_all_dups   # ignore duplicated commands history list
-setopt hist_ignore_space      # ignore commands that start with space
-setopt hist_verify            # show command with history expansion to user before running it
-setopt inc_append_history     # add commands to HISTFILE in order of execution
-setopt share_history          # share command history data
-setopt always_to_end          # cursor moved to the end in full completion
-setopt hash_list_all          # hash everything before completion
-setopt completealiases        # complete alisases
-setopt always_to_end          # when completing from the middle of a word, move the cursor to the end of the word
-setopt complete_in_word       # allow completion from within a word/phrase
-setopt nocorrect              # spelling correction for commands
-setopt list_ambiguous         # complete as much of a completion until it gets ambiguous.
-setopt nolisttypes
-setopt listpacked
+#############################
+# Shell Options
+#############################
+
+# History
+#
+# Append history to the history file (no overwriting)
+setopt appendhistory
+# Share history across terminals
+setopt sharehistory
+# Immediately append to the history file, not just when a term is killed
+setopt incappendhistory
+# Remove superfluous blanks from each command line being added to the history list
+setopt histreduceblanks
+# Remove command lines from the history list when the first character on the
+# line is a space, or when one of the expanded aliases contains a leading space
+setopt histignorespace
+# Do not enter command lines into the history list if they are duplicates of the
+# previous event.
+setopt histignorealldups
+# Delete duplicates first when HISTFILE size exceeds HISTSIZE
+setopt histexpiredupsfirst
+# show command with history expansion to user before running it
+setopt histverify
+# Add a bit more data (timestamp in unix epoch time and elapsed time of the command)
+setopt extendedhistory
+
+# Directory
+#
+# Switching directories for lazy people
+setopt autocd
+# See: http://zsh.sourceforge.net/Intro/intro_6.html
+setopt autopushd pushdminus pushdsilent pushdtohome pushdignoredups
+# Don't kill background jobs when I logout
+# setopt nohup
+# See: http://zsh.sourceforge.net/Intro/intro_2.html
+setopt extended_glob
+
+# Directory
+#
+# Switching directories for lazy people
+setopt auto_cd
+# See: http://zsh.sourceforge.net/Intro/intro_6.html
+setopt autopushd pushdminus pushdsilent pushdtohome pushdignoredups
+# Don't kill background jobs when I logout
+setopt nohup
+
+# Input/Output
+#
+# Automatically use menu completion after the second consecutive request for
+# completion, for example by pressing the tab key repeatedly.
 setopt automenu
-setopt autocd                 # no need ot put CD when traversing directories
-unsetopt BEEP
+# If the argument to a cd command (or an implied cd with the AUTO_CD option set)
+# is not a directory, and does not begin with a slash, try to expand the
+# expression as if it were preceded by a '~'
+setopt cdablevars
+# Try to make the completion list smaller (occupying less lines) by printing
+# the matches in columns with different widths
+setopt listpacked
+# Don't show types in completion lists
+setopt nolisttypes
+# Complete as much of a completion until it gets ambiguous.
+setopt listambiguous
+# Whenever a command completion is attempted, make sure the entire command path
+# is hashed first. This makes the first completion slower.
+setopt hashlistall          # hash everything before completion
+# If a completion is performed with the cursor within a word, and a full
+# completion is inserted, the cursor is moved to the end of the word
+setopt alwaystoend
+# Not correct the spelling of commands
+setopt nocorrect nocorrectall
+# Disable beep
+setopt nobeep
+# Allow comments inside commands
+# setopt interactivecomments
+# Report the status of background jobs immediately, rather than waiting until
+# just before printing a prompt.
+setopt notify
+# Display PID when using jobs
+setopt longlistjobs
+# Perform implicit tees or cats when multiple redirections are attempted
+setopt multios
+# Use vi key bindings in ZSH
+# NOTE: disabled, handled by zsh-vi-mode with zimfw
+# setopt vi
+# complete alisases
+setopt completealiases
 
 alias c='clear'
 
