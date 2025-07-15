@@ -99,6 +99,7 @@ zmodule joke/zim-kubectl
 zmodule joke/zim-minikube
 zmodule joke/zim-skaffold
 zmodule jeffreytse/zsh-vi-mode
+zmodule shanwker1223/zim-alias-finder
 
 # Prompt
 zmodule joke/zim-starship
