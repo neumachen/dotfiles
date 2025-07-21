@@ -75,8 +75,11 @@ function zmodule-custom() {
   zmodule custom-${zcommand} --name ${zname} --use mkdir --if-command ${zcommand} ${zargs}
 }
  
-# load first in order for dependent qpps to detect mise managed tools
+# Load first in order for dependent qpps to detect mise managed tools
 zmodule joke/zim-mise
+
+# To avoid rewriting fzf opts load first
+zmodule jeffreytse/zsh-vi-mode
 
 # Zim modules
 zmodule homebrew
@@ -98,7 +101,6 @@ zmodule joke/zim-k9s
 zmodule joke/zim-kubectl
 zmodule joke/zim-minikube
 zmodule joke/zim-skaffold
-zmodule jeffreytse/zsh-vi-mode
 zmodule shanwker1223/zim-alias-finder
 
 # Prompt
