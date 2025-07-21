@@ -29,8 +29,8 @@ defaults:
   issuesLimit: 20
   view: issues
 repoPaths:
-  :owner/:repo: $DEV_WORKSPACE_ROOT/repos/github.com/:owner/:repo
-  dlvhdr/*: $DEV_WORKSPACE_ROOT/repos/github.com/neumachen/*
+  :owner/:repo: $CODEBASIS_DIR/github.com/:owner/:repo
+  dlvhdr/*: $CODEBASIS_DIR/github.com/neumachen/*
 keybindings:
   prs:
     - key: c
