@@ -37,13 +37,12 @@ if command_exists nvim; then
   export MANPAGER='nvim +Man!'
 fi
 
-export DEV_WORKSPACE_ROOT="${HOME}/dev-workspace"
-export VCS_REPOSITORIES_DIR="${DEV_WORKSPACE_ROOT}/repos"
-export REPOS_GITHUB="${VCS_REPOSITORIES_DIR}/repos/github"
-export REPOS_GITHUB_PERSONAL="${REPOS_GITHUB}/neumachen"
 export TASKWARRIOR_CONFIG="${XDG_CONFIG_HOME}/taskwarrior"
-export DENKWERKSTATT_DIR="${HOME}/denkwerkstatt"
-export WISSENSSPEICHER_DIR="${DENKWERKSTATT_DIR}/wissensspeicher"
+export MEINCODEX_DIR="${HOME}/meincodex"
+export NOTIZEN_DIR="${MEINCODEX_DIR}/notizen"
+export CODEBASIS_DIR="${MEINCODEX_DIR}/codebasis"
+export CODESCHNIPSEL_DIR="${MEINCODEX_DIR}/codeschnipsel"
+
 
 {{ if eq .chezmoi.os "darwin" -}}
 if [ -S "${HOME}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock" ]; then
