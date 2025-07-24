@@ -33,4 +33,37 @@ function M.get_nvim_config_directory()
   return vim.fn.stdpath("config")
 end
 
+--- Check if a directory exists
+--- @param path string|nil The directory path to check
+--- @param opts table|nil Optional configuration
+---   - notify_on_missing: boolean - Show notification when directory doesn't exist
+---   - notify_on_found: boolean - Show notification when directory exists
+---   - notify_message: string - Custom message (uses path if not provided)
+---   - notify_level: number - Log level (default: vim.log.levels.INFO)
+---   - notify_title: string - Notification title (default: "Directory Check")
+--- @return boolean True if the directory exists, false otherwise
+function M.dir_exists(path, opts)
+  if not path or path == "" then
+    return false
+  end
+
+  opts = opts or {}
+  local exists = vim.fn.isdirectory(vim.fn.expand(path)) == 1
+
+  -- Handle notifications
+  if (exists and opts.notify_on_found) or (not exists and opts.notify_on_missing) then
+    local message = opts.notify_message or path
+    local level = opts.notify_level or vim.log.levels.INFO
+    local title = opts.notify_title or "Directory Check"
+
+    if exists then
+      vim.notify(string.format("Directory exists: %s", message), level, { title = title })
+    else
+      vim.notify(string.format("Directory not found: %s", message), level, { title = title })
+    end
+  end
+
+  return exists
+end
+
 return M
