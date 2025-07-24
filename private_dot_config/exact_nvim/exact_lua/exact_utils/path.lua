@@ -1,5 +1,12 @@
 local M = {}
 
+-- Joins multiple path components with the OS-appropriate path separator
+-- @return string The joined path
+function M.join_path(...)
+  local sep = package.config:sub(1, 1) -- Gets OS path separator
+  return table.concat({ ... }, sep)
+end
+
 -- Check if current directory is a git repo
 ---@return boolean
 function M.is_git_repo()
