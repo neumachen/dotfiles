@@ -3,7 +3,7 @@ local opt, fn = vim.opt, vim.fn
 -----------------------------------------------------------------------------//
 -- Leader Bindings {{{1
 -----------------------------------------------------------------------------//
-vim.g.mapleader = ',' -- Remap leader key
+vim.g.mapleader = ','      -- Remap leader key
 vim.g.maplocalleader = ' ' -- Local leader is <Space>
 -----------------------------------------------------------------------------//
 -- Disable providers {{{1
@@ -61,28 +61,28 @@ opt.fillchars = {
 -----------------------------------------------------------------------------//
 -- Use in vertical diff mode, blank lines to keep sides aligned, Ignore whitespace changes
 opt.diffopt = opt.diffopt
-  + {
-    'vertical',
-    'iwhite',
-    'hiddenoff',
-    'foldcolumn:0',
-    'context:4',
-    'algorithm:histogram',
-    'indent-heuristic',
-    'linematch:60',
-  }
+    + {
+      'vertical',
+      'iwhite',
+      'hiddenoff',
+      'foldcolumn:0',
+      'context:4',
+      'algorithm:histogram',
+      'indent-heuristic',
+      'linematch:60',
+    }
 -----------------------------------------------------------------------------//
 -- Format Options {{{1
 -----------------------------------------------------------------------------//
 opt.formatoptions = {
   ['1'] = true,
   ['2'] = true, -- Use indent from 2nd line of a paragraph
-  q = true, -- continue comments with gq"
-  c = true, -- Auto-wrap comments using textwidth
-  r = true, -- Continue comments when pressing Enter
-  n = true, -- Recognize numbered lists
-  t = false, -- autowrap lines using text width value
-  j = true, -- remove a comment leader when joining lines.
+  q = true,     -- continue comments with gq"
+  c = true,     -- Auto-wrap comments using textwidth
+  r = true,     -- Continue comments when pressing Enter
+  n = true,     -- Recognize numbered lists
+  t = false,    -- autowrap lines using text width value
+  j = true,     -- remove a comment leader when joining lines.
   -- Only break if the line was not longer than 'textwidth' when the insert
   -- started and only at a white character that has been entered during the
   -- current insert command.
@@ -107,7 +107,7 @@ opt.grepformat = opt.grepformat ^ { '%f:%l:%c:%m' }
 -----------------------------------------------------------------------------//
 opt.wildcharm = ('\t'):byte()
 opt.wildmode = 'list:full' -- Shows a menu bar as opposed to an enormous list
-opt.wildignorecase = true -- Ignore case when completing file names and directories
+opt.wildignorecase = true  -- Ignore case when completing file names and directories
 opt.wildignore = {
   '*.avi',
   '*.class',
@@ -165,7 +165,7 @@ opt.wrapmargin = 2
 -----------------------------------------------------------------------------//
 opt.autowriteall = true -- automatically :write before running commands and changing files
 opt.completeopt = 'menu,menuone,noselect,fuzzy'
-opt.confirm = true -- make vim prompt me to save before doing destructive things
+opt.confirm = true      -- make vim prompt me to save before doing destructive things
 opt.guifont = 'CartographCF Nerd Font Mono:h14,codicon'
 opt.hlsearch = true
 opt.laststatus = 3
@@ -195,9 +195,9 @@ opt.cursorlineopt = { 'both' }
 -----------------------------------------------------------------------------//
 -- Title {{{1
 -----------------------------------------------------------------------------//
-opt.titleold = fn.fnamemodify(vim.uv.os_getenv('SHELL'), ':t') or ''
+opt.titleold = fn.fnamemodify(os.getenv('SHELL'), ':t') or ''
 opt.title = true
-opt.titlelen = 70
+opt.titlelen = 80
 -----------------------------------------------------------------------------//
 -- Utilities {{{1
 -----------------------------------------------------------------------------//
@@ -217,7 +217,7 @@ opt.sessionoptions = {
   'winsize',
 }
 opt.viewoptions = { 'cursor', 'folds' } -- save/restore just these (with `:{mk,load}view`)
-opt.virtualedit = 'block' -- allow cursor to move where there is no text in visual block mode
+opt.virtualedit = 'block'               -- allow cursor to move where there is no text in visual block mode
 -----------------------------------------------------------------------------//
 -- Jumplist
 -----------------------------------------------------------------------------//
@@ -283,7 +283,7 @@ vim.diagnostic.config({
 -- Setup options for Neovide
 -- Install neovide: ❯ brew install --ignore-dependencies  neovide
 if vim.g.neovide then
-  vim.o.guifont = 'CartographCF NF:h20'
+  vim.o.guifont = 'CartographCF Nerd Font Mono:h14,codicon'
   vim.g.neovide_hide_mouse_when_typing = true
   vim.g.neovide_cursor_antialiasing = false
   vim.g.neovide_input_macos_option_key_is_meta = 'only_left'
