@@ -37,11 +37,21 @@ if command_exists nvim; then
   export MANPAGER='nvim +Man!'
 fi
 
-export TASKWARRIOR_CONFIG="${XDG_CONFIG_HOME}/taskwarrior"
-export MEINCODEX_DIR="${HOME}/meincodex"
-export NOTIZEN_DIR="${MEINCODEX_DIR}/notizen"
-export CODEBASIS_DIR="${MEINCODEX_DIR}/codebasis"
-export CODESCHNIPSEL_DIR="${MEINCODEX_DIR}/codeschnipsel"
+meincodex_dir="${HOME}/meincodex"=
+if [[ ! -d "$meincodex_dir" ]]; then
+  for dir_info in \
+    "NOTIZEN_DIR:${MEINCODEX_DIR}/notizen" \
+    "CODEBASIS_DIR:${MEINCODEX_DIR}/codebasis" \
+    "CODESCHNIPSEL_DIR:${MEINCODEX_DIR}/codeschnipsel"
+  do
+    var_name="${dir_info%:*}"
+    dir_path="${dir_info#*:}"
+
+    if [ -d "$dir_path" ]; then
+      export "$var_name"="$dir_path"
+    fi
+  done
+fi
 
 
 {{ if eq .chezmoi.os "darwin" -}}
