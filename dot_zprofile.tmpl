@@ -2,7 +2,7 @@
 # vim: ft=zsh
 
 source "${HOME}/.shtils"
- 
+
 {{ if eq .chezmoi.os "darwin" -}}
 if [ -f "${HOME}/.gnubin_path" ]; then
   source "${HOME}/.gnubin_path"
@@ -15,7 +15,7 @@ fi
 {{ end -}}
 
 # ZSH only and most performant way to check existence of an executable
-# https://www.topbug.net/blog/2016/10/11/speed-test-check-the-existence-of-a-command-in-bash-and-zsh/
+
 command_exists() { (( $+commands[$1] )); }
 
 if [ -z "${CHEZMOI_CONFIG_DIR}" ]; then
@@ -63,6 +63,11 @@ else
 fi
 pathmunge "${LOCAL_BIN}" after
 pathmunge "${LOCAL_SBIN}" after
+
+taskwarrior_config="${XDG_CONFIG_HOME}/taskwarrior"
+if [[ ! -d "$taskwarrior_config" ]] && command_exists task; then
+  export TASKWARRIOR_CONFIG="${XDG_CONFIG_HOME}/taskwarrior"
+fi
 
 {{- if (hasKey . "envvars") }}
  {{ range .envvars }}
