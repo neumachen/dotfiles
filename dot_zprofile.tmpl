@@ -15,7 +15,6 @@ fi
 {{ end -}}
 
 # ZSH only and most performant way to check existence of an executable
-
 command_exists() { (( $+commands[$1] )); }
 
 if [ -z "${CHEZMOI_CONFIG_DIR}" ]; then
