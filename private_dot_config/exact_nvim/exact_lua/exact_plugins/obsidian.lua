@@ -25,9 +25,17 @@ return {
   "obsidian-nvim/obsidian.nvim",
   version = "*", -- recommended, use latest release instead of latest commit
   lazy = true,
+  cmd = {
+    "ObsidianNew",
+    "ObsidianOpen",
+    "ObsidianQuickSwitch",
+    "ObsidianSearch",
+    "ObsidianToday",
+    "ObsidianYesterday",
+  },
   event = {
     "BufReadPre " .. path.join_path(obsidian_vault_primary_dir, "**", "*.md"),
-    "BufNewFile" .. path.join_path(obsidian_vault_primary_dir, "**", "*.md"),
+    "BufNewFile " .. path.join_path(obsidian_vault_primary_dir, "**", "*.md"),
   },
   dependencies = {
     -- Required.
