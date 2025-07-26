@@ -129,7 +129,7 @@ setopt completealiases
 
 alias c='clear'
 
-if [[ -z "$MEINE_HELFERLEIN" ]]; then
+if [[ -n "$MEINE_HELFERLEIN" ]]; then
   pathmunge "$MEINE_HELFERLEIN" after
 fi
 
