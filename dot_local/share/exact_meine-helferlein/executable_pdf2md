@@ -16,7 +16,7 @@ BATCH_MODE=false
 VERBOSE=false
 OUTPUT_FILE=""
 KEEP_MEDIA=false
-DOCKER_IMAGE="pandoc/extra:latest"
+DOCKER_IMAGE="pandoc/extra:latest-ubuntu"
 
 # Temporary directory for intermediate files
 TEMP_DIR=""
