@@ -39,6 +39,7 @@ fi
 
 meincodex_dir="${HOME}/meincodex"
 if [[ -d "$meincodex_dir" ]]; then
+  export MEINCODEX_DIR="$meincodex_dir"
   for dir_info in \
     "NOTIZEN_DIR:${MEINCODEX_DIR}/notizen" \
     "CODEBASIS_DIR:${MEINCODEX_DIR}/codebasis" \
