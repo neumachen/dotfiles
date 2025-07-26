@@ -129,6 +129,10 @@ setopt completealiases
 
 alias c='clear'
 
+if [[ -z "$MEINE_HELFERLEIN" ]]; then
+  pathmunge "$MEINE_HELFERLEIN" after
+fi
+
 if command_exists task; then
   taskwarrior_data_dir="${HOME}/.local/share/task"
   if [ -d "${HOME}/Documents/taskwarrior" ]; then
