@@ -37,8 +37,8 @@ if command_exists nvim; then
   export MANPAGER='nvim +Man!'
 fi
 
-meincodex_dir="${HOME}/meincodex"=
-if [[ ! -d "$meincodex_dir" ]]; then
+meincodex_dir="${HOME}/meincodex"
+if [[ -d "$meincodex_dir" ]]; then
   for dir_info in \
     "NOTIZEN_DIR:${MEINCODEX_DIR}/notizen" \
     "CODEBASIS_DIR:${MEINCODEX_DIR}/codebasis" \
