@@ -58,6 +58,14 @@ info_pathmunge() {
 	fi
 }
 
+meine_helferlein_dir="${HOME}/.local/share/meine-helferlein"
+if [ -d "$meine_helferlein_dir" ]; then
+  pathmunge "$meine_helferlein_dir"
+  export MEINE_HELFERLEIN="$meine_helferlein_dir"
+else
+  echo "$meine_helferlein_dir dir does not exist, custom functions will fail"
+fi
+
 # 1Password
 if command_exists op; then
 	op_signin() {

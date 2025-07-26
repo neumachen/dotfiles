@@ -10,8 +10,6 @@ source "${HOME}/.shtils"
 # https://www.topbug.net/blog/2016/10/11/speed-test-check-the-existence-of-a-command-in-bash-and-zsh/
 command_exists() { (( $+commands[$1] )); }
 
-pathmunge ${MEINE_HELFERLEIN} before
-
 # Initialize Zim if it's not already installed
 if [[ ! -e ${ZIM_HOME}/zimfw.zsh ]]; then
   echo-info "Downloading zimfw" \
