@@ -7,7 +7,7 @@ local trigger_text = ';'
 return {
   'saghen/blink.cmp',
   event = 'InsertEnter',
-  build = 'cargo build --release',
+  build = 'cargo +nightly build --release',
   -- In case there are breaking changes and you want to go back to the last
   -- working release
   -- https://github.com/Saghen/blink.cmp/releases
@@ -144,7 +144,7 @@ return {
         emoji = {
           module = 'blink-emoji',
           name = 'Emoji',
-          score_offset = 93, -- the higher the number, the higher the priority
+          score_offset = 93,        -- the higher the number, the higher the priority
           min_keyword_length = 2,
           opts = { insert = true }, -- Insert emoji (default) or complete its name
         },
