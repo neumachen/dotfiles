@@ -26,14 +26,6 @@ if [ -z "${CHEZMOI_CONFIG_DIR}" ]; then
   fi
 fi
 
-meine_helferlein_dir="${HOME}/.local/share/meine-helferlein"
-if [ -d "$meine_helferlein_dir" ]; then
-  export MEINE_HELFERLEIN="$meine_helferlein_dir"
-  pathmunge "${MEINE_HELFERLEIN}" after
-else
-  echo_warn "$meine_helferlein_dir dir does not exist, custom functions will fail"
-fi
-
 # this should only be used when gpg was installed using brew
 # https://stackoverflow.com/questions/39494631/gpg-failed-to-sign-the-data-fatal-failed-to-write-commit-object-git-2-10-0
 export GPG_TTY=$(command tty)
