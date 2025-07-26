@@ -26,14 +26,12 @@ if [ -z "${CHEZMOI_CONFIG_DIR}" ]; then
   fi
 fi
 
-if [ -z "$MEINE_HELFERLEIN" ]; then
-  meine_helferlein_dir="${HOME}/.local/share/meine-helferlein"
-  if [ ! -d "$meine_helferlein_dir" ]; then
-    echo_warn "$meine_helferlein_dir dir does not exist, custom functions will fail"
-  else
-    export MEINE_HELFERLEIN="$meine_helferlein_dir"
-    pathmunge "${MEINE_HELFERLEIN}" after
-  fi
+meine_helferlein_dir="${HOME}/.local/share/meine-helferlein"
+if [ -d "$meine_helferlein_dir" ]; then
+  export MEINE_HELFERLEIN="$meine_helferlein_dir"
+  pathmunge "${MEINE_HELFERLEIN}" after
+else
+  echo_warn "$meine_helferlein_dir dir does not exist, custom functions will fail"
 fi
 
 # this should only be used when gpg was installed using brew
