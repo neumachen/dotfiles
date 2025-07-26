@@ -71,19 +71,19 @@ local local_config = load_local_config('local')
 --- Config
 ---------------------------------------------------------------
 local config = {
-  font = wezterm.font('Cartograph CF'),
-  font_size = 13.5,
+  font = wezterm.font('CartographCF Nerd Font'),
+  font_size = 15.0,
   cell_width = 1.0,
   line_height = 1.0,
   font_rules = {
     {
       italic = true,
-      font = wezterm.font('Cartograph CF', { italic = true }),
+      font = wezterm.font('CartographCF Nerd Font', { italic = true }),
     },
     {
       italic = true,
       intensity = 'Bold',
-      font = wezterm.font('Cartograph CF', { weight = 'Bold', italic = true }),
+      font = wezterm.font('CartographCF Nerd Font', { weight = 'Bold', italic = true }),
     },
   },
   check_for_updates = true,
