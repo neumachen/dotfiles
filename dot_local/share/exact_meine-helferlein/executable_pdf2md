@@ -1,0 +1,381 @@
+#!/usr/bin/env bash
+
+# pdf2md - Convert PDF files to Markdown using Docker and pandoc
+# Author: Kareem Hepburn
+# Version: 1.0.0
+
+set -euo pipefail
+
+# Script name and version
+readonly SCRIPT_NAME="pdf2md"
+readonly VERSION="1.1.0"
+
+# Default values
+ENHANCED_MODE=false
+BATCH_MODE=false
+VERBOSE=false
+OUTPUT_FILE=""
+KEEP_MEDIA=false
+DOCKER_IMAGE="pandoc/extra:latest"
+
+# Temporary directory for intermediate files
+TEMP_DIR=""
+
+# Check if echo-log utilities are available
+if ! command -v echo-log &> /dev/null; then
+    # Fallback to basic echo if echo-log is not available
+    echo-log() { shift; echo "$@"; }
+    echo-info() { echo "→ $@"; }
+    echo-ok() { echo "✓ $@"; }
+    echo-err() { echo "✗ Error: $@" >&2; }
+    echo-warn() { echo "⚠ Warning: $@"; }
+    echo-run() { "$@"; }
+fi
+
+# Cleanup function
+cleanup() {
+    if [[ -n "$TEMP_DIR" && -d "$TEMP_DIR" ]]; then
+        [[ "$VERBOSE" == true ]] && echo-info "Cleaning up temporary directory: $TEMP_DIR"
+        rm -rf "$TEMP_DIR"
+    fi
+}
+
+# Set up trap for cleanup on exit
+trap cleanup EXIT INT TERM
+
+# Show usage
+usage() {
+    cat << EOF
+$SCRIPT_NAME v$VERSION - Convert PDF files to Markdown
+
+Usage: $SCRIPT_NAME [OPTIONS] <input.pdf|pattern> [output.md]
+
+Options:
+    -e, --enhanced      Use enhanced conversion (PDF → HTML → Markdown)
+    -b, --batch         Batch mode - convert multiple files matching pattern
+    -k, --keep-media    Keep extracted media files (images, etc.)
+    -v, --verbose       Verbose output
+    -h, --help          Show this help message
+    -V, --version       Show version information
+
+Examples:
+    # Convert single file
+    $SCRIPT_NAME document.pdf
+    $SCRIPT_NAME document.pdf output.md
+
+    # Enhanced conversion for complex PDFs
+    $SCRIPT_NAME -e complex_document.pdf
+
+    # Batch conversion
+    $SCRIPT_NAME -b "*.pdf"
+    $SCRIPT_NAME -b -e "docs/*.pdf"
+
+    # Keep extracted images
+    $SCRIPT_NAME -k document.pdf
+
+Notes:
+    - Requires Docker with pandoc/extra image
+    - Output filename defaults to input filename with .md extension
+    - In batch mode, each file is converted to its own .md file
+
+EOF
+}
+
+# Show version
+version() {
+    echo "$SCRIPT_NAME version $VERSION"
+}
+
+# Check if Docker is available
+check_docker() {
+    [[ "$VERBOSE" == true ]] && echo-info "Checking Docker availability..."
+
+    if ! command -v docker &> /dev/null; then
+        echo-err "Docker is not installed or not in PATH"
+        exit 1
+    fi
+
+    if ! docker info &> /dev/null; then
+        echo-err "Docker daemon is not running"
+        exit 1
+    fi
+
+    [[ "$VERBOSE" == true ]] && echo-info "Docker is available and running"
+}
+
+# Pull Docker image if needed
+ensure_docker_image() {
+    [[ "$VERBOSE" == true ]] && echo-info "Checking for Docker image: $DOCKER_IMAGE"
+
+    if ! docker image inspect "$DOCKER_IMAGE" &> /dev/null; then
+        echo-info "Pulling Docker image $DOCKER_IMAGE..."
+        if echo-run docker pull "$DOCKER_IMAGE"; then
+            echo-ok "Docker image pulled successfully"
+        else
+            echo-err "Failed to pull Docker image"
+            exit 1
+        fi
+    else
+        [[ "$VERBOSE" == true ]] && echo-info "Docker image already present"
+    fi
+}
+
+# Convert single PDF to Markdown
+convert_pdf() {
+    local input="$1"
+    local output="$2"
+
+    # Check if input file exists
+    if [[ ! -f "$input" ]]; then
+        echo-err "File '$input' not found"
+        return 1
+    fi
+
+    # Check if input is a PDF
+    if [[ ! "$input" =~ \.pdf$ ]]; then
+        echo-warn "Input file doesn't have .pdf extension"
+    fi
+
+    # Create output filename if not specified
+    if [[ -z "$output" ]]; then
+        output="${input%.pdf}.md"
+    fi
+
+    echo-info "Converting '$input' to '$output'..."
+
+    if [[ "$ENHANCED_MODE" == true ]]; then
+        convert_enhanced "$input" "$output"
+    else
+        convert_standard "$input" "$output"
+    fi
+}
+
+# Standard conversion
+convert_standard() {
+    local input="$1"
+    local output="$2"
+    local media_dir=""
+
+    if [[ "$KEEP_MEDIA" == true ]]; then
+        media_dir="${output%.md}_media"
+        mkdir -p "$media_dir"
+        [[ "$VERBOSE" == true ]] && echo-info "Created media directory: $media_dir"
+    fi
+
+    local docker_args=(
+        "run" "--rm"
+        "-v" "$(pwd):/data"
+        "-w" "/data"
+        "$DOCKER_IMAGE"
+        "$input"
+        "-o" "$output"
+    )
+
+    if [[ "$KEEP_MEDIA" == true ]]; then
+        docker_args+=("--extract-media=$media_dir")
+    fi
+
+    [[ "$VERBOSE" == true ]] && echo-info "Running standard conversion"
+    if echo-run docker "${docker_args[@]}"; then
+        echo-ok "Conversion complete: $output"
+        [[ "$KEEP_MEDIA" == true && -d "$media_dir" ]] && echo-info "Media extracted to: $media_dir"
+        return 0
+    else
+        echo-err "Conversion failed"
+        return 1
+    fi
+}
+
+# Enhanced conversion (PDF → HTML → Markdown)
+convert_enhanced() {
+    local input="$1"
+    local output="$2"
+    local temp_html="$TEMP_DIR/$(basename "${input%.pdf}").html"
+    local media_dir=""
+
+    if [[ "$KEEP_MEDIA" == true ]]; then
+        media_dir="${output%.md}_media"
+        mkdir -p "$media_dir"
+        [[ "$VERBOSE" == true ]] && echo-info "Created media directory: $media_dir"
+    fi
+
+    # Step 1: PDF to HTML
+    echo-info "Step 1/2: Converting PDF to HTML..."
+
+    local docker_args=(
+        "run" "--rm"
+        "-v" "$(pwd):/data"
+        "-v" "$TEMP_DIR:/temp"
+        "-w" "/data"
+        "$DOCKER_IMAGE"
+        "$input"
+        "-t" "html"
+        "-o" "/temp/$(basename "$temp_html")"
+    )
+
+    if [[ "$KEEP_MEDIA" == true ]]; then
+        docker_args+=("--extract-media=$media_dir")
+    fi
+
+    if ! echo-run docker "${docker_args[@]}"; then
+        echo-err "Failed to convert PDF to HTML"
+        return 1
+    fi
+
+    [[ "$VERBOSE" == true ]] && echo-info "HTML conversion complete: $temp_html"
+
+    # Step 2: HTML to Markdown
+    echo-info "Step 2/2: Converting HTML to Markdown..."
+
+    docker_args=(
+        "run" "--rm"
+        "-v" "$(pwd):/data"
+        "-v" "$TEMP_DIR:/temp"
+        "-w" "/data"
+        "$DOCKER_IMAGE"
+        "/temp/$(basename "$temp_html")"
+        "-f" "html"
+        "-t" "markdown"
+        "-o" "$output"
+        "--wrap=none"
+        "--markdown-headings=atx"
+    )
+
+    if echo-run docker "${docker_args[@]}"; then
+        echo-ok "Enhanced conversion complete: $output"
+        [[ "$KEEP_MEDIA" == true && -d "$media_dir" ]] && echo-info "Media extracted to: $media_dir"
+        return 0
+    else
+        echo-err "Failed to convert HTML to Markdown"
+        return 1
+    fi
+}
+
+# Batch conversion
+batch_convert() {
+    local pattern="$1"
+    local count=0
+    local failed=0
+    local files=()
+
+    # Use bash globbing to find files
+    shopt -s nullglob
+    eval "files=($pattern)"
+    shopt -u nullglob
+
+    if [[ ${#files[@]} -eq 0 ]]; then
+        echo-err "No files matching pattern '$pattern'"
+        return 1
+    fi
+
+    echo-info "Found ${#files[@]} files to convert"
+    echo
+
+    for file in "${files[@]}"; do
+        if [[ -f "$file" ]]; then
+            if convert_pdf "$file" ""; then
+                ((count++))
+            else
+                ((failed++))
+            fi
+            echo
+        fi
+    done
+
+    echo-info "Batch conversion complete: $count succeeded, $failed failed"
+}
+
+# Main function
+main() {
+    # Parse command line arguments
+    local args=()
+
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -e|--enhanced)
+                ENHANCED_MODE=true
+                shift
+                ;;
+            -b|--batch)
+                BATCH_MODE=true
+                shift
+                ;;
+            -k|--keep-media)
+                KEEP_MEDIA=true
+                shift
+                ;;
+            -v|--verbose)
+                VERBOSE=true
+                shift
+                ;;
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            -V|--version)
+                version
+                exit 0
+                ;;
+            -*)
+                echo-err "Unknown option: $1"
+                usage
+                exit 1
+                ;;
+            *)
+                args+=("$1")
+                shift
+                ;;
+        esac
+    done
+
+    # Check if we have input files
+    if [[ ${#args[@]} -eq 0 ]]; then
+        echo-err "No input files specified"
+        usage
+        exit 1
+    fi
+
+    [[ "$VERBOSE" == true ]] && echo-info "Options: enhanced=$ENHANCED_MODE, batch=$BATCH_MODE, keep_media=$KEEP_MEDIA"
+
+    # Check Docker availability
+    check_docker
+    ensure_docker_image
+
+    # Create temporary directory using mktemp for platform compatibility
+    if command -v mktemp &> /dev/null; then
+        TEMP_DIR=$(mktemp -d)
+    else
+        # Fallback for systems without mktemp (rare but possible)
+        TEMP_DIR="/tmp/pdf2md.$"
+        mkdir -p "$TEMP_DIR"
+    fi
+    [[ "$VERBOSE" == true ]] && echo-info "Created temporary directory: $TEMP_DIR"
+
+    # Get input and output
+    local input="${args[0]}"
+    local output="${args[1]:-}"
+
+    # Validate arguments for single file mode
+    if [[ "$BATCH_MODE" == false && ${#args[@]} -gt 2 ]]; then
+        echo-err "Too many arguments for single file conversion"
+        usage
+        exit 1
+    fi
+
+    # Validate arguments for batch mode
+    if [[ "$BATCH_MODE" == true && -n "$output" ]]; then
+        echo-err "Output filename cannot be specified in batch mode"
+        usage
+        exit 1
+    fi
+
+    # Perform conversion
+    if [[ "$BATCH_MODE" == true ]]; then
+        batch_convert "$input"
+    else
+        convert_pdf "$input" "$output"
+    fi
+}
+
+# Run main function
+main "$@"
