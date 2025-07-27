@@ -11,8 +11,8 @@ if not path.dir_exists(notizen_dir, {
   return {}
 end
 
-local obsidian_vault_primary_dir = path.join_path(notizen_dir, 'obsidian', 'main')
-if not path.dir_exists(obsidian_vault_primary_dir, {
+local obsidian_vault_main_dir = path.join_path(notizen_dir, 'obsidian', 'main')
+if not path.dir_exists(obsidian_vault_main_dir, {
       notify_on_missing = true,
       notify_level = vim.log.levels.WARN,
       notify_title = "Obsidian Plugin",
@@ -34,8 +34,8 @@ return {
     "ObsidianYesterday",
   },
   event = {
-    "BufReadPre " .. path.join_path(obsidian_vault_primary_dir, "**", "*.md"),
-    "BufNewFile " .. path.join_path(obsidian_vault_primary_dir, "**", "*.md"),
+    "BufReadPre " .. path.join_path(obsidian_vault_main_dir, "**", "*.md"),
+    "BufNewFile " .. path.join_path(obsidian_vault_main_dir, "**", "*.md"),
   },
   dependencies = {
     -- Required.
@@ -53,7 +53,7 @@ return {
     workspaces = {
       {
         name = "primary",
-        path = obsidian_vault_primary_dir,
+        path = obsidian_vault_main_dir,
         -- Optional, override certain settings.
         overrides = {
           notes_subdir = "notes",
