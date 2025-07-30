@@ -52,7 +52,7 @@ return {
     -- current markdown file being edited.
     workspaces = {
       {
-        name = "primary",
+        name = "main",
         path = obsidian_vault_main_dir,
         -- Optional, override certain settings.
         overrides = {
