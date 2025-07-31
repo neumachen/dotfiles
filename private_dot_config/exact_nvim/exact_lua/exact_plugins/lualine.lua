@@ -47,7 +47,27 @@ return {
             },
           },
         },
-        lualine_x = { 'encoding', 'fileformat', 'filetype' },
+        lualine_x = {
+          {
+            function()
+              local clients = vim.lsp.get_clients({ bufnr = 0 })
+              if #clients == 0 then
+                return ''
+              end
+
+              local client_names = {}
+              for _, client in ipairs(clients) do
+                table.insert(client_names, client.name)
+              end
+
+              return '󰒋 ' .. table.concat(client_names, ', ')
+            end,
+            color = { fg = '#a9b1d6' },
+          },
+          'encoding',
+          'fileformat',
+          'filetype'
+        },
         lualine_y = { 'progress' },
         lualine_z = { 'location' },
       },
