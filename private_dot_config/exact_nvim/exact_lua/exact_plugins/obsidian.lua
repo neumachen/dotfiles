@@ -374,4 +374,20 @@ return {
       separator = string.rep("-", 80),
     },
   },
+  keys = {
+    { "<leader>o",   "",                                    desc = "+obsidian" },
+    { "<leader>fo",  "<cmd>Obsidian quick_switch<CR>",      desc = "Find Obsidian Note" },
+    { "<leader>oN",  "<cmd>Obsidian new_from_template<CR>", desc = "New Note From Template" },
+    { "<leader>oT",  "<cmd>Obsidian tags<CR>",              desc = "Tags" },
+    { "<leader>ol",  "<cmd>Obsidian link_new<CR>",          desc = "New Link",                  mode = "x" },
+    { "<leader>on",  "<cmd>Obsidian new<CR>",               desc = "New Note" },
+    { "<leader>op",  "<cmd>Obsidian open<CR>",              desc = "Preview" },
+    { "<leader>or",  "<cmd>Obsidian rename<CR>",            desc = "Rename Note" },
+    { "<leader>oj",  "",                                    desc = "+journal" },
+    { "<leader>ojt", "<cmd>Obsidian today<CR>",             desc = "Open Today's Daily Note" },
+    { "<leader>ojT", "<cmd>Obsidian tomorrow<CR>",          desc = "Open Tomorrow's Daily Note" },
+    { "<leader>ojy", "<cmd>Obsidian yesterday<CR>",         desc = "Open Yeterday's Daily Note" },
+    { "<leader>so",  "<cmd>Obsidian search<CR>",            desc = "Search in Obsidian Notes" },
+  },
+  opts
 }
