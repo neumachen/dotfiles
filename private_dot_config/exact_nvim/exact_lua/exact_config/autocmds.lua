@@ -142,6 +142,25 @@ vim.api.nvim_create_autocmd({ 'BufRead', 'BufNewFile' }, {
 })
 
 -----------------------------------------------------------------------------//
+-- Cheazmoi {{{1
+-----------------------------------------------------------------------------//
+
+local dotfiles_dir = os.getenv("DOTFILES_DIR")
+if dotfiles_dir then
+  vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
+    pattern = { dotfiles_dir .. "/*" },
+    callback = function(ev)
+      local bufnr = ev.buf
+      local edit_watch = function()
+        require("chezmoi.commands.__edit").watch(bufnr)
+      end
+      vim.schedule(edit_watch)
+    end,
+  })
+end
+-----------------------------------------------------------------------------//
+
+-----------------------------------------------------------------------------//
 -- LSP {{{1
 -----------------------------------------------------------------------------//
 local completion = vim.g.completion_mode or 'blink' -- or 'native'
