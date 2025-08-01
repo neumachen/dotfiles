@@ -1,0 +1,203 @@
+{
+  "dictionaryItems" : [
+    {
+      "word" : "Postgres",
+      "dateAdded" : 767631052.799337,
+      "isEnabled" : true,
+      "id" : "7B01BAC3-C841-474E-9BFA-4D47E7373B18"
+    },
+    {
+      "word" : "Schatz",
+      "dateAdded" : 767133425.710676,
+      "isEnabled" : true,
+      "id" : "8A10496B-0B17-4ED2-89BA-3961365BBA29"
+    },
+    {
+      "word" : "Glove80",
+      "dateAdded" : 765999131.169552,
+      "isEnabled" : true,
+      "id" : "A5208B47-CA08-4F73-A90B-4193CEEE7251"
+    },
+    {
+      "word" : "PrizePicks",
+      "dateAdded" : 765909943.878182,
+      "isEnabled" : true,
+      "id" : "F797B18E-92BD-475C-B858-5FAB24A927C1"
+    },
+    {
+      "word" : "Festool",
+      "dateAdded" : 765661219.473531,
+      "isEnabled" : true,
+      "id" : "AC7C3660-BC61-4A85-BED8-6F907A9CCABE"
+    },
+    {
+      "word" : "Dotfiles",
+      "dateAdded" : 765395127.22111,
+      "isEnabled" : true,
+      "id" : "F60E97DA-436A-4075-9770-1D2C68ED95B7"
+    },
+    {
+      "word" : "Neovide",
+      "dateAdded" : 765395123.75714,
+      "isEnabled" : true,
+      "id" : "62CD66C4-5B64-4356-8326-57F574F92639"
+    },
+    {
+      "word" : "Neovim",
+      "dateAdded" : 765395121.853015,
+      "isEnabled" : true,
+      "id" : "246DA0C7-6F8D-4B57-8225-2FD4B81FF472"
+    },
+    {
+      "word" : "Docker",
+      "dateAdded" : 765395119.515537,
+      "isEnabled" : true,
+      "id" : "F25EF0AD-99DA-4509-A1F6-1F6ACC252A2E"
+    },
+    {
+      "word" : "Home Assistant",
+      "dateAdded" : 765395115.77366,
+      "isEnabled" : true,
+      "id" : "7ABC256D-1171-4343-90C9-8179D086D26A"
+    },
+    {
+      "word" : "Kubernetes",
+      "dateAdded" : 765395110.376891,
+      "isEnabled" : true,
+      "id" : "301DE9CD-41EC-402D-8902-B5B0B9E95BCC"
+    },
+    {
+      "word" : "Gitlab",
+      "dateAdded" : 765395106.281439,
+      "isEnabled" : true,
+      "id" : "CF0516BC-EBC6-4D59-A655-4A81A22061BD"
+    },
+    {
+      "word" : "GitHub",
+      "dateAdded" : 765395103.935451,
+      "isEnabled" : true,
+      "id" : "BED0575E-72ED-4CE0-BB2A-5E5587FC9068"
+    }
+  ],
+  "customEmojis" : [
+    "📧"
+  ],
+  "generalSettings" : {
+    "recorderType" : "notch",
+    "launchAtLoginEnabled" : true,
+    "useAppleScriptPaste" : false,
+    "isAudioCleanupEnabled" : false,
+    "selectedHotkey2RawValue" : "none",
+    "toggleMiniRecorderShortcut" : {
+      "carbonKeyCode" : 96,
+      "carbonModifiers" : 256
+    },
+    "isAutoCopyEnabled" : true,
+    "audioRetentionPeriod" : 1,
+    "isTextFormattingEnabled" : true,
+    "isSoundFeedbackEnabled" : true,
+    "isSystemMuteEnabled" : true,
+    "isMenuBarOnly" : true,
+    "selectedHotkey1RawValue" : "custom"
+  },
+  "powerModeConfigs" : [
+    {
+      "isAutoSendEnabled" : false,
+      "selectedLanguage" : "en",
+      "selectedTranscriptionModelName" : "ggml-large-v3-turbo",
+      "selectedAIProvider" : "OpenAI",
+      "isAIEnhancementEnabled" : true,
+      "emoji" : "💬",
+      "selectedPrompt" : "EA92F367-9DC6-4C6C-BF3E-1939F7B9C6B2",
+      "appConfigs" : [
+        {
+          "appName" : "Telegram",
+          "id" : "A5CB4E4D-64D7-4D52-AE0A-8684F4D65D3E",
+          "bundleIdentifier" : "ru.keepcoder.Telegram"
+        },
+        {
+          "appName" : "Messages",
+          "id" : "2A50425A-30DE-40E3-97DF-A02F438DBD0F",
+          "bundleIdentifier" : "com.apple.MobileSMS"
+        }
+      ],
+      "useScreenCapture" : true,
+      "selectedAIModel" : "gpt-4.1-mini",
+      "name" : "Message",
+      "id" : "88C65019-D148-4777-A4DE-0F406D565B0D"
+    },
+    {
+      "isAutoSendEnabled" : false,
+      "selectedLanguage" : "en",
+      "selectedTranscriptionModelName" : "ggml-large-v3-turbo",
+      "selectedAIProvider" : "OpenAI",
+      "isAIEnhancementEnabled" : true,
+      "emoji" : "📧",
+      "selectedPrompt" : "7A6CAB93-6A21-482F-8A3D-1D0A6DF2B745",
+      "appConfigs" : [
+        {
+          "appName" : "Mimestream",
+          "id" : "2F618DE9-79EF-4531-98C9-CFC36FC10EA0",
+          "bundleIdentifier" : "com.mimestream.Mimestream"
+        }
+      ],
+      "useScreenCapture" : true,
+      "selectedAIModel" : "gpt-4.1-mini",
+      "name" : "Email",
+      "id" : "EF5D9B0E-E578-4736-A10C-A2850B2D3175"
+    }
+  ],
+  "defaultPowerModeConfig" : {
+    "selectedTranscriptionModelName" : "ggml-large-v3-turbo",
+    "selectedLanguage" : "en",
+    "selectedAIProvider" : "OpenAI",
+    "isAIEnhancementEnabled" : false,
+    "emoji" : "⚙️",
+    "useScreenCapture" : false,
+    "isAutoSendEnabled" : false,
+    "name" : "Default Configuration",
+    "id" : "430175F7-CA35-4693-9D2B-788DBA538C4E"
+  },
+  "customCloudModels" : [
+
+  ],
+  "customPrompts" : [
+    {
+      "id" : "7A6CAB93-6A21-482F-8A3D-1D0A6DF2B745",
+      "promptText" : "Primary Rules:\n1. Preserve the speaker's original tone and personality\n2. Maintain professional tone while keeping personal speaking style\n3. Structure content into clear paragraphs\n4. Fix grammar and punctuation while preserving key points\n5. Remove filler words and redundancies\n6. Keep important details and context\n7. Format lists and bullet points properly\n8. Preserve any specific requests or action items\n9. Always include a professional sign-off\n10. Use appropriate greeting based on context\n\nExamples:\n\nInput: \"hey just wanted to follow up on yesterday's meeting about the timeline we need to finish by next month can you send the docs when ready thanks\"\n\nOutput: \"Hi,\n\nI wanted to follow up on yesterday's meeting about the timeline. We need to finish by next month.\n\nCould you send the docs when ready?\n\nThanks,\n[Your Name]\"\n\nInput: \"quick update on the project we're at 60% complete but facing some testing issues that might delay things we're working on solutions\"\n\nOutput: \"We're at 60% complete but facing some testing issues that might delay things. We're working on solutions.\n\nI'll keep you updated.\n\nRegards,\n[Your Name]\"\n\nInput: \"hi sarah checking in about the design feedback from last week can we proceed to the next phase\"\n\nOutput: \"Hi Sarah,\n\nI'm checking in about the design feedback from last week. Can we proceed to the next phase?\n\nThanks,\n[Your Name]\"",
+      "isActive" : false,
+      "isPredefined" : false,
+      "description" : "Template for converting casual messages into professional email format",
+      "title" : "Email",
+      "triggerWords" : [
+
+      ],
+      "icon" : "envelope.fill"
+    },
+    {
+      "id" : "EA92F367-9DC6-4C6C-BF3E-1939F7B9C6B2",
+      "promptText" : "Primary Rules:\n - Fix grammar, spelling, and punctuation.\n - Remove speech artifacts (um, uh, false starts, repetitions).\n - Articulate the statement without losing any important information.\n - Remove redundancy in the statement provided.\n - Provide a polite tone, but not submissive.\n - Correct homophones, standardize numbers and dates.\n - Add paragraphs or lists as needed.\n - Never precede output with any intro like “Here is the corrected text:”.\n - Don’t add content not in the source or answer questions in it.\n - Don’t add sign-offs or acknowledgments that aren’t in the source.\n - NEVER answer questions that are presented in the text. Only reply with the corrected text.\n - If there is text that is a question, you are not requested to be an AI Assistant and find the answer.  \n - You are ONLY asked to correct text, spelling, format, etc as mentioned above. \n - You should never output the answer to a question.\n - If there is NO text provided, do not return anything in the output.",
+      "isActive" : false,
+      "isPredefined" : false,
+      "description" : "Refine Provided Statement",
+      "title" : "Message",
+      "triggerWords" : [
+
+      ],
+      "icon" : "message.fill"
+    },
+    {
+      "id" : "940E48DB-9A57-42DD-A060-601744181FB1",
+      "promptText" : "Primary Rules:\n1. Preserve speaker's thought process and emphasis\n2. Keep it brief and clear\n3. Use bullet points for key information\n4. Preserve important details\n5. Remove filler words while keeping style\n6. Maintain core message and intent\n7. Keep original terminology and phrasing\n\nOutput Format:\n## Main Topic\n• Main point 1\n  - Supporting detail\n  - Additional info\n• Main point 2\n  - Related informations",
+      "isActive" : false,
+      "isPredefined" : false,
+      "description" : "Template for converting voice notes into quick, organized notes",
+      "title" : "Quick Notes",
+      "triggerWords" : [
+
+      ],
+      "icon" : "mic.fill"
+    }
+  ],
+  "version" : "1.42"
+}
