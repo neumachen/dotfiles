@@ -1,3 +1,3 @@
 return {
-  "neumachen/yank-file-path.nvim",
+  'neumachen/yank-file-path.nvim',
 }
