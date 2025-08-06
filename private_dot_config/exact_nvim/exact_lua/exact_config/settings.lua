@@ -156,7 +156,7 @@ opt.listchars = {
 -- Indentation
 -----------------------------------------------------------------------------//
 opt.autoindent = true
-opt.expandtab = true
+opt.expandtab = true -- Convert tabs to spaces globally
 opt.shiftround = true
 opt.shiftwidth = 2
 opt.textwidth = 80
