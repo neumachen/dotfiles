@@ -1,78 +1,31 @@
 ---
-env-file: ${AIDER_ENV_FILE}
+# pass this as a command line argument --env-file
+# env-file: ${AIDER_ENV_FILE}
 
-model: openrouter/anthropic/claude-sonnet-4
+# Note: You can only put OpenAI and Anthropic API keys in the YAML
+# config file. Keys for all APIs can be stored in a .env file
+# https://aider.chat/docs/config/dotenv.html
 
-## Use claude-3-opus-20240229 model for the main chat
-#opus: false
+##########
+# options:
 
-## Use claude-3-5-sonnet-20241022 model for the main chat
-# sonnet: true
+## show this help message and exit
+#help: xxx
 
-## Use claude-3-5-haiku-20241022 model for the main chat
-#haiku: false
+#############
+# Main model:
 
-## Use gpt-4-0613 model for the main chat
-#4: false
+## Specify the model to use for the main chat
+model: openrouter/anthropic/claude-opus-4.1
 
-## Use gpt-4o-2024-08-06 model for the main chat
-#4o: false
+## Set the reasoning_effort API parameter (default: not set)
+#reasoning-effort: xxx
 
-## Use gpt-4o-mini model for the main chat
-#mini: false
-
-## Use gpt-4-1106-preview model for the main chat
-#4-turbo: false
-
-## Use gpt-3.5-turbo model for the main chat
-#35turbo: false
-
-## Use deepseek/deepseek-coder model for the main chat
-#deepseek: false
-
-## Use o1-mini model for the main chat
-#o1-mini: false
-
-## Use o1-preview model for the main chat
-#o1-preview: false
-
-#################
-# Model Settings:
-
-## List known models which match the (partial) MODEL name
-#list-models: xxx
-
-## Specify the api base url
-#openai-api-base: xxx
-
-## Specify the api_type
-#openai-api-type: xxx
-
-## Specify the api_version
-#openai-api-version: xxx
-
-## Specify the deployment_id
-#openai-api-deployment-id: xxx
-
-## Specify the OpenAI organization ID
-#openai-organization-id: xxx
-
-## Specify a file with aider model settings for unknown models
-#model-settings-file: .aider.model.settings.yml
-
-## Specify a file with context window and costs for unknown models
-#model-metadata-file: .aider.model.metadata.json
-
-## Add a model alias (can be used multiple times)
-#alias: xxx
-## Specify multiple values like this:
-#alias:
-#  - xxx
-#  - yyy
-#  - zzz
+## Set the thinking token budget for models that support it. Use 0 to disable. (default: not set)
+#thinking-tokens: xxx
 
 ## Verify the SSL cert when connecting to models (default: True)
-#openrouter/anthropic/claude-3.5-sonnetverify-ssl: true
+#verify-ssl: true
 
 ## Timeout in seconds for API calls (default: None)
 #timeout: xxx
@@ -82,6 +35,9 @@ model: openrouter/anthropic/claude-sonnet-4
 
 ## Use architect edit format for the main chat
 #architect: false
+
+## Enable/disable automatic acceptance of architect changes (default: True)
+auto-accept-architect: true
 
 ## Specify the model to use for commit messages and chat history summarization (default depends on --model)
 #weak-model: xxx
@@ -95,11 +51,11 @@ model: openrouter/anthropic/claude-sonnet-4
 ## Only work with models that have meta-data available (default: True)
 #show-model-warnings: true
 
+## Check if model accepts settings like reasoning_effort/thinking_tokens (default: True)
+#check-model-accepts-settings: true
+
 ## Soft limit on tokens for chat history, after which summarization begins. If unspecified, defaults to the model's max_chat_history_tokens.
 #max-chat-history-tokens: xxx
-
-## Specify the .env file to load (default: .env in git root)
-#env-file: .env
 
 #################
 # Cache Settings:
@@ -107,53 +63,38 @@ model: openrouter/anthropic/claude-sonnet-4
 ## Enable caching of prompts (default: False)
 cache-prompts: true
 
-## Number of times to ping at 5min intervals to keep prompt cache warm (default: 0)
-#cache-keepalive-pings: false
-
-###################
-# Repomap Settings:
-
-## Suggested number of tokens to use for repo map, use 0 to disable (default: 1024)
-#map-tokens: xxx
-
-## Control how often the repo map is refreshed. Options: auto, always, files, manual (default: auto)
-#map-refresh: auto
-
-## Multiplier for map tokens when no files are specified (default: 2)
-#map-multiplier-no-files: true
-
 ################
 # History Files:
 
 ## Specify the chat input history file (default: .aider.input.history)
-#input-history-file: .aider.input.history
+input-history-file: /aider/aider.input.history
 
 ## Specify the chat history file (default: .aider.chat.history.md)
-#chat-history-file: .aider.chat.history.md
+chat-history-file: /aider/aider.chat.history.md
 
 ## Restore the previous chat history messages (default: False)
-#restore-chat-history: false
+restore-chat-history: true
 
 ## Log the conversation with the LLM to this file (for example, .aider.llm.history)
-#llm-history-file: xxx
+llm-history-file: /aider/aider.llm.history
 
 ##################
 # Output Settings:
 
 ## Use colors suitable for a dark terminal background (default: False)
-#dark-mode: false
+dark-mode: false
 
 ## Use colors suitable for a light terminal background (default: False)
-#light-mode: false
+light-mode: false
 
 ## Enable/disable pretty, colorized output (default: True)
-#pretty: true
+pretty: true
 
 ## Enable/disable streaming responses (default: True)
 stream: false
 
 ## Set the color for user input (default: #00cc00)
-#user-input-color: #00cc00
+user-input-color: #00cc00
 
 ## Set the color for tool output (default: None)
 #tool-output-color: xxx
@@ -189,16 +130,16 @@ stream: false
 # Git Settings:
 
 ## Enable/disable looking for a git repo (default: True)
-#git: true
+git: true
 
 ## Enable/disable adding .aider* to .gitignore (default: True)
-#gitignore: true
+gitignore: true
 
 ## Specify the aider ignore file (default: .aiderignore in git root)
-#aiderignore: .aiderignore
+aiderignore: /aider/.aiderignore
 
 ## Only consider files in the current subtree of the git repository
-#subtree-only: false
+subtree-only: false
 
 ## Enable/disable auto commit of LLM changes (default: True)
 auto-commits: false
@@ -218,8 +159,11 @@ attribute-commit-message-author: false
 ## Prefix all commit messages with 'aider: ' (default: False)
 attribute-commit-message-committer: false
 
+## Attribute aider edits using the Co-authored-by trailer in the commit message (default: True). If True, this takes precedence over default --attribute-author and --attribute-committer behavior unless they are explicitly set to True.
+attribute-co-authored-by: false
+
 ## Commit all pending changes with a suitable commit message, then exit
-#commit: false
+commit: false
 
 ## Specify a custom prompt for generating commit messages
 commit-prompt: |-
@@ -282,16 +226,16 @@ watch-files: false
 #  - zzz
 
 ## Enable/disable automatic linting after changes (default: True)
-#auto-lint: true
+auto-lint: true
 
 ## Specify command to run tests
 #test-cmd: xxx
 
 ## Enable/disable automatic testing after changes (default: False)
-#auto-test: false
+auto-test: false
 
 ## Run tests, fix problems found and then exit
-#test: false
+test: false
 
 ############
 # Analytics:
@@ -305,8 +249,74 @@ watch-files: false
 ## Permanently disable analytics
 analytics-disable: true
 
+############
+# Upgrading:
+
+## Check for updates and return status in the exit code
+just-check-update: false
+
+## Check for new aider versions on launch
+check-update: true
+
+## Show release notes on first run of new version (default: None, ask user)
+#show-release-notes: xxx
+
+## Install the latest version from the main branch
+install-main-branch: false
+
+## Upgrade aider to the latest version from PyPI
+upgrade: false
+
+## Show the version number and exit
+#version: xxx
+
+########
+# Modes:
+
+## Specify a single message to send the LLM, process reply then exit (disables chat mode)
+#message: xxx
+
+## Specify a file containing the message to send the LLM, process reply, then exit (disables chat mode)
+#message-file: xxx
+
+## Run aider in your browser (default: False)
+gui: false
+
+## Enable automatic copy/paste of chat between aider and web UI (default: False)
+copy-paste: false
+
+## Apply the changes from the given file instead of running the chat (debug)
+#apply: xxx
+
+## Apply clipboard contents as edits using the main model's editor format
+apply-clipboard-edits: false
+
+## Do all startup activities then exit before accepting user input (debug)
+exit: false
+
+## Print the repo map and exit (debug)
+show-repo-map: false
+
+## Print the system prompts and exit (debug)
+show-prompts: false
+
+#################
+# Voice settings:
+
+## Audio format for voice recording (default: wav). webm and mp3 require ffmpeg
+voice-format: mp3
+
+## Specify the language for voice using ISO 639-1 code (default: auto)
+voice-language: en
+
+## Specify the input device name for voice recording
+#voice-input-device: xxx
+
 #################
 # Other Settings:
+
+## Never prompt for or attempt to install Playwright for web scraping (default: False).
+disable-playwright: false
 
 ## specify a file to edit (can be used multiple times)
 #file: xxx
@@ -319,8 +329,10 @@ analytics-disable: true
 ## specify a read-only file (can be used multiple times)
 #read: xxx
 ## Specify multiple values like this:
-read:
-  - ~/.aider/prompts/system.md
+#read:
+#  - xxx
+#  - yyy
+#  - zzz
 
 # Use VI editing mode in the terminal (default: False)
 vim: true
@@ -328,83 +340,50 @@ vim: true
 ## Specify the language to use in the chat (default: None, uses system settings)
 #chat-language: xxx
 
-## Show the version number and exit
-#version: xxx
-
-## Check for updates and return status in the exit code
-#just-check-update: false
-
-## Check for new aider versions on launch
-#check-update: true
-
-## Show release notes on first run of new version (default: None, ask user)
-#show-release-notes: xxx
-
-## Install the latest version from the main branch
-#install-main-branch: false
-
-## Upgrade aider to the latest version from PyPI
-#upgrade: false
-
-## Apply the changes from the given file instead of running the chat (debug)
-#apply: xxx
-
-## Apply clipboard contents as edits using the main model's editor format
-#apply-clipboard-edits: false
-
 ## Always say yes to every confirmation
-#yes-always: false
+yes-always: false
 
 ## Enable verbose output
-#verbose: false
+verbose: false
 
-## Print the repo map and exit (debug)
-#show-repo-map: false
-
-## Print the system prompts and exit (debug)
-#show-prompts: false
-
-## Do all startup activities then exit before accepting user input (debug)
-#exit: false
-
-## Specify a single message to send the LLM, process reply then exit (disables chat mode)
-#message: xxx
-
-## Specify a file containing the message to send the LLM, process reply, then exit (disables chat mode)
-#message-file: xxx
+## Show the version number and exit
+#version: xxx
 
 ## Load and execute /commands from a file on launch
 #load: xxx
 
 ## Specify the encoding for input and output (default: utf-8)
-#encoding: utf-8
+encoding: utf-8
+
+## Line endings to use when writing files (default: platform)
+line-endings: platform
 
 ## Specify the config file (default: search for .aider.conf.yml in git root, cwd or home directory)
 #config: xxx
 
-## Run aider in your browser (default: False)
-#gui: false
+## Specify the .env file to load (default: .env in git root)
+#env-file: .env
 
 ## Enable/disable suggesting shell commands (default: True)
-#suggest-shell-commands: true
+suggest-shell-commands: true
 
 ## Enable/disable fancy input with history and completion (default: True)
-#fancy-input: true
+fancy-input: true
+
+## Enable/disable multi-line input mode with Meta-Enter to submit (default: False)
+multiline: false
+
+## Enable/disable terminal bell notifications when LLM responses are ready (default: False)
+notifications: false
+
+## Specify a command to run for notifications instead of the terminal bell. If not specified, a default command for your OS may be used.
+#notifications-command: xxx
 
 ## Enable/disable detection and offering to add URLs to chat (default: True)
-#detect-urls: true
+detect-urls: true
 
 ## Specify which editor to use for the /editor command
 editor: nvim
 
-#################
-# Voice Settings:
-
-## Audio format for voice recording (default: wav). webm and mp3 require ffmpeg
-voice-format: mp3
-
-## Specify the language for voice using ISO 639-1 code (default: auto)
-#voice-language: en
-
-## Specify the input device name for voice recording
-#voice-input-device: xxx
+## Print shell completion script for the specified SHELL and exit. Supported shells: bash, tcsh, zsh. Example: aider --shell-completions bash
+#shell-completions: xxx
