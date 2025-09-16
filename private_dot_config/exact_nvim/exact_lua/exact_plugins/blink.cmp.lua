@@ -377,7 +377,9 @@ return {
     opts.fuzzy = {
       implementation = 'prefer_rust_with_warning',
       -- Frecency tracks the most recently/frequently used items and boosts the score of the item
-      use_frecency = true,
+      frecency = {
+        enabled = true,
+      },
       -- Proximity bonus boosts the score of items matching nearby words
       use_proximity = false,
       sorts = {
