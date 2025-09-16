@@ -47,9 +47,11 @@ else
     'gopls',
     'jsonls',
     'lua_ls',
+    'marksman',
     'pyright',
     'ruby-lsp',
     'tailwindcss',
+    'taplo',
     'yamlls',
   })
 
