@@ -1,0 +1,66 @@
+#compdef brownie brownie-run
+
+_brownie() {
+  local context state state_descr
+  typeset -A opt_args
+
+  local idx_docker=${words[(I)--]}
+  local after_docker=$(( idx_docker && CURRENT > idx_docker ? 1 : 0 ))
+
+  # If after `--`, delegate to docker run completion
+  if (( after_docker )); then
+    if (( ${+functions[_docker]} )); then
+      local save_words=("${words[@]}") saveCURRENT=$CURRENT
+      local -a rest
+      rest=("${words[@]:idx_docker+1}")
+      words=(docker run "${rest[@]}")
+      CURRENT=$(( ${#words[@]} ))
+      _docker
+      words=("${save_words[@]}"); CURRENT=$saveCURRENT
+      return
+    else
+      _message 'docker run options (install Docker zsh completion for full support)'
+      return
+    fi
+  fi
+
+  # Before `--`: complete wrapper opts and common aider flags
+  _arguments -S -s \
+    '(-h --help)'{-h,--help}'[show help and exit]' \
+    '--about[explain the Brownie folklore name]' \
+    '(-n --name)'{-n,--name}'[docker-compatible session name]:session name:_brownie_sessions' \
+    '(-i --image)'{-i,--image}'[container image to run]:image:_brownie_images' \
+    '--pull[pull the image before running]' \
+    '--[end of Aider args; start docker run args]' \
+    '*::aider-opt:_brownie_aider'
+}
+
+_brownie_sessions() {
+  local sessdir="${HOME}/.local/share/aider/sessions"
+  if [[ -d "$sessdir" ]]; then
+    local -a entries
+    entries=(${(f)"$(command ls -1A -- "$sessdir" 2>/dev/null)"})
+    (( $#entries )) && compadd -- $entries || _message 'session name'
+  else
+    _message 'session name'
+  fi
+}
+
+_brownie_images() {
+  local -a imgs
+  imgs=(${(f)"$(docker image ls --format '{{.Repository}}:{{.Tag}}' 2>/dev/null)"})
+  (( $#imgs )) && compadd -- $imgs || _message 'image'
+}
+
+# Light suggestions for common Aider flags; everything else passes through.
+_brownie_aider() {
+  _values 'aider options' \
+    '--config[path to aider config]' \
+    '--env-file[path to env file with keys]' \
+    '--model[LLM model]' \
+    '--message[initial message]' \
+    '--no-stream[disable streaming]' \
+    '--yes[assume yes to prompts]'
+}
+
+_brownie "$@"
