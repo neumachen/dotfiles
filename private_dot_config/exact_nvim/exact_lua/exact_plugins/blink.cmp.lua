@@ -144,7 +144,7 @@ return {
         emoji = {
           module = 'blink-emoji',
           name = 'Emoji',
-          score_offset = 93,        -- the higher the number, the higher the priority
+          score_offset = 93, -- the higher the number, the higher the priority
           min_keyword_length = 2,
           opts = { insert = true }, -- Insert emoji (default) or complete its name
         },
@@ -379,6 +379,7 @@ return {
       -- Frecency tracks the most recently/frequently used items and boosts the score of the item
       frecency = {
         enabled = true,
+        path = vim.fn.stdpath('state') .. '/blink/cmp/frecency.dat',
       },
       -- Proximity bonus boosts the score of items matching nearby words
       use_proximity = false,
