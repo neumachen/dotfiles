@@ -40,20 +40,26 @@ else
 
   local ts_server = vim.g.lsp_typescript_server or 'ts_ls' -- "ts_ls" or "vtsls" for TypeScript
 
+  -- Dynamically discover LSP servers from the lsp directory
+  local lsp_dir = vim.fn.stdpath('config') .. '/lsp'
+  local lsp_servers = {}
+
+  -- Get all .lua files in the lsp directory
+  for name, type in vim.fs.dir(lsp_dir) do
+    if type == 'file' and name:match('%.lua$') then
+      local server_name = name:gsub('%.lua$', '')
+      table.insert(lsp_servers, server_name)
+    end
+  end
+
+  -- Remove ts_ls and vtsls from auto-discovered list since we handle TypeScript server selection dynamically
+  lsp_servers = vim.tbl_filter(function(server) return server ~= 'ts_ls' and server ~= 'vtsls' end, lsp_servers)
+
+  -- Add the selected TypeScript server
+  table.insert(lsp_servers, ts_server)
+
   -- Enable LSP servers for Neovim 0.11+
-  vim.lsp.enable({
-    ts_server,
-    'biome',
-    'gopls',
-    'jsonls',
-    'lua_ls',
-    'marksman',
-    'pyright',
-    'ruby-lsp',
-    'tailwindcss',
-    'taplo',
-    'yamlls',
-  })
+  vim.lsp.enable(lsp_servers)
 
   -- Load Lsp on-demand, e.g: eslint is disable by default
   -- e.g: We could enable eslint by set vim.g.lsp_on_demands = {"eslint"}
