@@ -13,6 +13,7 @@ github.com/mikefarah/yq/v4
 github.com/nametake/golangci-lint-langserver
 github.com/noahgorstein/jqp
 github.com/segmentio/golines
+github.com/wader/jq-lsp
 github.com/xo/usql
 golang.org/x/tools/cmd/godoc
 golang.org/x/tools/cmd/goimports
