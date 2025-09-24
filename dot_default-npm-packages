@@ -1,0 +1,15 @@
+@fsouza/prettierd
+@mermaid-js/mermaid-cli
+@tailwindcss/language-server
+@vtsls/language-server
+awk-language-server
+bash-language-server
+biome
+cspell
+oxlint
+pnpm
+prettier
+rustywind
+typescript
+typescript-language-server
+vscode-langservers-extracted
