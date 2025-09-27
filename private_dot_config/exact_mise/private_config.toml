@@ -79,6 +79,7 @@ zoxide = "latest"
 
 "cargo:broot" = "latest"
 "cargo:eza" = "latest"
+"cargo:harper-ls" = "latest"
 "cargo:navi" = "latest"
 "cargo:ouch" = "latest"
 "cargo:procs" = "latest"
@@ -89,8 +90,7 @@ zoxide = "latest"
 
 "github:JohnnyMorganz/StyLua" = "latest"
 "github:clangd/clangd" = "latest"
-"github:docker/docker-language-server" = "latest"
-"github:automattic/harper" = "latest"
+"github:docker/docker-language-server" = { version = "latest", bin = "docker-language-server" }
 "github:erlang-ls/erlang_ls" = "latest"
 "github:mrjosh/helm-ls" = "latest"
 "github:bufbuild/buf" = "latest"
