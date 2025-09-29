@@ -26,6 +26,7 @@ DEFAULT_PREFIX="brownie"
 PULL_IMAGE=0
 SESSION_NAME=""
 IMAGE="$DEFAULT_IMAGE"
+GIT_CONFIG_DIR_OVERRIDE=""
 DOCKER_EXTRAS=()
 AIDER_ARGS=()
 
@@ -43,15 +44,17 @@ Usage:
   brownie [wrapper-opts] [aider-opts ...] -- [docker run opts ...]
 
 Wrapper options (before --):
-  -n, --name    Docker-compatible session/container/volume name.
-  -i, --image   Image to run (default: paulgauthier/aider-full:latest).
-      --pull    Always docker pull IMAGE before running.
-      --about   Explain why this tool is named "Brownie".
-  -h, --help    Show this help and exit.
+  -n, --name         Docker-compatible session/container/volume name.
+  -i, --image        Image to run (default: paulgauthier/aider-full:latest).
+      --git-config   Path to Git config directory (default: XDG config path).
+      --pull         Always docker pull IMAGE before running.
+      --about        Explain why this tool is named "Brownie".
+  -h, --help         Show this help and exit.
 
 Mounting & defaults:
   • $AIDER_ENV_FILE   → /config/<env basename>   (read-only)
   • $AIDER_CONFIG_CONTAINER → /config/<config basename> (read-only)
+  • Git config dir   → /config/git              (read-only)
   • Injected into Aider iff you didn't provide them:
       --env-file /config/<env basename>
       --config   /config/<config basename>
@@ -65,6 +68,18 @@ USAGE
 
 have() { command -v "$1" >/dev/null 2>&1; }
 require_env() { local var="$1"; [ -n "${!var:-}" ] || die "$var is not set. Export it and retry."; }
+
+get_git_config_dir() {
+  local git_config_dir
+  if [ -n "$GIT_CONFIG_DIR_OVERRIDE" ]; then
+    git_config_dir="$GIT_CONFIG_DIR_OVERRIDE"
+  elif [ -n "${XDG_CONFIG_HOME:-}" ]; then
+    git_config_dir="$XDG_CONFIG_HOME/git"
+  else
+    git_config_dir="$HOME/.config/git"
+  fi
+  printf '%s\n' "$git_config_dir"
+}
 lower() { tr '[:upper:]' '[:lower:]'; }
 
 sanitize_docker_name() {
@@ -129,6 +144,8 @@ parse_args() {
                  SESSION_NAME="$(sanitize_docker_name "$2")"; shift 2 ;;
       -i|--image) [ $# -ge 2 ] || die "--image requires an argument"
                   IMAGE="$2"; shift 2 ;;
+      --git-config) [ $# -ge 2 ] || die "--git-config requires an argument"
+                    GIT_CONFIG_DIR_OVERRIDE="$2"; shift 2 ;;
       --pull) PULL_IMAGE=1; shift ;;
       *) AIDER_ARGS+=("$1"); shift ;;  # Aider arg
     esac
@@ -147,6 +164,10 @@ require_env "AIDER_CONFIG_CONTAINER"
 require_env "AIDER_ENV_FILE"
 [ -f "$AIDER_CONFIG_CONTAINER" ] || die "AIDER_CONFIG_CONTAINER points to a non-file: $AIDER_CONFIG_CONTAINER"
 [ -f "$AIDER_ENV_FILE" ] || die "AIDER_ENV_FILE points to a non-file: $AIDER_ENV_FILE"
+
+# Git config directory
+GIT_CONFIG_DIR="$(get_git_config_dir)"
+GIT_CONFIG_IN="/config/git"
 
 # Derive container-side config paths under /config
 CONF_DIR_IN="/config"
@@ -191,15 +212,24 @@ if ! contains_flag --config "${AIDER_ARGS[@]}"; then
 fi
 
 # ---------- run ----------
+DOCKER_VOLUMES=(
+  --volume "$PWD:/app"
+  --volume "$SESSION_NAME:/aider"
+  --volume "$AIDER_ENV_FILE:$ENV_IN:ro"
+  --volume "$AIDER_CONFIG_CONTAINER:$CONF_IN:ro"
+)
+
+# Mount Git config if it exists
+if [ -d "$GIT_CONFIG_DIR" ]; then
+  DOCKER_VOLUMES+=(--volume "$GIT_CONFIG_DIR:$GIT_CONFIG_IN:ro")
+fi
+
 set -x
 docker run \
   -it \
   --name "$SESSION_NAME" \
   --user "$(id -u):$(id -g)" \
-  --volume "$PWD:/app" \
-  --volume "$SESSION_NAME:/aider" \
-  --volume "$AIDER_ENV_FILE:$ENV_IN:ro" \
-  --volume "$AIDER_CONFIG_CONTAINER:$CONF_IN:ro" \
+  "${DOCKER_VOLUMES[@]}" \
   "${DOCKER_EXTRAS[@]}" \
   "$IMAGE" \
   "${AIDER_ARGS[@]}"
