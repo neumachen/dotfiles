@@ -1,3 +1,5 @@
+# yaml-language-server: $schema=https://gh-dash.dev/schema.json
+
 prSections:
   - title: My Pull Requests
     filters: is:open author:@me
@@ -10,11 +12,9 @@ prSections:
     limit: 10
 issuesSections:
   - title: My Open Source Projects
-    filters: is:issue is:open archived:false sort:updated-desc user:akinsho
+    filters: is:issue is:open archived:false sort:updated-desc user:neumachen
   - title: My Issues
     filters: is:open author:@me
-  - title: Neovim Issues
-    filters: is:open repo:neovim/neovim
 defaults:
   layout:
     pars:
@@ -30,7 +30,7 @@ defaults:
   view: issues
 repoPaths:
   :owner/:repo: $CODEBASIS_DIR/github.com/:owner/:repo
-  dlvhdr/*: $CODEBASIS_DIR/github.com/neumachen/*
+  neumachen/*: $CODEBASIS_DIR/github.com/neumachen/*
 keybindings:
   prs:
     - key: c
