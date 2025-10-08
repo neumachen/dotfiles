@@ -1,7 +1,7 @@
 local map = vim.keymap.set
 
-map({ 'n', 'v' }, '<F1>', ':', { desc = 'command line without colon' })
-map({ 'n', 'v' }, '<leader><F1>', '@:', { desc = 'replay recent command without colon' })
+map({ 'n', 'v' }, ';;', ':', { desc = 'command line without colon' })
+map({ 'n', 'v' }, '<localleader>;', '@:', { desc = 'replay recent command without colon' })
 
 -- Better up/down
 map({ 'n', 'x' }, 'j', "v:count == 0 ? 'gj' : 'j'", { desc = 'Down', expr = true, silent = true })
@@ -210,9 +210,9 @@ map('n', 'zO', [[zCzO]], {
 
 -- Refer [FAQ - Neovide](https://neovide.dev/faq.html#how-can-i-use-cmd-ccmd-v-to-copy-and-paste)
 if vim.g.neovide then
-  vim.keymap.set('n', '<D-s>', ':w<CR>')          -- Save
-  vim.keymap.set('v', '<D-c>', '"+y')             -- Copy
-  vim.keymap.set({ 'n', 'v' }, '<D-v>', '"+P')    -- Paste normal and visual mode
+  vim.keymap.set('n', '<D-s>', ':w<CR>') -- Save
+  vim.keymap.set('v', '<D-c>', '"+y') -- Copy
+  vim.keymap.set({ 'n', 'v' }, '<D-v>', '"+P') -- Paste normal and visual mode
   vim.keymap.set({ 'i', 'c' }, '<D-v>', '<C-R>+') -- Paste insert and command mode
   vim.keymap.set('t', '<D-v>', [[<C-\><C-N>"+P]]) -- Paste terminal mode  vim.keymap.set("n", "<D-s>", ":w<CR>") -- Save
 end
