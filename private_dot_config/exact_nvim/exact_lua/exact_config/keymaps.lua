@@ -69,7 +69,7 @@ map('i', ';', ';<c-g>u')
 -- save file
 map({ 'i', 'x', 'n', 's' }, '<F4>', '<cmd>w<cr><esc>', { desc = 'Save File' })
 
---keywordprg
+-- keywordprg
 map('n', '<leader>K', '<cmd>norm! K<cr>', { desc = 'Keywordprg' })
 
 -- better indenting
