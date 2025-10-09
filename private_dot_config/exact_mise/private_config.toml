@@ -89,7 +89,7 @@ zoxide = "latest"
 "cargo:tealdeer" = "latest"
 "cargo:xplr" = "latest"
 
-"github.com/dlvhdr/gh-dash" = "latest"
+"github:dlvhdr/gh-dash" = "latest"
 "github:JohnnyMorganz/StyLua" = "latest"
 "github:bufbuild/buf" = "latest"
 "github:clangd/clangd" = "latest"
