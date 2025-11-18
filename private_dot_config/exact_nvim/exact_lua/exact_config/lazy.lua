@@ -38,38 +38,38 @@ if vim.env.NVIM then return require('lazy').setup({ { 'willothy/flatten.nvim', c
 -- Setup lazy.nvim
 require('lazy').setup({
   spec = {
-    { import = 'plugins',        cond = function() return not vim.g.vscode end },
+    { import = 'plugins', cond = function() return not vim.g.vscode end },
     { import = 'vscode.plugins', cond = function() return vim.g.vscode end },
   },
   defaults = { lazy = false },
-  concurrency = jit.os:find("Windows") and (vim.uv.available_parallelism() * 2) or nil,
+  concurrency = jit.os:find('Windows') and (vim.uv.available_parallelism() * 2) or nil,
   ui = {
     border = vim.g.border,
     custom_keys = {
-      ["<localleader>lg"] = {
+      ['<localleader>lg'] = {
         function(plugin)
-          require("lazy.util").float_term({ "lazygit", "log" }, {
+          require('lazy.util').float_term({ 'lazygit', 'log' }, {
             cwd = plugin.dir,
           })
         end,
-        desc = "Open lazygit log",
+        desc = 'Open lazygit log',
       },
-      ["<localleader>li"] = {
+      ['<localleader>li'] = {
         function(plugin)
           Util.notify(vim.inspect(plugin), {
-            title = "Inspect " .. plugin.name,
-            lang = "lua",
+            title = 'Inspect ' .. plugin.name,
+            lang = 'lua',
           })
         end,
-        desc = "Inspect Plugin",
+        desc = 'Inspect Plugin',
       },
-      ["<localleader>lt"] = {
+      ['<localleader>lt'] = {
         function(plugin)
-          require("lazy.util").float_term(nil, {
+          require('lazy.util').float_term(nil, {
             cwd = plugin.dir,
           })
         end,
-        desc = "Open terminal in plugin dir",
+        desc = 'Open terminal in plugin dir',
       },
     },
   },
@@ -110,7 +110,7 @@ require('lazy').setup({
   rocks = {
     enabled = true,
     root = vim.fn.stdpath('data') .. '/lazy-rocks',
-    server = 'https://nvim-neorocks.github.io/rocks-binaries/',
+    server = 'https://lumen-oss.github.io/rocks-binaries/',
   },
 
   -- lazy can generate helptags from the headings in markdown readme files,
@@ -118,8 +118,8 @@ require('lazy').setup({
   -- when the readme opens with :help it will be correctly displayed as markdown
   readme = {
     enabled = true,
-    root = vim.fn.stdpath("state") .. "/lazy/readme",
-    files = { "README.md", "lua/**/README.md" },
+    root = vim.fn.stdpath('state') .. '/lazy/readme',
+    files = { 'README.md', 'lua/**/README.md' },
     -- only generate markdown helptags for plugins that don't have docs
     skip_if_doc_exists = true,
   },
