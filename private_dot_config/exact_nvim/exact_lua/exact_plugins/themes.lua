@@ -43,10 +43,10 @@ return {
       ---@param colors table
       on_highlights = function(highlights, colors)
         -- Make line numbers more visible with blue color that complements cyan
-        highlights.LineNrAbove = { fg = colors.blue }
-        highlights.LineNrBelow = { fg = colors.blue }
+        highlights.LineNrAbove = { fg = colors.purple }
+        highlights.LineNrBelow = { fg = colors.purple }
         -- Make current line number even more visible with bright teal
-        highlights.CursorLineNr = { fg = colors.cyan, bold = true }
+        highlights.LineNr = { fg = colors.orange, bold = true }
       end,
 
       cache = true,
@@ -54,7 +54,7 @@ return {
       ---@type table<string, boolean|{enabled:boolean}>
       plugins = {
         all = package.loaded.lazy == nil,
-        -- uses your plugin manager to automatically enable needed plugins
+        -- Uses your plugin manager to automatically enable needed plugins
         -- currently only lazy.nvim is supported
         auto = true,
         telescope = true,
