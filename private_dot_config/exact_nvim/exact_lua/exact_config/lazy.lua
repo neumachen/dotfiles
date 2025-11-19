@@ -80,9 +80,9 @@ require('lazy').setup({
     frequency = 3600, -- check for updates every hour
   },
   change_detection = {
-    -- automatically check for config file changes and reload the ui
+    -- Automatically check for config file changes and reload the UI
     enabled = true,
-    notify = true, -- get a notification when changes are found
+    notify = true, -- Get a notification when changes are found
   },
   performance = {
     rtp = {
@@ -113,21 +113,21 @@ require('lazy').setup({
     server = 'https://lumen-oss.github.io/rocks-binaries/',
   },
 
-  -- lazy can generate helptags from the headings in markdown readme files,
+  -- lazy can generate help tags from the headings in markdown readme files,
   -- so :help works even for plugins that don't have vim docs.
-  -- when the readme opens with :help it will be correctly displayed as markdown
+  -- When the readme opens with :help it will be correctly displayed as markdown
   readme = {
     enabled = true,
     root = vim.fn.stdpath('state') .. '/lazy/readme',
     files = { 'README.md', 'lua/**/README.md' },
-    -- only generate markdown helptags for plugins that don't have docs
+    -- Only generate markdown help tags for plugins that don't have docs
     skip_if_doc_exists = true,
   },
   -- Enable profiling of lazy.nvim. This will add some overhead,
   -- so only enable this when you are debugging lazy.nvim
   profiling = {
     -- Enables extra stats on the debug tab related to the loader cache.
-    -- Additionally gathers stats about all package.loaders
+    -- Additionally, gathers stats about all package.loaders
     loader = false,
     -- Track each new require in the Lazy profiling tab
     require = false,
