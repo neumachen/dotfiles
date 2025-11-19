@@ -16,7 +16,7 @@
 # Main model:
 
 ## Specify the model to use for the main chat
-model: openrouter/anthropic/claude-opus-4.1
+model: openrouter/anthropic/claude-sonnet-4.5
 
 ## Set the reasoning_effort API parameter (default: not set)
 #reasoning-effort: xxx
@@ -384,6 +384,5 @@ detect-urls: true
 
 ## Specify which editor to use for the /editor command
 editor: nvim
-
 ## Print shell completion script for the specified SHELL and exit. Supported shells: bash, tcsh, zsh. Example: aider --shell-completions bash
 #shell-completions: xxx
