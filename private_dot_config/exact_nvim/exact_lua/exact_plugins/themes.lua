@@ -41,7 +41,12 @@ return {
       --- function will be called with a Highlights and ColorScheme table
       ---@param highlights tokyonight.Highlights
       ---@param colors ColorScheme
-      on_highlights = function(highlights, colors) end,
+      on_highlights = function(highlights, colors)
+        -- Make line numbers more visible with teal color
+        highlights.LineNr = { fg = colors.teal }
+        -- Make current line number even more visible with bright teal
+        highlights.CursorLineNr = { fg = colors.cyan, bold = true }
+      end,
 
       cache = true,
 
