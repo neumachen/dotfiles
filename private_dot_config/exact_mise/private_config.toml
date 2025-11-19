@@ -95,5 +95,6 @@ zoxide = "latest"
 "github:bufbuild/buf" = "latest"
 "github:clangd/clangd" = "latest"
 "github:docker/docker-language-server" = { version = "latest", bin = "docker-language-server" }
+"github:Epistates/treemd" = { version = "latest", bin = "treemd" }
 "github:erlang-ls/erlang_ls" = "latest"
 "github:mrjosh/helm-ls" = "latest"
