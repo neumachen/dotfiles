@@ -21,7 +21,6 @@ return {
         always_show_bufferline = false,
         separator_style = 'thin',
       },
-      highlights = require('nord.plugins.bufferline').akinsho(),
     })
   end,
 }
