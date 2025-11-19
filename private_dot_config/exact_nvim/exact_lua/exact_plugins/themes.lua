@@ -34,16 +34,17 @@ return {
 
       --- You can override specific color groups to use other groups or a hex color
       --- function will be called with a ColorScheme table
-      ---@param colors ColorScheme
+      ---@param colors table
       on_colors = function(colors) end,
 
       --- You can override specific highlights to use other groups or a hex color
       --- function will be called with a Highlights and ColorScheme table
-      ---@param highlights tokyonight.Highlights
-      ---@param colors ColorScheme
+      ---@param highlights table
+      ---@param colors table
       on_highlights = function(highlights, colors)
         -- Make line numbers more visible with blue color that complements cyan
-        highlights.LineNr = { fg = colors.blue }
+        highlights.LineNrAbove = { fg = colors.blue }
+        highlights.LineNrBelow = { fg = colors.blue }
         -- Make current line number even more visible with bright teal
         highlights.CursorLineNr = { fg = colors.cyan, bold = true }
       end,
