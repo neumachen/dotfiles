@@ -104,6 +104,71 @@ ensure_unique_container_name() {
   fi
 }
 
+list_existing_sessions() {
+  docker ps -a --filter "name=${DEFAULT_PREFIX}-" --format "table {{.Names}}\t{{.Status}}\t{{.CreatedAt}}" 2>/dev/null || true
+}
+
+get_existing_session_names() {
+  docker ps -a --filter "name=${DEFAULT_PREFIX}-" --format "{{.Names}}" 2>/dev/null | sort || true
+}
+
+prompt_session_choice() {
+  local existing_sessions
+  existing_sessions="$(get_existing_session_names)"
+  
+  if [ -z "$existing_sessions" ]; then
+    # No existing sessions, proceed with new session creation
+    SESSION_NAME="$(prompt_session_name)"
+    return 0
+  fi
+  
+  echo "Found existing sessions:"
+  list_existing_sessions
+  echo
+  echo "Options:"
+  echo "  1) Resume an existing session"
+  echo "  2) Create a new session"
+  echo
+  
+  local choice
+  read -r -p "Choose option (1 or 2): " choice
+  
+  case "$choice" in
+    1)
+      echo "Available sessions:"
+      local i=1
+      local session_array=()
+      while IFS= read -r session; do
+        echo "  $i) $session"
+        session_array+=("$session")
+        ((i++))
+      done <<< "$existing_sessions"
+      
+      if [ ${#session_array[@]} -eq 1 ]; then
+        SESSION_NAME="${session_array[0]}"
+        echo "Resuming session: $SESSION_NAME"
+      else
+        echo
+        read -r -p "Enter session number to resume: " session_num
+        if [[ "$session_num" =~ ^[0-9]+$ ]] && [ "$session_num" -ge 1 ] && [ "$session_num" -le ${#session_array[@]} ]; then
+          SESSION_NAME="${session_array[$((session_num-1))]}"
+          echo "Resuming session: $SESSION_NAME"
+        else
+          die "Invalid session number"
+        fi
+      fi
+      return 1  # Signal that we're resuming
+      ;;
+    2)
+      SESSION_NAME="$(prompt_session_name)"
+      return 0  # Signal that we're creating new
+      ;;
+    *)
+      die "Invalid choice. Please enter 1 or 2."
+      ;;
+  esac
+}
+
 ensure_volume_bound() {
   local vol="$1" hostdir="$2"
   mkdir -p "$hostdir"
@@ -177,14 +242,39 @@ ENV_IN="${CONF_DIR_IN}/${ENV_BASENAME}"
 CONF_IN="${CONF_DIR_IN}/${CONF_BASENAME}"
 
 # Session name & storage volume
+RESUME_SESSION=0
 if [ -z "$SESSION_NAME" ]; then
-  SESSION_NAME="$(prompt_session_name)"
+  if prompt_session_choice; then
+    # Creating new session
+    ensure_unique_container_name "$SESSION_NAME"
+  else
+    # Resuming existing session
+    RESUME_SESSION=1
+  fi
+else
+  # Session name provided via command line
+  if docker ps -a --format '{{.Names}}' | grep -qx "$SESSION_NAME"; then
+    echo "Session '$SESSION_NAME' already exists."
+    read -r -p "Resume existing session? (y/N): " resume_choice
+    case "$resume_choice" in
+      [Yy]|[Yy][Ee][Ss])
+        RESUME_SESSION=1
+        ;;
+      *)
+        die "Session name '$SESSION_NAME' already exists. Choose a different --name or resume the existing one."
+        ;;
+    esac
+  else
+    ensure_unique_container_name "$SESSION_NAME"
+  fi
 fi
-ensure_unique_container_name "$SESSION_NAME"
 
 SESS_ROOT="${HOME}/.local/share/aider/sessions"
 SESS_PATH="${SESS_ROOT}/${SESSION_NAME}"
-ensure_volume_bound "$SESSION_NAME" "$SESS_PATH"
+
+if [ "$RESUME_SESSION" -eq 0 ]; then
+  ensure_volume_bound "$SESSION_NAME" "$SESS_PATH"
+fi
 
 # Image pull policy
 if [ "$PULL_IMAGE" -eq 1 ]; then
@@ -212,25 +302,33 @@ if ! contains_flag --config "${AIDER_ARGS[@]}"; then
 fi
 
 # ---------- run ----------
-DOCKER_VOLUMES=(
-  --volume "$PWD:/app"
-  --volume "$SESSION_NAME:/aider"
-  --volume "$AIDER_ENV_FILE:$ENV_IN:ro"
-  --volume "$AIDER_CONFIG_CONTAINER:$CONF_IN:ro"
-)
+if [ "$RESUME_SESSION" -eq 1 ]; then
+  echo "Resuming existing session: $SESSION_NAME"
+  set -x
+  docker start -ai "$SESSION_NAME"
+  set +x
+else
+  DOCKER_VOLUMES=(
+    --volume "$PWD:/app"
+    --volume "$SESSION_NAME:/aider"
+    --volume "$AIDER_ENV_FILE:$ENV_IN:ro"
+    --volume "$AIDER_CONFIG_CONTAINER:$CONF_IN:ro"
+  )
 
-# Mount Git config if it exists
-if [ -d "$GIT_CONFIG_DIR" ]; then
-  DOCKER_VOLUMES+=(--volume "$GIT_CONFIG_DIR:$GIT_CONFIG_IN:ro")
+  # Mount Git config if it exists
+  if [ -d "$GIT_CONFIG_DIR" ]; then
+    DOCKER_VOLUMES+=(--volume "$GIT_CONFIG_DIR:$GIT_CONFIG_IN:ro")
+  fi
+
+  echo "Starting new session: $SESSION_NAME"
+  set -x
+  docker run \
+    -it \
+    --name "$SESSION_NAME" \
+    --user "$(id -u):$(id -g)" \
+    "${DOCKER_VOLUMES[@]}" \
+    "${DOCKER_EXTRAS[@]}" \
+    "$IMAGE" \
+    "${AIDER_ARGS[@]}"
+  set +x
 fi
-
-set -x
-docker run \
-  -it \
-  --name "$SESSION_NAME" \
-  --user "$(id -u):$(id -g)" \
-  "${DOCKER_VOLUMES[@]}" \
-  "${DOCKER_EXTRAS[@]}" \
-  "$IMAGE" \
-  "${AIDER_ARGS[@]}"
-set +x
