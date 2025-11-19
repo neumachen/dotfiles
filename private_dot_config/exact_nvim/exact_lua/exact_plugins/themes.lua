@@ -42,8 +42,8 @@ return {
       ---@param highlights tokyonight.Highlights
       ---@param colors ColorScheme
       on_highlights = function(highlights, colors)
-        -- Make line numbers more visible with teal color
-        highlights.LineNr = { fg = colors.teal }
+        -- Make line numbers more visible with blue color that complements cyan
+        highlights.LineNr = { fg = colors.blue }
         -- Make current line number even more visible with bright teal
         highlights.CursorLineNr = { fg = colors.cyan, bold = true }
       end,
