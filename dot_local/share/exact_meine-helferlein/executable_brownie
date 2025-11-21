@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # brownie: launch aider in a container with a per-session persistent volume
 #
-# Why “Brownie”?
+# Why "Brownie"?
 #   In Scottish/English folklore, a Brownie is a helpful house-spirit that
-#   tidies and assists quietly at night—so long as it’s respected. This script
+#   tidies and assists quietly at night—so long as it's respected. This script
 #   aims to be that kind of helper for your Aider sessions: unobtrusive,
 #   practical, and tidy about your files.
 #
@@ -83,7 +83,7 @@ get_git_config_dir() {
 lower() { tr '[:upper:]' '[:lower:]'; }
 
 sanitize_docker_name() {
-  local in="$1" out
+  local in="${1:-}" out
   out="$(printf '%s' "$in" | lower | tr -c 'a-z0-9._-' '-')"
   out="$(printf '%s' "$out" | sed -E 's/^[^a-z0-9]+//')"
   out="$(printf '%s' "$out" | sed -E 's/[-._]+$//')"
@@ -294,10 +294,10 @@ contains_flag() {
   return 1
 }
 
-if ! contains_flag --env-file "${AIDER_ARGS[@]}"; then
+if ! contains_flag --env-file "${AIDER_ARGS[@]+"${AIDER_ARGS[@]}"}"; then
   AIDER_ARGS+=(--env-file "$ENV_IN")
 fi
-if ! contains_flag --config "${AIDER_ARGS[@]}"; then
+if ! contains_flag --config "${AIDER_ARGS[@]+"${AIDER_ARGS[@]}"}"; then
   AIDER_ARGS+=(--config "$CONF_IN")
 fi
 
