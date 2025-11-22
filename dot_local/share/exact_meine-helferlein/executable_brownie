@@ -327,7 +327,7 @@ else
     --name "$SESSION_NAME" \
     --user "$(id -u):$(id -g)" \
     "${DOCKER_VOLUMES[@]}" \
-    "${DOCKER_EXTRAS[@]}" \
+    ${DOCKER_EXTRAS[@]+"${DOCKER_EXTRAS[@]}"} \
     "$IMAGE" \
     "${AIDER_ARGS[@]}"
   set +x
