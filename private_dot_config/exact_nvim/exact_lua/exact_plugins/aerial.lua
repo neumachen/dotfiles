@@ -32,7 +32,7 @@ return {
         -- options will open the window in the other direction *if* there is a
         -- different buffer in the way of the preferred direction
         -- Enum: prefer_right, prefer_left, right, left, float
-        default_direction = 'float',
+        default_direction = 'prefer_right',
 
         -- Determines where the aerial window will be opened
         --   edge   - open aerial at the far right/left of the editor
@@ -43,7 +43,7 @@ return {
         resize_to_content = true,
 
         -- Preserve window size equality with (:help CTRL-W_=)
-        preserve_equality = false,
+        preserve_equality = true,
       },
 
       -- Determines how the aerial window decides which buffer to display symbols for
