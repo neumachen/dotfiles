@@ -5,7 +5,7 @@ return {
     { 'kristijanhusak/vim-dadbod-completion', ft = { 'sql', 'mysql', 'plsql' } },
   },
   keys = { -- Mapping to toggle DBUI
-    { '<leader>d', '<cmd>DBUIToggle<CR>', desc = 'Toggle DBUI' },
+    { '<leader>td', '<cmd>DBUIToggle<CR>', desc = 'Toggle DBUI' },
   },
   cmd = {
     'DBUI',
@@ -22,4 +22,3 @@ return {
     vim.g.db_ui_hide_schemas = { 'pg_toast_temp.*' }
   end,
 }
-
