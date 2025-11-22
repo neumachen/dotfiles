@@ -12,9 +12,9 @@ return {
     },
   },
   keys = {
-    { '<localleader>s', function() require('flash').jump() end, mode = { 'n', 'x', 'o' } },
-    { '<localleader>S', function() require('flash').treesitter() end, mode = { 'o', 'x' } },
-    { '<localleader>r', function() require('flash').remote() end, mode = 'o', desc = 'Remote Flash' },
+    { 's', function() require('flash').jump() end, mode = { 'n', 'x', 'o' } },
+    { 'S', function() require('flash').treesitter() end, mode = { 'o', 'x' } },
+    { 'r', function() require('flash').remote() end, mode = 'o', desc = 'Remote Flash' },
     {
       '<c-s>',
       function() require('flash').toggle() end,
@@ -22,7 +22,7 @@ return {
       desc = 'Toggle Flash Search',
     },
     {
-      '<localleader>R',
+      'R',
       function() require('flash').treesitter_search() end,
       mode = { 'o', 'x' },
       desc = 'Flash Treesitter Search',
