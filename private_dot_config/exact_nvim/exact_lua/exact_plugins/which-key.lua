@@ -15,13 +15,13 @@ return {
       { '<leader>g', group = 'git', desc = 'Git related operations' },
       { '<leader>t', group = 'Toggle', desc = 'Toggle plugin operations' },
       { '<leader>w', group = 'window', desc = 'Window operations' },
-      { '<localleader>g', group = 'neogit', desc = 'Neogit keymaps' },
+      { '<localleader>g', group = 'git', desc = 'Git operations' },
       { '<localleader>y', group = 'yazi', desc = 'Yazi nvim commands' },
       -- Groups
       { '<leader>cs', group = 'symbols', desc = 'Symbols operations' },
       { '<leader>gh', group = 'git hunk', desc = 'Git hunk operations' },
       { '<leader>gt', group = 'git toggle', desc = 'Git toggle operations' },
-      { '<leader>tn', group = 'neogit toggle', desc = 'Neogit operations' },
+      { '<leader>tn', group = 'neogit', desc = 'Neogit operations' },
     })
   end,
   dependencies = {
