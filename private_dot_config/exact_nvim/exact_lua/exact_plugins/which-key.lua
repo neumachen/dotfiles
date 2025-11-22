@@ -25,10 +25,13 @@ return {
       { '<localleader>y', group = 'yazi', desc = 'Yazi plugin operations' },
       -- Subgroups - Leader
       { '<leader>cs', group = 'symbols', desc = 'Symbols operations' },
-      { '<leader>gh', group = 'git hunk', desc = 'Git hunk operations' },
-      { '<leader>gl', group = 'git log', desc = 'Git Log operations' },
-      { '<leader>gt', group = 'git toggle', desc = 'Git toggle operations' },
+      { '<leader>gh', group = 'hunk', desc = 'Git hunk operations' },
+      { '<leader>gl', group = 'log', desc = 'Git Log operations' },
+      { '<leader>gt', group = 'toggle', desc = 'Git toggle operations' },
       { '<leader>tn', group = 'neogit', desc = 'Neogit operations' },
+      -- Subgroups - Localleader
+      { '<localleader>gb', group = 'buffer', desc = 'Buffer specific git operations' },
+      { '<localleader>gh', group = 'hunk', desc = 'Buffer specific git hunk operations' },
     })
   end,
   dependencies = {
