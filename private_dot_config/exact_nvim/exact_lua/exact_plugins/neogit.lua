@@ -36,8 +36,11 @@ return {
     })
 
     local neogit = require('neogit')
-    map('n', '<leader>tno', function() neogit.open() end, {
-      desc = 'open status buffer',
+    map('n', '<leader>tN', function() neogit.open() end, {
+      desc = 'open Neogit status buffer',
+    })
+    map('n', '<leader>ts', function() neogit.open() end, {
+      desc = 'open Neogit status buffer',
     })
     map('n', '<leader>tnc', function() neogit.open({ 'commit' }) end, {
       desc = 'open commit buffer',
@@ -45,7 +48,7 @@ return {
     map('n', '<leader>tnp', function() neogit.open({ 'pull' }) end, {
       desc = 'open pull popup',
     })
-    map('n', '<leader>tns', function() neogit.open({ 'push' }) end, {
+    map('n', '<leader>tnP', function() neogit.open({ 'push' }) end, {
       desc = 'open push popup',
     })
   end,
