@@ -23,10 +23,10 @@ return {
       -- Localleader groups
       { '<localleader>g', group = 'git', desc = 'Git operations' },
       { '<localleader>y', group = 'yazi', desc = 'Yazi plugin operations' },
-      -- Subgroups
-      -- Leader
+      -- Subgroups - Leader
       { '<leader>cs', group = 'symbols', desc = 'Symbols operations' },
       { '<leader>gh', group = 'git hunk', desc = 'Git hunk operations' },
+      { '<leader>gl', group = 'git log', desc = 'Git Log operations' },
       { '<leader>gt', group = 'git toggle', desc = 'Git toggle operations' },
       { '<leader>tn', group = 'neogit', desc = 'Neogit operations' },
     })
