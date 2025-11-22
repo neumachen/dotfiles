@@ -4,8 +4,8 @@ return {
     {
       pane = 2,
       section = 'terminal',
-      cmd = 'colorscript -e square',
-      height = 5,
+      cmd = 'fortune -s | cowsay',
+      indent = 8,
       padding = 1,
     },
     { section = 'keys', gap = 1, padding = 1 },
