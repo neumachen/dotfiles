@@ -15,9 +15,10 @@ return {
       { '<leader>f', group = 'file', desc = 'File operations' },
       { '<leader>g', group = 'git', desc = 'Git operations' },
       { '<leader>m', group = 'marker', desc = 'Marker operations' },
+      { '<leader>n', group = 'notification', desc = 'Snacks plugin for notification operations' },
+      { '<leader>s', group = 'find/search', desc = 'Finding/searching operations' },
       { '<leader>t', group = 'toggle', desc = 'Toggle plugin operations' },
       { '<leader>w', group = 'window', desc = 'Window operations' },
-      { '<leader>s', group = 'find/search', desc = 'Finding/searching operations' },
       { '<leader><tab>', group = 'tab', desc = 'Tab operations' },
       -- Localleader groups
       { '<localleader>g', group = 'git', desc = 'Git operations' },
