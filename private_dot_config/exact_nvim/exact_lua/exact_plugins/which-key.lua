@@ -8,12 +8,15 @@ return {
       layout = { align = 'center' },
     })
     wk.add({
+      { '<leader>a', group = 'sidekick', desc = 'Sidekick plugin operations' },
+      { '<leader>b', group = 'buffer', desc = 'Buffer operations' },
+      { '<leader>cs', group = 'symbols', desc = 'Sybomls operations' },
       { '<leader>f', group = 'file', desc = 'File operations' },
       { '<leader>g', group = 'git', desc = 'Git related operations' },
-      { '<leader>b', group = 'buffer', desc = 'Buffer operations' },
+      { '<leader>t', group = 'Toggle', desc = 'Toggle plugin operations' },
       { '<leader>w', group = 'window', desc = 'Window operations' },
-      { '<localleader>y', group = 'yazi', desc = 'Yazi nvim commands' },
       { '<localleader>g', group = 'neogit', desc = 'Neogit keymaps' },
+      { '<localleader>y', group = 'yazi', desc = 'Yazi nvim commands' },
     })
   end,
   dependencies = {
