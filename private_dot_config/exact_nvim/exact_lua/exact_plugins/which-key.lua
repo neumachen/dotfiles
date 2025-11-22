@@ -21,9 +21,9 @@ return {
       { '<leader>w', group = 'window', desc = 'Window operations' },
       { '<leader><tab>', group = 'tab', desc = 'Tab operations' },
       -- Localleader groups
+      { '<localleader>f', group = 'format', desc = 'Format operations' },
       { '<localleader>g', group = 'git', desc = 'Git operations' },
       { '<localleader>y', group = 'yazi', desc = 'Yazi plugin operations' },
-      { '<localleader>f', group = 'format', desc = 'Format operations' },
       -- Subgroups - Leader
       { '<leader>cs', group = 'symbols', desc = 'Symbols operations' },
       { '<leader>gh', group = 'hunk', desc = 'Git hunk operations' },
