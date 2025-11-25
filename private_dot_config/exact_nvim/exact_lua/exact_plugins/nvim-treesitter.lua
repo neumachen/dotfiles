@@ -12,10 +12,10 @@ return {
       -- during startup.
       require('lazy.core.loader').add_to_rtp(plugin)
       require('nvim-treesitter.query_predicates')
-      require("vim.treesitter.query").add_predicate("is-mise?", function(_, _, bufnr, _)
+      require('vim.treesitter.query').add_predicate('is-mise?', function(_, _, bufnr, _)
         local filepath = vim.api.nvim_buf_get_name(tonumber(bufnr) or 0)
-        local filename = vim.fn.fnamemodify(filepath, ":t")
-        return string.match(filename, ".*mise.*%.toml$") ~= nil
+        local filename = vim.fn.fnamemodify(filepath, ':t')
+        return string.match(filename, '.*mise.*%.toml$') ~= nil
       end, { force = true, all = false })
     end,
     opts = {
@@ -62,6 +62,7 @@ return {
         'regex',
         'ruby',
         'rust',
+        'slim',
         'ssh_config',
         'toml',
         'tsx',
@@ -82,8 +83,8 @@ return {
         enable = true,
         disable = { 'help' },
         keymaps = {
-          init_selection = '<CR>',     -- maps in normal mode to init the node/scope selection
-          node_incremental = '<CR>',   -- increment to the upper named parent
+          init_selection = '<CR>', -- maps in normal mode to init the node/scope selection
+          node_incremental = '<CR>', -- increment to the upper named parent
           node_decremental = '<C-CR>', -- decrement to the previous node
         },
       },
