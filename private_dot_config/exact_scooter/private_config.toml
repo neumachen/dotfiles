@@ -1,5 +1,6 @@
 [editor_open]
 command = "nvim --server $NVIM --remote-send '<cmd>lua EditLineFromScooter(\"%file\", %line)<CR>'"
+
 # Commands available on all screens
 [keys.general]
 quit = "C-c"           # Exit scooter
