@@ -2,7 +2,7 @@ return {
   'stevearc/aerial.nvim',
   opts = {},
   keys = {
-    { '<leader>csa', '<cmd>AerialToggle!<CR>', desc = 'Toggle Aerial' },
+    { '<localleader>ta', '<cmd>AerialToggle!<CR>', desc = 'Toggle Aerial' },
   },
   -- Optional dependencies
   dependencies = {
