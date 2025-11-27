@@ -1,4 +1,5 @@
 return {
+  'KieranCanter/candela.nvim',
   config = function()
     require('candela').setup({
       window = {
