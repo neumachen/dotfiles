@@ -39,6 +39,9 @@ return {
     map('n', '<leader>tN', function() neogit.open() end, {
       desc = 'open Neogit',
     })
+    map('n', '<localleader>G', function() neogit.open() end, {
+      desc = 'open Neogit',
+    })
     map('n', '<leader>tns', function() neogit.open() end, {
       desc = 'open Neogit status buffer',
     })
