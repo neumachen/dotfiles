@@ -23,6 +23,7 @@ return {
       -- Localleader groups
       { '<localleader>f', group = 'format', desc = 'Format operations' },
       { '<localleader>g', group = 'git', desc = 'Git operations' },
+      { '<localleader>s', group = 'find/search', desc = 'Finding/searching operations' },
       { '<localleader>y', group = 'yazi', desc = 'Yazi plugin operations' },
       -- Subgroups - Leader
       { '<leader>cs', group = 'symbols', desc = 'Symbols operations' },
@@ -30,6 +31,7 @@ return {
       { '<leader>gl', group = 'log', desc = 'Git Log operations' },
       { '<leader>gt', group = 'toggle', desc = 'Git toggle operations' },
       { '<leader>tn', group = 'neogit', desc = 'Neogit operations' },
+      { '<leader>ts', group = 'scooter', desc = 'Scooter operations' },
       -- Subgroups - Localleader
       { '<localleader>gb', group = 'buffer', desc = 'Buffer specific git operations' },
       { '<localleader>gh', group = 'hunk', desc = 'Buffer specific git hunk operations' },
