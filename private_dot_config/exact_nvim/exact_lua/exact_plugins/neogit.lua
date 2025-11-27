@@ -1,4 +1,4 @@
-local map = map or vim.keymap.set
+local map = vim.keymap.set
 
 return {
   'NeogitOrg/neogit',
