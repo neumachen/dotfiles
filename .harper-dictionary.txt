@@ -1,6 +1,9 @@
+A2
+E2
 FormatDisable
 Localleader
 Treesitter
+UTF
 foldmethod
 ftplugin
 keywordprg
