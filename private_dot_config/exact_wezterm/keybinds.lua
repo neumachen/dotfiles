@@ -2,9 +2,13 @@ local M = {}
 local wezterm = require('wezterm')
 local act = wezterm.action
 local utils = require('modules.utils')
-local workspace_switcher = require('modules.smart_workspace_switcher')
 local smart_splits_keybinds = require('plugins.smart-splits')
 
+local workspace_switcher = wezterm.plugin.require(
+  os.getenv('HOME')
+    .. '/'
+    .. '.local/share/wezterm/plugins/smart_workspace_switcher.wezterm'
+)
 ---------------------------------------------------------------
 --- keybinds
 ---------------------------------------------------------------
@@ -21,7 +25,11 @@ M.tmux_keybinds = {
       act.ClearSelection,
     }),
   },
-  { key = 'j', mods = 'ALT|CMD', action = act({ PasteFrom = 'PrimarySelection' }) },
+  {
+    key = 'j',
+    mods = 'ALT|CMD',
+    action = act({ PasteFrom = 'PrimarySelection' }),
+  },
   { key = '1', mods = 'CMD', action = act({ ActivateTab = 0 }) },
   { key = '2', mods = 'CMD', action = act({ ActivateTab = 1 }) },
   { key = '3', mods = 'CMD', action = act({ ActivateTab = 2 }) },
@@ -31,21 +39,33 @@ M.tmux_keybinds = {
   { key = '7', mods = 'CMD', action = act({ ActivateTab = 6 }) },
   { key = '8', mods = 'CMD', action = act({ ActivateTab = 7 }) },
   { key = '9', mods = 'CMD', action = act({ ActivateTab = 8 }) },
-  { key = '-', mods = 'CMD', action = act({ SplitVertical = { domain = 'CurrentPaneDomain' } }) },
+  {
+    key = '-',
+    mods = 'CMD',
+    action = act({ SplitVertical = { domain = 'CurrentPaneDomain' } }),
+  },
   {
     key = '|',
     mods = 'CMD|SHIFT',
     action = act({ SplitHorizontal = { domain = 'CurrentPaneDomain' } }),
   },
   { key = 'Enter', mods = 'CMD', action = 'QuickSelect' },
-  { key = '/', mods = 'ALT', action = act.Search('CurrentSelectionOrEmptyString') },
+  {
+    key = '/',
+    mods = 'ALT',
+    action = act.Search('CurrentSelectionOrEmptyString'),
+  },
 }
 
 M.default_keybinds = {
   { key = 'n', mods = 'CMD', action = wezterm.action.SpawnWindow },
   { key = 'c', mods = 'CMD', action = act({ CopyTo = 'Clipboard' }) },
   { key = 'v', mods = 'CMD', action = act({ PasteFrom = 'Clipboard' }) },
-  { key = 'Insert', mods = 'SHIFT', action = act({ PasteFrom = 'PrimarySelection' }) },
+  {
+    key = 'Insert',
+    mods = 'SHIFT',
+    action = act({ PasteFrom = 'PrimarySelection' }),
+  },
   { key = '=', mods = 'CMD', action = 'ResetFontSize' },
   { key = '+', mods = 'CMD|SHIFT', action = 'IncreaseFontSize' },
   { key = '-', mods = 'CMD|SHIFT', action = 'DecreaseFontSize' },
@@ -54,10 +74,26 @@ M.default_keybinds = {
   { key = 'b', mods = 'ALT', action = act({ ScrollByPage = -1 }) },
   { key = 'f', mods = 'ALT', action = act({ ScrollByPage = 1 }) },
   { key = 'z', mods = 'ALT', action = 'ReloadConfiguration' },
-  { key = 'z', mods = 'ALT|SHIFT', action = act({ EmitEvent = 'toggle-tmux-keybinds' }) },
-  { key = 'e', mods = 'ALT', action = act({ EmitEvent = 'trigger-nvim-with-scrollback' }) },
-  { key = 'q', mods = 'CMD', action = act({ CloseCurrentPane = { confirm = true } }) },
-  { key = 'x', mods = 'CMD', action = act({ CloseCurrentPane = { confirm = true } }) },
+  {
+    key = 'z',
+    mods = 'ALT|SHIFT',
+    action = act({ EmitEvent = 'toggle-tmux-keybinds' }),
+  },
+  {
+    key = 'e',
+    mods = 'ALT',
+    action = act({ EmitEvent = 'trigger-nvim-with-scrollback' }),
+  },
+  {
+    key = 'q',
+    mods = 'CMD',
+    action = act({ CloseCurrentPane = { confirm = true } }),
+  },
+  {
+    key = 'x',
+    mods = 'CMD',
+    action = act({ CloseCurrentPane = { confirm = true } }),
+  },
   { key = 'a', mods = 'CMD', action = wezterm.action.ShowLauncher },
   { key = ' ', mods = 'ALT|SHIFT', action = wezterm.action.ShowTabNavigator },
   {
@@ -161,22 +197,13 @@ M.default_keybinds = {
 }
 
 function M.create_keybinds()
-  return utils.merge_lists(utils.merge_lists(M.default_keybinds, M.tmux_keybinds), smart_splits_keybinds)
+  return utils.merge_lists(
+    utils.merge_lists(M.default_keybinds, M.tmux_keybinds),
+    smart_splits_keybinds
+  )
 end
 
 M.key_tables = {
-  -- resize_pane = {
-  --   { key = 'LeftArrow', action = act({ AdjustPaneSize = { 'Left', 1 } }) },
-  --   { key = 'h', action = act({ AdjustPaneSize = { 'Left', 1 } }) },
-  --   { key = 'RightArrow', action = act({ AdjustPaneSize = { 'Right', 1 } }) },
-  --   { key = 'l', action = act({ AdjustPaneSize = { 'Right', 1 } }) },
-  --   { key = 'UpArrow', action = act({ AdjustPaneSize = { 'Up', 1 } }) },
-  --   { key = 'k', action = act({ AdjustPaneSize = { 'Up', 1 } }) },
-  --   { key = 'DownArrow', action = act({ AdjustPaneSize = { 'Down', 1 } }) },
-  --   { key = 'j', action = act({ AdjustPaneSize = { 'Down', 1 } }) },
-  --   -- Cancel the mode by pressing escape
-  --   { key = 'Escape', action = 'PopKeyTable' },
-  -- },
   copy_mode = {
     {
       key = 'Escape',
@@ -198,11 +225,19 @@ M.key_tables = {
     { key = 'l', mods = 'NONE', action = act.CopyMode('MoveRight') },
     { key = 'RightArrow', mods = 'NONE', action = act.CopyMode('MoveRight') },
     -- move word
-    { key = 'RightArrow', mods = 'ALT', action = act.CopyMode('MoveForwardWord') },
+    {
+      key = 'RightArrow',
+      mods = 'ALT',
+      action = act.CopyMode('MoveForwardWord'),
+    },
     { key = 'f', mods = 'ALT', action = act.CopyMode('MoveForwardWord') },
     { key = '\t', mods = 'NONE', action = act.CopyMode('MoveForwardWord') },
     { key = 'w', mods = 'NONE', action = act.CopyMode('MoveForwardWord') },
-    { key = 'LeftArrow', mods = 'ALT', action = act.CopyMode('MoveBackwardWord') },
+    {
+      key = 'LeftArrow',
+      mods = 'ALT',
+      action = act.CopyMode('MoveBackwardWord'),
+    },
     { key = 'b', mods = 'ALT', action = act.CopyMode('MoveBackwardWord') },
     { key = '\t', mods = 'SHIFT', action = act.CopyMode('MoveBackwardWord') },
     { key = 'b', mods = 'NONE', action = act.CopyMode('MoveBackwardWord') },
@@ -219,17 +254,57 @@ M.key_tables = {
     },
     -- move start/end
     { key = '0', mods = 'NONE', action = act.CopyMode('MoveToStartOfLine') },
-    { key = '\n', mods = 'NONE', action = act.CopyMode('MoveToStartOfNextLine') },
-    { key = '$', mods = 'SHIFT', action = act.CopyMode('MoveToEndOfLineContent') },
-    { key = '$', mods = 'NONE', action = act.CopyMode('MoveToEndOfLineContent') },
-    { key = 'e', mods = 'CTRL', action = act.CopyMode('MoveToEndOfLineContent') },
-    { key = 'm', mods = 'ALT', action = act.CopyMode('MoveToStartOfLineContent') },
-    { key = '^', mods = 'SHIFT', action = act.CopyMode('MoveToStartOfLineContent') },
-    { key = '^', mods = 'NONE', action = act.CopyMode('MoveToStartOfLineContent') },
-    { key = 'a', mods = 'CTRL', action = act.CopyMode('MoveToStartOfLineContent') },
+    {
+      key = '\n',
+      mods = 'NONE',
+      action = act.CopyMode('MoveToStartOfNextLine'),
+    },
+    {
+      key = '$',
+      mods = 'SHIFT',
+      action = act.CopyMode('MoveToEndOfLineContent'),
+    },
+    {
+      key = '$',
+      mods = 'NONE',
+      action = act.CopyMode('MoveToEndOfLineContent'),
+    },
+    {
+      key = 'e',
+      mods = 'CTRL',
+      action = act.CopyMode('MoveToEndOfLineContent'),
+    },
+    {
+      key = 'm',
+      mods = 'ALT',
+      action = act.CopyMode('MoveToStartOfLineContent'),
+    },
+    {
+      key = '^',
+      mods = 'SHIFT',
+      action = act.CopyMode('MoveToStartOfLineContent'),
+    },
+    {
+      key = '^',
+      mods = 'NONE',
+      action = act.CopyMode('MoveToStartOfLineContent'),
+    },
+    {
+      key = 'a',
+      mods = 'CTRL',
+      action = act.CopyMode('MoveToStartOfLineContent'),
+    },
     -- select
-    { key = ' ', mods = 'NONE', action = act.CopyMode({ SetSelectionMode = 'Cell' }) },
-    { key = 'v', mods = 'NONE', action = act.CopyMode({ SetSelectionMode = 'Cell' }) },
+    {
+      key = ' ',
+      mods = 'NONE',
+      action = act.CopyMode({ SetSelectionMode = 'Cell' }),
+    },
+    {
+      key = 'v',
+      mods = 'NONE',
+      action = act.CopyMode({ SetSelectionMode = 'Cell' }),
+    },
     {
       key = 'v',
       mods = 'SHIFT',
@@ -265,18 +340,46 @@ M.key_tables = {
       }),
     },
     -- scroll
-    { key = 'G', mods = 'SHIFT', action = act.CopyMode('MoveToScrollbackBottom') },
-    { key = 'G', mods = 'NONE', action = act.CopyMode('MoveToScrollbackBottom') },
+    {
+      key = 'G',
+      mods = 'SHIFT',
+      action = act.CopyMode('MoveToScrollbackBottom'),
+    },
+    {
+      key = 'G',
+      mods = 'NONE',
+      action = act.CopyMode('MoveToScrollbackBottom'),
+    },
     { key = 'g', mods = 'NONE', action = act.CopyMode('MoveToScrollbackTop') },
     { key = 'H', mods = 'NONE', action = act.CopyMode('MoveToViewportTop') },
     { key = 'H', mods = 'SHIFT', action = act.CopyMode('MoveToViewportTop') },
     { key = 'M', mods = 'NONE', action = act.CopyMode('MoveToViewportMiddle') },
-    { key = 'M', mods = 'SHIFT', action = act.CopyMode('MoveToViewportMiddle') },
+    {
+      key = 'M',
+      mods = 'SHIFT',
+      action = act.CopyMode('MoveToViewportMiddle'),
+    },
     { key = 'L', mods = 'NONE', action = act.CopyMode('MoveToViewportBottom') },
-    { key = 'L', mods = 'SHIFT', action = act.CopyMode('MoveToViewportBottom') },
-    { key = 'o', mods = 'NONE', action = act.CopyMode('MoveToSelectionOtherEnd') },
-    { key = 'O', mods = 'NONE', action = act.CopyMode('MoveToSelectionOtherEndHoriz') },
-    { key = 'O', mods = 'SHIFT', action = act.CopyMode('MoveToSelectionOtherEndHoriz') },
+    {
+      key = 'L',
+      mods = 'SHIFT',
+      action = act.CopyMode('MoveToViewportBottom'),
+    },
+    {
+      key = 'o',
+      mods = 'NONE',
+      action = act.CopyMode('MoveToSelectionOtherEnd'),
+    },
+    {
+      key = 'O',
+      mods = 'NONE',
+      action = act.CopyMode('MoveToSelectionOtherEndHoriz'),
+    },
+    {
+      key = 'O',
+      mods = 'SHIFT',
+      action = act.CopyMode('MoveToSelectionOtherEndHoriz'),
+    },
     { key = 'PageUp', mods = 'NONE', action = act.CopyMode('PageUp') },
     { key = 'PageDown', mods = 'NONE', action = act.CopyMode('PageDown') },
     { key = 'b', mods = 'CTRL', action = act.CopyMode('PageUp') },
@@ -287,7 +390,11 @@ M.key_tables = {
       action = act.CopyMode('ClearSelectionMode'),
     },
     -- search
-    { key = '/', mods = 'NONE', action = act.Search('CurrentSelectionOrEmptyString') },
+    {
+      key = '/',
+      mods = 'NONE',
+      action = act.Search('CurrentSelectionOrEmptyString'),
+    },
     {
       key = 'n',
       mods = 'NONE',

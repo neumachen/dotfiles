@@ -4,7 +4,6 @@ local wezterm = require('wezterm')
 local gpus = wezterm.gui.enumerate_gpus()
 -- local scheme = wezterm.get_builtin_color_schemes()['tokyonight_storm']
 require('modules.commands')
-require('plugins.smart-splits')
 
 -- /etc/ssh/sshd_config
 -- AcceptEnv TERM_PROGRAM_VERSION COLORTERM TERM TERM_PROGRAM WEZTERM_REMOTE_PANE
