@@ -3,28 +3,25 @@ local wezterm = require('wezterm')
 local act = wezterm.action
 local utils = require('modules.utils')
 local workspace_switcher = require('modules.smart_workspace_switcher')
+local smart_splits_keybinds = require('plugins.smart-splits')
 
 ---------------------------------------------------------------
 --- keybinds
 ---------------------------------------------------------------
 M.tmux_keybinds = {
-  -- { key = 'k', mods = 'CMD|SHIFT', action = act({ SpawnTab = 'CurrentPaneDomain' }) },
-  -- { key = 'w', mods = 'CMD', action = act({ CloseCurrentTab = { confirm = true } }) },
-  -- { key = 'h', mods = 'CMD|SHIFT', action = act({ ActivateTabRelative = -1 }) },
-  -- { key = 'l', mods = 'CMD|SHIFT', action = act({ ActivateTabRelative = 1 }) },
-  { key = 'h', mods = 'ALT|CTRL', action = act({ MoveTabRelative = -1 }) },
-  { key = 'l', mods = 'ALT|CTRL', action = act({ MoveTabRelative = 1 }) },
-  { key = 'k', mods = 'ALT|CTRL', action = act.ActivateCopyMode },
+  { key = 'h', mods = 'ALT|CMD', action = act({ MoveTabRelative = -1 }) },
+  { key = 'l', mods = 'ALT|CMD', action = act({ MoveTabRelative = 1 }) },
+  { key = 'k', mods = 'ALT|CMD', action = act.ActivateCopyMode },
   {
     key = 'k',
-    mods = 'ALT|CTRL',
+    mods = 'ALT|CMD',
     action = act.Multiple({
       act.CopyMode('ClearSelectionMode'),
       act.ActivateCopyMode,
       act.ClearSelection,
     }),
   },
-  { key = 'j', mods = 'ALT|CTRL', action = act({ PasteFrom = 'PrimarySelection' }) },
+  { key = 'j', mods = 'ALT|CMD', action = act({ PasteFrom = 'PrimarySelection' }) },
   { key = '1', mods = 'CMD', action = act({ ActivateTab = 0 }) },
   { key = '2', mods = 'CMD', action = act({ ActivateTab = 1 }) },
   { key = '3', mods = 'CMD', action = act({ ActivateTab = 2 }) },
@@ -40,14 +37,6 @@ M.tmux_keybinds = {
     mods = 'CMD|SHIFT',
     action = act({ SplitHorizontal = { domain = 'CurrentPaneDomain' } }),
   },
-  -- { key = 'h', mods = 'CMD', action = act({ ActivatePaneDirection = 'Left' }) },
-  -- { key = 'l', mods = 'CMD', action = act({ ActivatePaneDirection = 'Right' }) },
-  -- { key = 'k', mods = 'CMD', action = act({ ActivatePaneDirection = 'Up' }) },
-  -- { key = 'j', mods = 'CMD', action = act({ ActivatePaneDirection = 'Down' }) },
-  -- { key = 'h', mods = 'CMD|SHIFT|CTRL', action = act({ AdjustPaneSize = { 'Left', 1 } }) },
-  -- { key = 'l', mods = 'CMD|SHIFT|CTRL', action = act({ AdjustPaneSize = { 'Right', 1 } }) },
-  -- { key = 'k', mods = 'CMD|SHIFT|CTRL', action = act({ AdjustPaneSize = { 'Up', 1 } }) },
-  -- { key = 'j', mods = 'CMD|SHIFT|CTRL', action = act({ AdjustPaneSize = { 'Down', 1 } }) },
   { key = 'Enter', mods = 'CMD', action = 'QuickSelect' },
   { key = '/', mods = 'ALT', action = act.Search('CurrentSelectionOrEmptyString') },
 }
@@ -171,7 +160,9 @@ M.default_keybinds = {
   },
 }
 
-function M.create_keybinds() return utils.merge_lists(M.default_keybinds, M.tmux_keybinds) end
+function M.create_keybinds()
+  return utils.merge_lists(utils.merge_lists(M.default_keybinds, M.tmux_keybinds), smart_splits_keybinds)
+end
 
 M.key_tables = {
   -- resize_pane = {
