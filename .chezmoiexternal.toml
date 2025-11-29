@@ -34,7 +34,7 @@ exact = true
 url = "https://github.com/junegunn/fzf"
 type = "git-repo"
 refreshPeriod = "48h"
-[".local/share/wezterm/plugins/smart-splits.nvim"]
-url = "https://github.com/mrjones2014/smart-splits.nvim"
+[".local/share/wezterm/plugins/smart_workspace_switcher.wezterm"]
+url = "https://github.com/MLFlexer/smart_workspace_switcher.wezterm"
 type = "git-repo"
 refreshPeriod = "48h"
