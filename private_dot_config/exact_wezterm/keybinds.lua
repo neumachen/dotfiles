@@ -8,13 +8,13 @@ local workspace_switcher = require('modules.smart_workspace_switcher')
 --- keybinds
 ---------------------------------------------------------------
 M.tmux_keybinds = {
-  { key = 'k', mods = 'CMD|SHIFT', action = act({ SpawnTab = 'CurrentPaneDomain' }) },
-  { key = 'w', mods = 'CMD', action = act({ CloseCurrentTab = { confirm = true } }) },
-  { key = 'h', mods = 'CMD|SHIFT', action = act({ ActivateTabRelative = -1 }) },
-  { key = 'l', mods = 'CMD|SHIFT', action = act({ ActivateTabRelative = 1 }) },
+  -- { key = 'k', mods = 'CMD|SHIFT', action = act({ SpawnTab = 'CurrentPaneDomain' }) },
+  -- { key = 'w', mods = 'CMD', action = act({ CloseCurrentTab = { confirm = true } }) },
+  -- { key = 'h', mods = 'CMD|SHIFT', action = act({ ActivateTabRelative = -1 }) },
+  -- { key = 'l', mods = 'CMD|SHIFT', action = act({ ActivateTabRelative = 1 }) },
   { key = 'h', mods = 'ALT|CTRL', action = act({ MoveTabRelative = -1 }) },
   { key = 'l', mods = 'ALT|CTRL', action = act({ MoveTabRelative = 1 }) },
-  --{ key = "k", mods = "ALT|CTRL", action = act.ActivateCopyMode },
+  { key = 'k', mods = 'ALT|CTRL', action = act.ActivateCopyMode },
   {
     key = 'k',
     mods = 'ALT|CTRL',
@@ -40,14 +40,14 @@ M.tmux_keybinds = {
     mods = 'CMD|SHIFT',
     action = act({ SplitHorizontal = { domain = 'CurrentPaneDomain' } }),
   },
-  { key = 'h', mods = 'CMD', action = act({ ActivatePaneDirection = 'Left' }) },
-  { key = 'l', mods = 'CMD', action = act({ ActivatePaneDirection = 'Right' }) },
-  { key = 'k', mods = 'CMD', action = act({ ActivatePaneDirection = 'Up' }) },
-  { key = 'j', mods = 'CMD', action = act({ ActivatePaneDirection = 'Down' }) },
-  { key = 'h', mods = 'CMD|SHIFT|CTRL', action = act({ AdjustPaneSize = { 'Left', 1 } }) },
-  { key = 'l', mods = 'CMD|SHIFT|CTRL', action = act({ AdjustPaneSize = { 'Right', 1 } }) },
-  { key = 'k', mods = 'CMD|SHIFT|CTRL', action = act({ AdjustPaneSize = { 'Up', 1 } }) },
-  { key = 'j', mods = 'CMD|SHIFT|CTRL', action = act({ AdjustPaneSize = { 'Down', 1 } }) },
+  -- { key = 'h', mods = 'CMD', action = act({ ActivatePaneDirection = 'Left' }) },
+  -- { key = 'l', mods = 'CMD', action = act({ ActivatePaneDirection = 'Right' }) },
+  -- { key = 'k', mods = 'CMD', action = act({ ActivatePaneDirection = 'Up' }) },
+  -- { key = 'j', mods = 'CMD', action = act({ ActivatePaneDirection = 'Down' }) },
+  -- { key = 'h', mods = 'CMD|SHIFT|CTRL', action = act({ AdjustPaneSize = { 'Left', 1 } }) },
+  -- { key = 'l', mods = 'CMD|SHIFT|CTRL', action = act({ AdjustPaneSize = { 'Right', 1 } }) },
+  -- { key = 'k', mods = 'CMD|SHIFT|CTRL', action = act({ AdjustPaneSize = { 'Up', 1 } }) },
+  -- { key = 'j', mods = 'CMD|SHIFT|CTRL', action = act({ AdjustPaneSize = { 'Down', 1 } }) },
   { key = 'Enter', mods = 'CMD', action = 'QuickSelect' },
   { key = '/', mods = 'ALT', action = act.Search('CurrentSelectionOrEmptyString') },
 }
@@ -174,18 +174,18 @@ M.default_keybinds = {
 function M.create_keybinds() return utils.merge_lists(M.default_keybinds, M.tmux_keybinds) end
 
 M.key_tables = {
-  resize_pane = {
-    { key = 'LeftArrow', action = act({ AdjustPaneSize = { 'Left', 1 } }) },
-    { key = 'h', action = act({ AdjustPaneSize = { 'Left', 1 } }) },
-    { key = 'RightArrow', action = act({ AdjustPaneSize = { 'Right', 1 } }) },
-    { key = 'l', action = act({ AdjustPaneSize = { 'Right', 1 } }) },
-    { key = 'UpArrow', action = act({ AdjustPaneSize = { 'Up', 1 } }) },
-    { key = 'k', action = act({ AdjustPaneSize = { 'Up', 1 } }) },
-    { key = 'DownArrow', action = act({ AdjustPaneSize = { 'Down', 1 } }) },
-    { key = 'j', action = act({ AdjustPaneSize = { 'Down', 1 } }) },
-    -- Cancel the mode by pressing escape
-    { key = 'Escape', action = 'PopKeyTable' },
-  },
+  -- resize_pane = {
+  --   { key = 'LeftArrow', action = act({ AdjustPaneSize = { 'Left', 1 } }) },
+  --   { key = 'h', action = act({ AdjustPaneSize = { 'Left', 1 } }) },
+  --   { key = 'RightArrow', action = act({ AdjustPaneSize = { 'Right', 1 } }) },
+  --   { key = 'l', action = act({ AdjustPaneSize = { 'Right', 1 } }) },
+  --   { key = 'UpArrow', action = act({ AdjustPaneSize = { 'Up', 1 } }) },
+  --   { key = 'k', action = act({ AdjustPaneSize = { 'Up', 1 } }) },
+  --   { key = 'DownArrow', action = act({ AdjustPaneSize = { 'Down', 1 } }) },
+  --   { key = 'j', action = act({ AdjustPaneSize = { 'Down', 1 } }) },
+  --   -- Cancel the mode by pressing escape
+  --   { key = 'Escape', action = 'PopKeyTable' },
+  -- },
   copy_mode = {
     {
       key = 'Escape',
