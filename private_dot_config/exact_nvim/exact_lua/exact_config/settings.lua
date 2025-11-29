@@ -94,7 +94,8 @@ opt.formatoptions = {
 -----------------------------------------------------------------------------//
 -- Folds {{{1
 -----------------------------------------------------------------------------//
-opt.foldlevelstart = 3
+opt.foldlevel = 99
+opt.foldlevelstart = 99
 opt.foldmethod = 'expr'
 opt.foldexpr = 'v:lua.vim.treesitter.foldexpr()'
 opt.foldtext = ''
