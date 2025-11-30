@@ -35,6 +35,9 @@
       }
     },
     {
+      "buttons" : {
+        "universalBackForward" : true
+      },
       "if" : {
         "device" : {
           "category" : "mouse",
@@ -43,6 +46,11 @@
           "serialNumber" : "pqrs.org:Karabiner-DriverKit-VirtualHIDPointing",
           "vendorID" : "0x16c0"
         }
+      },
+      "pointer" : {
+        "acceleration" : 0,
+        "disableAcceleration" : false,
+        "speed" : 0.2
       },
       "scrolling" : {
         "reverse" : {
