@@ -1,19 +1,20 @@
 return {
   'mikavilpas/yazi.nvim',
+  version = '*', -- use the latest stable version
   event = 'VeryLazy',
+  dependencies = {
+    { 'nvim-lua/plenary.nvim', lazy = true },
+  },
   opts = {
     log_level = vim.log.levels.INFO,
     -- if you want to open yazi instead of netrw, see below for more info
     open_for_directories = true,
-    keymaps = {
-      show_help = '~',
-    },
     future_features = {
-      -- By default, this is `true`, which means yazi.nvim processes events
-      -- before yazi has been closed. If this is `false`, events are processed
-      -- in a batch when the user closes yazi. If this is `true`, events are
-      -- processed immediately.
-      process_events_live = true,
+      -- use a new shell escaping implementation that is more robust and works
+      -- on more platforms. Defaults to `true`. If set to `false`, the old
+      -- shell escaping implementation will be used, which is less robust and
+      -- may not work on all platforms.
+      new_shell_escaping = true,
     },
   },
   keys = {
