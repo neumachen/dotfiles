@@ -3,20 +3,23 @@ return {
     'nvim-treesitter/nvim-treesitter',
     build = ':TSUpdate',
     event = 'VeryLazy',
-    -- lazy = vim.fn.argc(-1) == 0, -- load treesitter early when opening a file from the cmdline
     init = function(plugin)
-      -- PERF: add nvim-treesitter queries to the rtp and it's custom query predicates early
+      -- NOTE: add nvim-treesitter queries to the RTP and it's custom query predicates early
       -- This is needed because a bunch of plugins no longer `require("nvim-treesitter")`, which
       -- no longer trigger the **nvim-treesitter** module to be loaded in time.
       -- Luckily, the only things that those plugins need are the custom queries, which we make available
       -- during startup.
       require('lazy.core.loader').add_to_rtp(plugin)
       require('nvim-treesitter.query_predicates')
-      require('vim.treesitter.query').add_predicate('is-mise?', function(_, _, bufnr, _)
-        local filepath = vim.api.nvim_buf_get_name(tonumber(bufnr) or 0)
-        local filename = vim.fn.fnamemodify(filepath, ':t')
-        return string.match(filename, '.*mise.*%.toml$') ~= nil
-      end, { force = true, all = false })
+      require('vim.treesitter.query').add_predicate(
+        'is-mise?',
+        function(_, _, bufnr, _)
+          local filepath = vim.api.nvim_buf_get_name(tonumber(bufnr) or 0)
+          local filename = vim.fn.fnamemodify(filepath, ':t')
+          return string.match(filename, '.*mise.*%.toml$') ~= nil
+        end,
+        { force = true, all = false }
+      )
     end,
     opts = {
       ensure_installed = {
@@ -83,8 +86,8 @@ return {
         enable = true,
         disable = { 'help' },
         keymaps = {
-          init_selection = '<CR>', -- maps in normal mode to init the node/scope selection
-          node_incremental = '<CR>', -- increment to the upper named parent
+          init_selection = '<CR>', -- Maps in normal mode to init the node/scope selection
+          node_incremental = '<CR>', -- Increment to the upper named parent
           node_decremental = '<C-CR>', -- decrement to the previous node
         },
       },
@@ -102,8 +105,14 @@ return {
             ['if'] = { query = '@function.inner', desc = 'ts: inner function' },
             ['ac'] = { query = '@class.outer', desc = 'ts: all class' },
             ['ic'] = { query = '@class.inner', desc = 'ts: inner class' },
-            ['aC'] = { query = '@conditional.outer', desc = 'ts: all conditional' },
-            ['iC'] = { query = '@conditional.inner', desc = 'ts: inner conditional' },
+            ['aC'] = {
+              query = '@conditional.outer',
+              desc = 'ts: all conditional',
+            },
+            ['iC'] = {
+              query = '@conditional.inner',
+              desc = 'ts: inner conditional',
+            },
             ['aL'] = { query = '@assignment.lhs', desc = 'ts: assignment lhs' },
             ['aR'] = { query = '@assignment.rhs', desc = 'ts: assignment rhs' },
           },
@@ -111,8 +120,14 @@ return {
         move = {
           enable = true,
           set_jumps = true,
-          goto_next_start = { [']m'] = '@function.outer', [']M'] = '@class.outer' },
-          goto_previous_start = { ['[m'] = '@function.outer', ['[M'] = '@class.outer' },
+          goto_next_start = {
+            [']m'] = '@function.outer',
+            [']M'] = '@class.outer',
+          },
+          goto_previous_start = {
+            ['[m'] = '@function.outer',
+            ['[M'] = '@class.outer',
+          },
         },
       },
       autopairs = { enable = true },
@@ -124,7 +139,8 @@ return {
       },
     },
     config = function(_, opts)
-      local parser_config = require('nvim-treesitter.parsers').get_parser_configs()
+      local parser_config =
+        require('nvim-treesitter.parsers').get_parser_configs()
       parser_config.d2 = {
         install_info = {
           url = 'https://github.com/ravsii/tree-sitter-d2',
