@@ -63,6 +63,11 @@ return {
         group = '+hunk',
         desc = 'Buffer specific git hunk operations',
       },
+      {
+        '<localleader>tn',
+        group = '+Namu',
+        desc = 'Namu related operations',
+      },
     })
   end,
   dependencies = {
