@@ -14,9 +14,9 @@ return {
   -- version = "v0.13.1",
   dependencies = {
     'moyiz/blink-emoji.nvim',
-    'Kaiser-Yang/blink-cmp-dictionary',
     'ribru17/blink-cmp-spell',
     'mikavilpas/blink-ripgrep.nvim',
+    'archie-judd/blink-cmp-words',
   },
   opts = function(_, opts)
     -- I noticed that telescope was extremely slow and taking too long to open,
@@ -27,7 +27,9 @@ return {
       -- Get the current buffer's filetype
       local filetype = vim.bo[0].filetype
       -- Disable for Telescope buffers
-      if filetype == 'TelescopePrompt' or filetype == 'snacks_picker_input' then return false end
+      if filetype == 'TelescopePrompt' or filetype == 'snacks_picker_input' then
+        return false
+      end
       return true
     end
 
@@ -38,14 +40,21 @@ return {
       default = {
         'lsp',
         'path',
-        'snippets',
+        'lazydev',
         'buffer',
+        'snippets',
         'dadbod',
-        'emoji',
         'spell',
         'dictionary',
+        'emoji',
       },
       providers = {
+        lazydev = {
+          name = 'LazyDev',
+          module = 'lazydev.integrations.blink',
+          -- make lazydev completions top priority (see `:h blink.cmp`)
+          score_offset = 100,
+        },
         lsp = {
           name = 'lsp',
           enabled = true,
@@ -73,7 +82,9 @@ return {
           opts = {
             trailing_slash = false,
             label_trailing_slash = true,
-            get_cwd = function(context) return vim.fn.expand(('#%d:p:h'):format(context.bufnr)) end,
+            get_cwd = function(context)
+              return vim.fn.expand(('#%d:p:h'):format(context.bufnr))
+            end,
             show_hidden_files_by_default = true,
           },
         },
@@ -113,7 +124,8 @@ return {
             local line = vim.api.nvim_get_current_line()
             local col = vim.api.nvim_win_get_cursor(0)[2]
             local before_cursor = line:sub(1, col)
-            local start_pos, end_pos = before_cursor:find(trigger_text .. '[^' .. trigger_text .. ']*$')
+            local start_pos, end_pos =
+              before_cursor:find(trigger_text .. '[^' .. trigger_text .. ']*$')
             if start_pos then
               for _, item in ipairs(items) do
                 if not item.trigger_text_modified then
@@ -122,8 +134,14 @@ return {
                   item.textEdit = {
                     newText = item.insertText or item.label,
                     range = {
-                      start = { line = vim.fn.line('.') - 1, character = start_pos - 1 },
-                      ['end'] = { line = vim.fn.line('.') - 1, character = end_pos },
+                      start = {
+                        line = vim.fn.line('.') - 1,
+                        character = start_pos - 1,
+                      },
+                      ['end'] = {
+                        line = vim.fn.line('.') - 1,
+                        character = end_pos,
+                      },
                     },
                   }
                 end
@@ -148,47 +166,6 @@ return {
           min_keyword_length = 2,
           opts = { insert = true }, -- Insert emoji (default) or complete its name
         },
-        -- https://github.com/Kaiser-Yang/blink-cmp-dictionary
-        -- In macOS to get started with a dictionary:
-        -- cp /usr/share/dict/words ~/github/dotfiles-latest/dictionaries/words.txt
-        --
-        -- NOTE: For the word definitions make sure "wn" is installed
-        -- brew install wordnet
-        dictionary = {
-          module = 'blink-cmp-dictionary',
-          name = 'Dict',
-          score_offset = 20, -- the higher the number, the higher the priority
-          -- https://github.com/Kaiser-Yang/blink-cmp-dictionary/issues/2
-          enabled = true,
-          max_items = 8,
-          min_keyword_length = 3,
-          opts = {
-            -- -- The dictionary by default now uses fzf, make sure to have it
-            -- -- installed
-            -- -- https://github.com/Kaiser-Yang/blink-cmp-dictionary/issues/2
-            --
-            -- Do not specify a file, just the path, and in the path you need to
-            -- have your .txt files
-            -- dictionary_directories = { vim.fn.expand('~/.config/nvim/dictionaries') },
-            -- Notice I'm also adding the words I add to the spell dictionary
-            dictionary_files = {
-              vim.fn.expand('~/.config/nvim/spell/en.utf-8.add'),
-            },
-            -- --  NOTE: To disable the definitions uncomment this section below
-            --
-            -- separate_output = function(output)
-            --   local items = {}
-            --   for line in output:gmatch("[^\r\n]+") do
-            --     table.insert(items, {
-            --       label = line,
-            --       insert_text = line,
-            --       documentation = nil,
-            --     })
-            --   end
-            --   return items
-            -- end,
-          },
-        },
         spell = {
           name = 'Spell',
           module = 'blink-cmp-spell',
@@ -197,7 +174,11 @@ return {
             -- in `@nospell` captures.
             enable_in_context = function()
               local curpos = vim.api.nvim_win_get_cursor(0)
-              local captures = vim.treesitter.get_captures_at_pos(0, curpos[1] - 1, curpos[2] - 1)
+              local captures = vim.treesitter.get_captures_at_pos(
+                0,
+                curpos[1] - 1,
+                curpos[2] - 1
+              )
               local in_spell_capture = false
               for _, cap in ipairs(captures) do
                 if cap.capture == 'spell' then
@@ -330,17 +311,49 @@ return {
             return items
           end,
         },
+        -- Use the thesaurus source
+        thesaurus = {
+          name = 'blink-cmp-words',
+          module = 'blink-cmp-words.thesaurus',
+          -- All available options
+          opts = {
+            -- A score offset applied to returned items.
+            -- By default the highest score is 0 (item 1 has a score of -1, item 2 of -2 etc..).
+            score_offset = 0,
+
+            -- Default pointers define the lexical relations listed under each definition,
+            -- see Pointer Symbols below.
+            -- Default is as below ("antonyms", "similar to" and "also see").
+            definition_pointers = { '!', '&', '^' },
+
+            -- The pointers that are considered similar words when using the thesaurus,
+            -- see Pointer Symbols below.
+            -- Default is as below ("similar to", "also see" }
+            similarity_pointers = { '&', '^' },
+
+            -- The depth of similar words to recurse when collecting synonyms. 1 is similar words,
+            -- 2 is similar words of similar words, etc. Increasing this may slow results.
+            similarity_depth = 2,
+          },
+        },
+        -- Use the dictionary source
+        dictionary = {
+          name = 'blink-cmp-words',
+          module = 'blink-cmp-words.dictionary',
+          -- All available options
+          opts = {
+            -- The number of characters required to trigger completion.
+            -- Set this higher if completion is slow, 3 is default.
+            dictionary_search_threshold = 3,
+
+            -- See above
+            score_offset = 0,
+
+            -- See above
+            definition_pointers = { '!', '&', '^' },
+          },
+        },
       },
-      -- -- Third class citizen mf always talking shit
-      -- copilot = {
-      --   name = "copilot",
-      --   enabled = true,
-      --   module = "blink-cmp-copilot",
-      --   kind = "Copilot",
-      --   min_keyword_length = 6,
-      --   score_offset = -100, -- the higher the number, the higher the priority
-      --   async = true,
-      -- },
     })
 
     opts.cmdline = {
@@ -386,7 +399,9 @@ return {
       sorts = {
         function(a, b)
           local sort = require('blink.cmp.fuzzy.sort')
-          if a.source_id == 'spell' and b.source_id == 'spell' then return sort.label(a, b) end
+          if a.source_id == 'spell' and b.source_id == 'spell' then
+            return sort.label(a, b)
+          end
         end,
         -- This is the normal default order, which we fall back to
         'score',
