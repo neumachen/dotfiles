@@ -31,4 +31,36 @@ return {
     'sh',
   },
   root_markers = { '.git' },
+  settings = {
+    ['harper-ls'] = {
+      userDictPath = '',
+      workspaceDictPath = '',
+      fileDictPath = '',
+      linters = {
+        SpellCheck = true,
+        SpelledNumbers = true,
+        AnA = true,
+        SentenceCapitalization = true,
+        UnclosedQuotes = true,
+        WrongQuotes = true,
+        LongSentences = true,
+        RepeatedWords = true,
+        Spaces = true,
+        Matcher = true,
+        CorrectNumberSuffix = true,
+      },
+      codeActions = {
+        ForceStable = true,
+      },
+      markdown = {
+        IgnoreLinkTitle = false,
+      },
+      diagnosticSeverity = 'hint',
+      isolateEnglish = false,
+      dialect = 'American',
+      maxFileLength = 120000,
+      ignoredLintsPath = '',
+      excludePatterns = {},
+    },
+  },
 }
