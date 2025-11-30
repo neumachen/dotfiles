@@ -1,4 +1,6 @@
-local function augroup(name) return vim.api.nvim_create_augroup('neumachenvim_' .. name, { clear = true }) end
+local function augroup(name)
+  return vim.api.nvim_create_augroup('neumachenvim_' .. name, { clear = true })
+end
 
 -- Check if we need to reload the file when it changed
 vim.api.nvim_create_autocmd({ 'FocusGained', 'TermClose', 'TermLeave' }, {
@@ -30,11 +32,18 @@ vim.api.nvim_create_autocmd('BufReadPost', {
   callback = function(event)
     local exclude = { 'gitcommit' }
     local buf = event.buf
-    if vim.tbl_contains(exclude, vim.bo[buf].filetype) or vim.b[buf].lazyvim_last_loc then return end
+    if
+      vim.tbl_contains(exclude, vim.bo[buf].filetype)
+      or vim.b[buf].lazyvim_last_loc
+    then
+      return
+    end
     vim.b[buf].lazyvim_last_loc = true
     local mark = vim.api.nvim_buf_get_mark(buf, '"')
     local lcount = vim.api.nvim_buf_line_count(buf)
-    if mark[1] > 0 and mark[1] <= lcount then pcall(vim.api.nvim_win_set_cursor, 0, mark) end
+    if mark[1] > 0 and mark[1] <= lcount then
+      pcall(vim.api.nvim_win_set_cursor, 0, mark)
+    end
   end,
 })
 
@@ -145,14 +154,14 @@ vim.api.nvim_create_autocmd({ 'BufRead', 'BufNewFile' }, {
 -- Cheazmoi {{{1
 -----------------------------------------------------------------------------//
 
-local dotfiles_dir = os.getenv("DOTFILES_DIR")
+local dotfiles_dir = os.getenv('DOTFILES_DIR')
 if dotfiles_dir then
-  vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
-    pattern = { dotfiles_dir .. "/*" },
+  vim.api.nvim_create_autocmd({ 'BufRead', 'BufNewFile' }, {
+    pattern = { dotfiles_dir .. '/*' },
     callback = function(ev)
       local bufnr = ev.buf
       local edit_watch = function()
-        require("chezmoi.commands.__edit").watch(bufnr)
+        require('chezmoi.commands.__edit').watch(bufnr)
       end
       vim.schedule(edit_watch)
     end,
@@ -169,13 +178,21 @@ vim.api.nvim_create_autocmd('LspAttach', {
     local client = vim.lsp.get_client_by_id(args.data.client_id)
     if client then
       -- Built-in completion
-      if completion == 'native' and client:supports_method('textDocument/completion') then
-        vim.lsp.completion.enable(true, client.id, args.buf, { autotrigger = true })
+      if
+        completion == 'native'
+        and client:supports_method('textDocument/completion')
+      then
+        vim.lsp.completion.enable(
+          true,
+          client.id,
+          args.buf,
+          { autotrigger = true }
+        )
       end
 
       -- Inlay hints
       if client:supports_method('textDocument/inlayHints') then
-        vim.lsp.inlay_hint.enable(true, { bufnr = args.buf })
+        vim.lsp.inlay_hint.enable(false, { bufnr = args.buf })
       end
     end
   end,

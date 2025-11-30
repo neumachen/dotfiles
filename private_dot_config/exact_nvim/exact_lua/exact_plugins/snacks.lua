@@ -22,6 +22,7 @@ return {
     scroll = { enabled = true },
     statuscolumn = { enabled = true },
     words = { enabled = true },
+    toggle = require('plugins.snacks.toggle'),
     styles = {
       notification = {
         wo = { wrap = true },
