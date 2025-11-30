@@ -78,6 +78,7 @@ zoxide = "latest"
 "aqua:docker/compose" = "latest"
 
 "cargo:broot" = "latest"
+"cargo:codebook" = "latest"
 "cargo:eza" = "latest"
 "cargo:harper-ls" = "latest"
 "cargo:jiq" = "latest"

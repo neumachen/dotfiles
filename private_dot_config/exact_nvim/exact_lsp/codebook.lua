@@ -1,0 +1,28 @@
+local Lsp = require('utils.lsp')
+-- mise use -g cargo:codebook
+return {
+  cmd = { 'codebook-lsp', 'serve' },
+  on_attach = Lsp.on_attach,
+  filetypes = {
+    'c',
+    'css',
+    'gitcommit',
+    'go',
+    'haskell',
+    'html',
+    'java',
+    'javascript',
+    'javascriptreact',
+    'lua',
+    'markdown',
+    'php',
+    'python',
+    'ruby',
+    'rust',
+    'toml',
+    'text',
+    'typescript',
+    'typescriptreact',
+  },
+  root_markers = { '.git', 'codebook.toml', '.codebook.toml' },
+}
