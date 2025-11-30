@@ -1,6 +1,7 @@
 local path = require('utils.path')
 local notizen_dir = os.getenv('NOTIZEN_DIR')
 
+-- Check if the notizen directory actually exists
 if
   not path.dir_exists(notizen_dir, {
     notify_on_missing = true,
@@ -106,6 +107,10 @@ return {
 
     search_max_lines = 1000,
     open_notes_in = 'current',
+
+    ui = {
+      enable = true, -- set to false to disable all additional syntax features
+    },
   },
   keys = {
     {
