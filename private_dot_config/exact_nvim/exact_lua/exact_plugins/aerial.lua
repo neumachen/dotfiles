@@ -1,6 +1,5 @@
 return {
   'stevearc/aerial.nvim',
-  opts = {},
   keys = {
     { '<localleader>ta', '<cmd>AerialToggle!<CR>', desc = 'Toggle Aerial' },
   },
@@ -12,9 +11,7 @@ return {
   config = function()
     -- Call the setup function to change the default behavior
     require('aerial').setup({
-      -- Priority list of preferred backends for aerial.
-      -- This can be a filetype map (see :help aerial-filetype-map)
-      backends = { 'treesitter', 'lsp', 'markdown', 'asciidoc', 'man' },
+      backends = { 'lsp', 'treesitter', 'markdown', 'asciidoc', 'man' },
 
       layout = {
         -- These control the width of the aerial window.
@@ -22,11 +19,7 @@ return {
         -- min_width and max_width can be a list of mixed types.
         -- max_width = {40, 0.2} means "the lesser of 40 columns or 20% of total"
         max_width = { 40, 0.2 },
-        width = nil,
-        min_width = 10,
-
-        -- key-value pairs of window-local options for aerial window (e.g. winhl)
-        win_opts = {},
+        min_width = 20,
 
         -- Determines the default direction to open the aerial window. The 'prefer'
         -- options will open the window in the other direction *if* there is a
@@ -50,12 +43,6 @@ return {
       --   window - aerial window will display symbols for the buffer in the window from which it was opened
       --   global - aerial window will display symbols for the current window
       attach_mode = 'window',
-
-      -- List of enum values that configure when to auto-close the aerial window
-      --   unfocus       - close aerial when you leave the original source window
-      --   switch_buffer - close aerial when you change buffers in the source window
-      --   unsupported   - close aerial when attaching to a buffer that has no symbol source
-      close_automatic_events = {},
 
       -- Keymaps in aerial window. Can be any value that `vim.keymap.set` accepts OR a table of keymap
       -- options with a `callback` (e.g. { callback = function() ... end, desc = "", nowait = true })
@@ -110,16 +97,7 @@ return {
       -- A list of all symbols to display. Set to false to display all symbols.
       -- This can be a filetype map (see :help aerial-filetype-map)
       -- To see all available values, see :help SymbolKind
-      filter_kind = {
-        'Class',
-        'Constructor',
-        'Enum',
-        'Function',
-        'Interface',
-        'Module',
-        'Method',
-        'Struct',
-      },
+      filter_kind = false,
 
       -- Determines line highlighting mode when multiple splits are visible.
       -- split_width   Each open window will have its cursor location marked in the
@@ -130,28 +108,20 @@ return {
       -- last          Only the most-recently focused window will have its location
       --               marked in the aerial buffer.
       -- none          Do not show the cursor locations in the aerial window.
-      highlight_mode = 'split_width',
+      highlight_mode = 'full_width',
 
       -- Highlight the closest symbol if the cursor is not exactly on one.
       highlight_closest = true,
 
       -- Highlight the symbol in the source buffer when cursor is in the aerial win
-      highlight_on_hover = false,
+      highlight_on_hover = true,
 
       -- When jumping to a symbol, highlight the line for this many ms.
       -- Set to false to disable
       highlight_on_jump = 300,
 
       -- Jump to symbol in source window when the cursor moves
-      autojump = false,
-
-      -- Define symbol icons. You can also specify "<Symbol>Collapsed" to change the
-      -- icon when the tree is collapsed at that symbol, or "Collapsed" to specify a
-      -- default collapsed icon. The default icon set is determined by the
-      -- "nerd_font" option below.
-      -- If you have lspkind-nvim installed, it will be the default icon set.
-      -- This can be a filetype map (see :help aerial-filetype-map)
-      icons = {},
+      autojump = true,
 
       -- Control which windows and buffers aerial should ignore.
       -- Aerial will not open when these are focused, and existing aerial windows will not be updated
@@ -161,9 +131,6 @@ return {
 
         -- Ignore diff windows (setting to false will allow aerial in diff windows)
         diff_windows = true,
-
-        -- List of filetypes to ignore.
-        filetypes = {},
 
         -- Ignored buftypes.
         -- Can be one of the following:
@@ -206,10 +173,11 @@ return {
       nerd_font = 'auto',
 
       -- Call this function when aerial attaches to a buffer.
-      on_attach = function(bufnr) end,
-
-      -- Call this function when aerial first sets symbols on a buffer.
-      on_first_symbols = function(bufnr) end,
+      on_attach = function(bufnr)
+        -- Jump forwards/backwards with '{' and '}'
+        vim.keymap.set('n', '{', '<cmd>AerialPrev<CR>', { buffer = bufnr })
+        vim.keymap.set('n', '}', '<cmd>AerialNext<CR>', { buffer = bufnr })
+      end,
 
       -- Automatically open aerial when entering supported buffers.
       -- This can be a function (see :help aerial-open-automatic)
@@ -218,41 +186,12 @@ return {
       -- Run this command after jumping to a symbol (false will disable)
       post_jump_cmd = 'normal! zz',
 
-      -- Invoked after each symbol is parsed, can be used to modify the parsed item,
-      -- or to filter it by returning false.
-      --
-      -- bufnr: a neovim buffer number
-      -- item: of type aerial.Symbol
-      -- ctx: a record containing the following fields:
-      --   * backend_name: treesitter, lsp, man...
-      --   * lang: info about the language
-      --   * symbols?: specific to the lsp backend
-      --   * symbol?: specific to the lsp backend
-      --   * syntax_tree?: specific to the treesitter backend
-      --   * match?: specific to the treesitter backend, TS query match
-      post_parse_symbol = function(bufnr, item, ctx) return true end,
-
-      -- Invoked after all symbols have been parsed and post-processed,
-      -- allows to modify the symbol structure before final display
-      --
-      -- bufnr: a neovim buffer number
-      -- items: a collection of aerial.Symbol items, organized in a tree,
-      --        with 'parent' and 'children' fields
-      -- ctx: a record containing the following fields:
-      --   * backend_name: treesitter, lsp, man...
-      --   * lang: info about the language
-      --   * symbols?: specific to the lsp backend
-      --   * syntax_tree?: specific to the treesitter backend
-      post_add_all_symbols = function(bufnr, items, ctx) return items end,
-
-      -- When true, aerial will automatically close after jumping to a symbol
       close_on_select = false,
 
-      -- The autocmds that trigger symbols update (not used for LSP backend)
       update_events = 'TextChanged,InsertLeave',
 
       -- Show box drawing characters for the tree hierarchy
-      show_guides = false,
+      show_guides = true,
 
       -- Customize the characters used when show_guides = true
       guides = {
@@ -265,11 +204,6 @@ return {
         -- Raw indentation
         whitespace = '  ',
       },
-
-      -- Set this function to override the highlight groups for certain symbols
-      get_highlight = function(symbol, is_icon, is_collapsed)
-        -- return "MyHighlight" .. symbol.kind
-      end,
 
       -- Options for opening aerial in a floating win
       float = {
@@ -311,7 +245,7 @@ return {
         -- Jump to symbol in source window when the cursor moves
         autojump = false,
         -- SHOW a preview of the code in the right column, when there are no child symbols
-        preview = false,
+        preview = true,
         -- Keymaps in the nav window
         keymaps = {
           ['<CR>'] = 'actions.jump',
@@ -338,9 +272,9 @@ return {
         -- Map of LSP client name to priority. Default value is 10.
         -- Clients with higher (larger) priority will be used before those with lower priority.
         -- Set to -1 to never use the client.
-        priority = {
-          -- pyright = 10,
-        },
+        -- priority = {
+        --   -- pyright = 10,
+        -- },
       },
 
       treesitter = {

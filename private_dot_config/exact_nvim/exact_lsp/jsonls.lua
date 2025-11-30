@@ -1,4 +1,7 @@
 local Lsp = require('utils.lsp')
+local capabilities = vim.lsp.protocol.make_client_capabilities()
+
+capabilities.textDocument.completion.completionItem.snippetSupport = true
 
 ---@diagnostic disable: inject-field
 ---@type vim.lsp.Config
@@ -6,6 +9,7 @@ return {
   -- NOTE: npm i -g vscode-langservers-extracted
   cmd = { 'vscode-json-language-server', '--stdio' },
   on_attach = Lsp.on_attach,
+  apabilities = capabilities,
   filetypes = { 'json', 'jsonc' },
   root_markers = { '.git' },
   settings = {
