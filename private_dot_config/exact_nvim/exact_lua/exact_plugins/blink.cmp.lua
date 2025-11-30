@@ -1,6 +1,3 @@
-local keyword = require('blink.cmp.config.completion.keyword')
--- reference: https://github.com/linkarzu/dotfiles-latest/blob/main/neovim/neobean/lua/plugins/blink-cmp.lua
-
 local trigger_text = ';'
 
 ---@module 'lazy'
