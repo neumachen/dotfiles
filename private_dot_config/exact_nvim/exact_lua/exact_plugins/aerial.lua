@@ -11,7 +11,13 @@ return {
   config = function()
     -- Call the setup function to change the default behavior
     require('aerial').setup({
-      backends = { 'lsp', 'treesitter', 'markdown', 'asciidoc', 'man' },
+      backends = {
+        'lsp',
+        'treesitter',
+        'markdown',
+        'asciidoc',
+        'man',
+      },
 
       layout = {
         -- These control the width of the aerial window.
@@ -121,7 +127,7 @@ return {
       highlight_on_jump = 300,
 
       -- Jump to symbol in source window when the cursor moves
-      autojump = true,
+      autojump = false,
 
       -- Control which windows and buffers aerial should ignore.
       -- Aerial will not open when these are focused, and existing aerial windows will not be updated
