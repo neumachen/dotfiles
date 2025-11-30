@@ -2,8 +2,8 @@ return {
   'bassamsdata/namu.nvim',
   lazy = false,
   config = function()
+    --- @module 'namu'
     require('namu').setup({
-      -- Enable symbols navigator which is the default
       namu_symbols = {
         enable = true,
         ---@type NamuConfig
@@ -199,7 +199,7 @@ return {
       },
     })
 
-    vim.keymap.set('n', '<localleader>tns', ':Namu symbols<cr>', {
+    vim.keymap.set('n', '<localleader>tnb', ':Namu symbols<cr>', {
       desc = 'Namu buffer symbols',
       silent = true,
     })
