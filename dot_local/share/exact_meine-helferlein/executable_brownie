@@ -53,7 +53,7 @@ Wrapper options (before --):
 
 Mounting & defaults:
   • $AIDER_ENV_FILE   → /config/<env basename>   (read-only)
-  • $AIDER_CONFIG_CONTAINER → /config/<config basename> (read-only)
+  • $AIDER_CONTAINER_CONFIG → /config/<config basename> (read-only)
   • Git config dir   → /config/git              (read-only)
   • Injected into Aider iff you didn't provide them:
       --env-file /config/<env basename>
@@ -225,9 +225,9 @@ parse_args "$@"
 
 # ---------- preflight ----------
 have docker || die "docker not found in PATH."
-require_env "AIDER_CONFIG_CONTAINER"
+require_env "AIDER_CONTAINER_CONFIG"
 require_env "AIDER_ENV_FILE"
-[ -f "$AIDER_CONFIG_CONTAINER" ] || die "AIDER_CONFIG_CONTAINER points to a non-file: $AIDER_CONFIG_CONTAINER"
+[ -f "$AIDER_CONTAINER_CONFIG" ] || die "AIDER_CONTAINER_CONFIG points to a non-file: $AIDER_CONTAINER_CONFIG"
 [ -f "$AIDER_ENV_FILE" ] || die "AIDER_ENV_FILE points to a non-file: $AIDER_ENV_FILE"
 
 # Git config directory
@@ -237,7 +237,7 @@ GIT_CONFIG_IN="/config/git"
 # Derive container-side config paths under /config
 CONF_DIR_IN="/config"
 ENV_BASENAME="$(basename -- "$AIDER_ENV_FILE")"
-CONF_BASENAME="$(basename -- "$AIDER_CONFIG_CONTAINER")"
+CONF_BASENAME="$(basename -- "$AIDER_CONTAINER_CONFIG")"
 ENV_IN="${CONF_DIR_IN}/${ENV_BASENAME}"
 CONF_IN="${CONF_DIR_IN}/${CONF_BASENAME}"
 
@@ -312,7 +312,7 @@ else
     --volume "$PWD:/app"
     --volume "$SESSION_NAME:/aider"
     --volume "$AIDER_ENV_FILE:$ENV_IN:ro"
-    --volume "$AIDER_CONFIG_CONTAINER:$CONF_IN:ro"
+    --volume "$AIDER_CONTAINER_CONFIG:$CONF_IN:ro"
   )
 
   # Mount Git config if it exists

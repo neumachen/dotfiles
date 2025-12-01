@@ -29,6 +29,7 @@
 README.md
 bin/chezmoi
 docs/
+devcontainer/
 install.sh
 tab.yml
 tags
