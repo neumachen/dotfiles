@@ -6,18 +6,18 @@
   template = {{ expandenv "${HOME}/.config/git/templates/message"}}
 
 [color]
-  ui = auto
-  status = auto
-  diff = auto
   branch = auto
-  showBranch = auto
+  diff = auto
   interactive = auto
+  showBranch = auto
+  status = auto
+  ui = auto
 
 [core]
+  autocrlf = input
   editor = "nvim"
   excludesfile = {{ expandenv "${HOME}/.config/git/ignore"}}
   pager = delta
-  autocrlf = input
 
   # Make `git rebase` safer on macOS.
   # More info: <http://www.git-tower.com/blog/make-git-rebase-safe-on-osx/>
@@ -95,12 +95,12 @@
   fall = fetch --all
 
   # Destroy all local changes and reset to HEAD.
-  hreset = reset --hard HEAD
+  # hreset = reset --hard HEAD
 
   # Reset previous commit, but keep all the associated changes. Useful for avoiding nasty git merge commits.
   uncommit = reset --soft HEAD^
 
-  reset-up = reset --hard $(git upstream)
+  # reset-up = reset --hard $(git upstream)
 
   # list untracked files
   lsu = ls-files --others --exclude-standard
@@ -121,11 +121,10 @@
   renames = copies # Detect copies as well as renames.
 
 [merge]
-  # Include summaries of merged commits in newly created merge commit messages
   log = true
   command = "nvim"
   args = ["-d", "{{ `{{ .Source }}` }}", "{{ `{{ .Destination }}` }}", "{{ `{{ .Target }}` }}"]
-  conflictstyle = diff3
+  conflictstyle = zdiff3
 
 [delta]
   line-numbers-minus-style      = "#914c54"
