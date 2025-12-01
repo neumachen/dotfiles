@@ -1,6 +1,5 @@
 return {
   'oribarilan/lensline.nvim',
-  tag = '*',
   event = 'LspAttach',
   config = function()
     require('lensline').setup({
