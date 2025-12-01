@@ -13,7 +13,7 @@ return {
       natural_sort = true,
       ignore_case = false,
       whitespace = {
-        alignment_threshold = 3,
+        alignment_threshold = 2,
       },
       mappings = {
         operator = 'go',
