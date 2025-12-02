@@ -8,7 +8,9 @@ local function first(bufnr, ...)
   local conform = require('conform')
   for i = 1, select('#', ...) do
     local formatter = select(i, ...)
-    if conform.get_formatter_info(formatter, bufnr).available then return formatter end
+    if conform.get_formatter_info(formatter, bufnr).available then
+      return formatter
+    end
   end
   return select(1, ...)
 end
@@ -21,15 +23,23 @@ return {
     { '<leader>cn', '<cmd>ConformInfo<cr>', desc = 'Conform Info' },
   },
   opts = {
-    -- Define your formatters
+    format_on_save = {
+      lsp_format = 'fallback',
+      timeout_ms = 500,
+    },
+    format_after_save = {
+      lsp_format = 'fallback',
+    },
+    notify_on_error = true,
+    notify_no_formatters = true,
     formatters_by_ft = {
+      dockerfile = { 'dockerfmt' },
       lua = { 'stylua' },
-      -- Conform will run multiple formatters sequentially
       go = { 'goimports', 'gofumpt' },
-      -- Install Ruff globally.
-      -- uv tool install ruff@latest
       python = function(bufnr)
-        if require('conform').get_formatter_info('ruff_format', bufnr).available then
+        if
+          require('conform').get_formatter_info('ruff_format', bufnr).available
+        then
           return { 'ruff_format' }
         else
           return { 'isort', 'black' }
@@ -38,17 +48,45 @@ return {
       ruby = { 'rubyfmt' },
       json = { 'biome', 'dprint', stop_after_first = true },
       markdown = { 'prettierd', 'prettier', 'dprint', stop_after_first = true },
-      ['markdown.mdx'] = { 'prettierd', 'prettier', 'dprint', stop_after_first = true },
-      javascript = { 'biome', 'deno_fmt', 'prettierd', 'prettier', 'dprint', stop_after_first = true },
+      ['markdown.mdx'] = {
+        'prettierd',
+        'prettier',
+        'dprint',
+        stop_after_first = true,
+      },
+      javascript = {
+        'biome',
+        'deno_fmt',
+        'prettierd',
+        'prettier',
+        'dprint',
+        stop_after_first = true,
+      },
       javascriptreact = function(bufnr)
-        return { 'rustywind', first(bufnr, 'biome', 'deno_fmt', 'prettierd', 'prettier', 'dprint') }
+        return {
+          'rustywind',
+          first(bufnr, 'biome', 'deno_fmt', 'prettierd', 'prettier', 'dprint'),
+        }
       end,
-      typescript = { 'biome', 'deno_fmt', 'prettierd', 'prettier', 'dprint', stop_after_first = true },
+      typescript = {
+        'biome',
+        'deno_fmt',
+        'prettierd',
+        'prettier',
+        'dprint',
+        stop_after_first = true,
+      },
       typescriptreact = function(bufnr)
-        return { 'rustywind', first(bufnr, 'biome', 'deno_fmt', 'prettierd', 'prettier', 'dprint') }
+        return {
+          'rustywind',
+          first(bufnr, 'biome', 'deno_fmt', 'prettierd', 'prettier', 'dprint'),
+        }
       end,
       svelte = function(bufnr)
-        return { 'rustywind', first(bufnr, 'biome', 'deno_fmt', 'prettierd', 'prettier', 'dprint') }
+        return {
+          'rustywind',
+          first(bufnr, 'biome', 'deno_fmt', 'prettierd', 'prettier', 'dprint'),
+        }
       end,
     },
     formatters = {
@@ -92,13 +130,9 @@ return {
         end,
       },
     },
-
-    -- Set default options
     default_format_opts = {
       lsp_format = 'fallback',
     },
-    -- Set up format-on-save
-    format_on_save = { lsp_format = 'fallback', timeout_ms = 500 },
   },
   init = function() vim.o.formatexpr = "v:lua.require'conform'.formatexpr()" end,
 }
