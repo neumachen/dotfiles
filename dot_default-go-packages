@@ -12,6 +12,7 @@ github.com/mgechev/revive
 github.com/mikefarah/yq/v4
 github.com/nametake/golangci-lint-langserver
 github.com/noahgorstein/jqp
+github.com/reteps/dockerfmt
 github.com/segmentio/golines
 github.com/wader/jq-lsp
 github.com/xo/usql
