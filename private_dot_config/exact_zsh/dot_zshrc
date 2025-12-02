@@ -1,5 +1,5 @@
+# vim:ft=zsh
 # -*- mode: sh; sh-set-shell: zsh -*-
-# vim: ft=zsh
 
 # Profiling Start
 # zmodload zsh/zprof

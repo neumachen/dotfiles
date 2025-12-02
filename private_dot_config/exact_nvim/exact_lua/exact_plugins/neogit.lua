@@ -3,8 +3,8 @@ local map = vim.keymap.set
 return {
   'NeogitOrg/neogit',
   dependencies = {
+    'folke/snacks.nvim',
     'nvim-lua/plenary.nvim',
-    'nvim-telescope/telescope.nvim',
     'sindrets/diffview.nvim',
   },
   config = function()

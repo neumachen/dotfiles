@@ -82,15 +82,16 @@ zmodule joke/zim-mise
 zmodule jeffreytse/zsh-vi-mode
 
 # Zim modules
-zmodule homebrew
 zmodule custom
 zmodule environment
+zmodule exa
+zmodule fzf
 zmodule git
+zmodule homebrew
 zmodule input
+zmodule magic-enter
 zmodule termtitle
 zmodule utility
-zmodule fzf
-zmodule exa
 
 # Community Modules
 zmodule joke/zim-chezmoi
@@ -109,6 +110,10 @@ zmodule joke/zim-starship
 # Oh-My-Zsh libraries and plugins
 zmodule ohmyzsh/ohmyzsh --root lib --source clipboard.zsh
 
+# fzf-tab needs to be loaded after compinit, but before plugins which will wrap
+# widgets, such as zsh-autosuggestions or fast-syntax-highlighting
+zmodule Aloxaf/fzf-tab
+
 # Completions
 zmodule zsh-users/zsh-completions --fpath src
 
@@ -118,19 +123,20 @@ zmodule eza-community/eza --root completions/zsh --fpath _eza
 zmodule sharkdp/fd --root contrib/completion --fpath _fd
 zmodule x-motemen/ghq --root misc/zsh --fpath _ghq
 zmodule ahmetb/kubectx --fpath completion/_kubectx.zsh --fpath completion/_kubens.zsh
-zmodule srijanshetty/zsh-pandoc-completion
 zmodule rust-lang/cargo --root src/etc --fpath _cargo
 zmodule ohmyzsh/ohmyzsh --root plugins/rust --fpath _rustc
-# zmodule-custom broot --source "${HOME}/.config/broot/launcher/bash/br"
+
+# broot completion requires installing broot
+zmodule-custom broot --eval "broot install"
+zmodule-custom broot --source "${HOME}/.config/broot/launcher/bash/br"
+
 zmodule-custom zoxide --eval "zoxide init --cmd cd zsh"
 zmodule-custom starship --eval "starship init zsh"
 
-# Syntax highlighting and suggestions (load these last)
 zmodule zdharma-continuum/fast-syntax-highlighting
-zmodule zsh-users/zsh-autosuggestions
-zmodule zsh-users/zsh-history-substring-search
-zmodule Aloxaf/fzf-tab
+zmodule marlonrichert/zsh-autocomplete
 zmodule wfxr/forgit
+zmodule zsh-users/zsh-history-substring-search
 
 # Load last
 zmodule completion
