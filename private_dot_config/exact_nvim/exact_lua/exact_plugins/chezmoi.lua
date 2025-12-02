@@ -3,47 +3,52 @@ return {
   event = 'VeryLazy',
   dependencies = {
     'nvim-lua/plenary.nvim',
-    'nvim-telescope/telescope.nvim',
   },
   config = function()
     require('chezmoi').setup({
-      {
-        edit = {
-          watch = true,
-          force = true,
-        },
-        events = {
-          on_open = {
-            notification = {
-              enable = true,
-              msg = 'Opened a chezmoi-managed file',
-              opts = {},
-            },
-          },
-          on_watch = {
-            notification = {
-              enable = true,
-              msg = 'This file will be automatically applied',
-              opts = {},
-            },
-          },
-          on_apply = {
-            notification = {
-              enable = true,
-              msg = 'Successfully applied',
-              opts = {},
-            },
+      edit = {
+        watch = true,
+        force = true,
+      },
+      events = {
+        on_open = {
+          notification = {
+            enable = true,
+            msg = 'Opened a chezmoi-managed file',
+            opts = {},
           },
         },
-        telescope = {
-          select = { '<CR>' },
+        on_watch = {
+          notification = {
+            enable = true,
+            msg = 'This file will be automatically applied',
+            opts = {},
+          },
+        },
+        on_apply = {
+          notification = {
+            enable = true,
+            msg = 'Successfully applied',
+            opts = {},
+          },
         },
       },
     })
 
-    local telescope = require('telescope')
-    vim.keymap.set('n', '<leader>fc', telescope.extensions.chezmoi.find_files, {
-      desc = 'Find Chezmoi Managed Config Files',
-    })
+    vim.keymap.set(
+      'n',
+      '<leader>fc',
+      function()
+        require('chezmoi.pick').snacks({
+          '--path-style',
+          'absolute',
+          '--include',
+          'files',
+          '--exclude',
+          'externals',
+        })
+      end,
+      { desc = 'Search all chezmoi managed files' }
+    )
   end,
 }
