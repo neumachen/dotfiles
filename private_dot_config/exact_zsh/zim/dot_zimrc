@@ -103,6 +103,7 @@ zmodule joke/zim-kubectl
 zmodule joke/zim-minikube
 zmodule joke/zim-skaffold
 zmodule shanwker1223/zim-alias-finder
+zmodule wfxr/forgit
 
 # Prompt
 zmodule joke/zim-starship
@@ -116,8 +117,6 @@ zmodule Aloxaf/fzf-tab
 
 # Completions
 zmodule zsh-users/zsh-completions --fpath src
-
-zmodule wfxr/forgit
 
 # Custom completions
 zmodule ahmetb/kubectx --fpath completion/_kubectx.zsh --fpath completion/_kubens.zsh
