@@ -113,7 +113,7 @@ zmodule ohmyzsh/ohmyzsh --root lib --source clipboard.zsh
 
 # Completions
 zmodule ahmetb/kubectx --fpath completion/_kubectx.zsh --fpath completion/_kubens.zsh
-zmodule docker/cli --root contrib/completion/zsh --fpath _docker
+zmodule greymd/docker-zsh-completion --source docker-zsh-completion.plugin.zsh
 zmodule eza-community/eza --root completions/zsh --fpath _eza
 zmodule ohmyzsh/ohmyzsh --root plugins/rust --fpath _rustc
 zmodule rust-lang/cargo --root src/etc --fpath _cargo
