@@ -1,22 +1,24 @@
-;; Tag names
+;; Slim Treesitter highlight queries
+;; Only use node types that actually belong to the Slim grammar.
+
+;; Whole tag line (e.g. `.foo.bar` or `div.class`)
+(tag) @tag
+
+;; Tag names like `div`, `span`, etc.
 (tag
-  name: (identifier) @tag)
+  name: (tag_name) @tag.name)
 
-;; Tag delimiters (classes/ids/etc.), adjust to real node names
-(tag
-  (tag_delimiter) @tag.delimiter)?
+;; Classes like `.foo`, `.bar`
+(tag_class) @tag.attribute
 
-;; Attributes
-(attribute
-  name: (identifier) @attribute
-  value: (string) @string)
+;; Parameters: e.g. [foo="bar"]
+(parameter_name) @attribute
+(parameter_value
+  (string_content) @string)
 
-;; Comments
+;; Comments (including those with ruby_interpolation inside)
 (comment) @comment
 
-;; Embedded Ruby (shape depends on grammar)
-(ruby_block
-  (ruby_code) @keyword.ruby)
-
-;; Plain text
-(text) @text
+;; Lines starting with `-` / `=` etc. (Slim directives)
+(directive_sign) @operator
+(directive_block) @tag
