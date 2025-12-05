@@ -1,6 +1,5 @@
 return {
   'bassamsdata/namu.nvim',
-  lazy = false,
   config = function()
     --- @module 'namu'
     require('namu').setup({
