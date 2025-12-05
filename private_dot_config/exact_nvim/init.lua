@@ -19,7 +19,9 @@ local project_setting = vim.fn.getcwd() .. '/.nvim-config.lua'
 if vim.loop.fs_stat(project_setting) then
   -- Read the file and run it with pcall to catch any errors
   local ok, err = pcall(dofile, project_setting)
-  if not ok then vim.notify('Error loading project setting: ' .. err, vim.log.levels.ERROR) end
+  if not ok then
+    vim.notify('Error loading project setting: ' .. err, vim.log.levels.ERROR)
+  end
 end
 
 require('config.autocmds')
@@ -36,7 +38,11 @@ if vim.g.vscode then
 else
   local ext = require('utils.ext')
   -- Load the theme
-  ext.pcall('theme failed to load because', vim.cmd.colorscheme, 'tokyonight-storm')
+  ext.pcall(
+    'theme failed to load because',
+    vim.cmd.colorscheme,
+    'tokyonight-storm'
+  )
 
   local ts_server = vim.g.lsp_typescript_server or 'ts_ls' -- "ts_ls" or "vtsls" for TypeScript
 
@@ -53,7 +59,10 @@ else
   end
 
   -- Remove ts_ls and vtsls from auto-discovered list since we handle TypeScript server selection dynamically
-  lsp_servers = vim.tbl_filter(function(server) return server ~= 'ts_ls' and server ~= 'vtsls' end, lsp_servers)
+  lsp_servers = vim.tbl_filter(
+    function(server) return server ~= 'ts_ls' and server ~= 'vtsls' end,
+    lsp_servers
+  )
 
   -- Add the selected TypeScript server
   table.insert(lsp_servers, ts_server)
