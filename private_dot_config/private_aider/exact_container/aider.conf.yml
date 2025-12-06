@@ -16,7 +16,8 @@
 # Main model:
 
 ## Specify the model to use for the main chat
-model: openrouter/anthropic/claude-sonnet-4.5
+model: openrouter/anthropic/claude-opus-4.5
+weak-model: openrouter/openai/gpt-5-mini
 
 ## Set the reasoning_effort API parameter (default: not set)
 #reasoning-effort: xxx
@@ -38,9 +39,6 @@ model: openrouter/anthropic/claude-sonnet-4.5
 
 ## Enable/disable automatic acceptance of architect changes (default: True)
 auto-accept-architect: true
-
-## Specify the model to use for commit messages and chat history summarization (default depends on --model)
-#weak-model: xxx
 
 ## Specify the model to use for editor tasks (default depends on --model)
 #editor-model: xxx
