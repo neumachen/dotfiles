@@ -1,3 +1,25 @@
+local BACKGROUND_DARK = '#2C3441'
+local BACKGROUND_GROUPS = {
+  'Normal',
+  'NormalNC',
+  'NormalSB',
+  'NormalFloat',
+  'SignColumn',
+  'FoldColumn',
+  'StatusLine',
+}
+
+local function is_light_background() return vim.o.background == 'light' end
+
+local function set_background_colors(highlights, background)
+  if not background then return end
+  for _, group in ipairs(BACKGROUND_GROUPS) do
+    highlights[group] = highlights[group] or {}
+    highlights[group].bg = background
+  end
+end
+
+
 return {
   style = 'storm',
   light_style = 'day',
@@ -14,35 +36,31 @@ return {
     sidebars = 'dark', -- style for sidebars, see below
     floats = 'dark', -- style for floating windows
   },
-  day_brightness = 0.3, -- Adjusts the brightness of the colors of the **Day** style. Number between 0 and 1, from dull to vibrant colors
-  dim_inactive = false, -- dims inactive windows
-  lualine_bold = true, -- When `true`, section headers in the lualine theme will be bold
+  day_brightness = 0.3, -- Adjusts brightness of the colors of the Day style
+  dim_inactive = false,
+  lualine_bold = true,
 
-  --- You can override specific color groups to use other groups or a hex color
-  --- function will be called with a ColorScheme table
-  ---@param colors table
-  on_colors = function(colors) end,
+  on_colors = function(colors)
+    if is_light_background() then return end
 
-  --- You can override specific highlights to use other groups or a hex color
-  --- function will be called with a Highlights and ColorScheme table
-  ---@param highlights table
-  ---@param colors table
+    colors.bg = BACKGROUND_DARK
+    colors.bg_dark = BACKGROUND_DARK
+    colors.bg_float = BACKGROUND_DARK
+    colors.bg_highlight = BACKGROUND_DARK
+    colors.bg_sidebar = BACKGROUND_DARK
+    colors.bg_statusline = BACKGROUND_DARK
+  end,
+
   on_highlights = function(highlights, colors)
-    -- Make line numbers more visible with blue color that complements cyan
-    highlights.LineNrAbove = { fg = colors.purple }
-    highlights.LineNrBelow = { fg = colors.purple }
-    -- Make current line number even more visible with bright teal
-    highlights.LineNr = { fg = colors.orange, bold = true }
+    if not is_light_background() then
+      set_background_colors(highlights, BACKGROUND_DARK)
+    end
   end,
 
   cache = true,
 
-  ---@type table<string, boolean|{enabled:boolean}>
   plugins = {
     all = package.loaded.lazy == nil,
-    -- Uses your plugin manager to automatically enable needed plugins
-    -- currently only lazy.nvim is supported
     auto = true,
-    telescope = true,
   },
 }

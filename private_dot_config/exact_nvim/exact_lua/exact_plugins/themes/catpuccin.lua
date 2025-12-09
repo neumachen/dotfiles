@@ -1,3 +1,43 @@
+local BACKGROUND_DARK = '#2C3441'
+local BACKGROUND_GROUPS = {
+  'Normal',
+  'NormalNC',
+  'NormalSB',
+  'NormalFloat',
+  'SignColumn',
+  'FoldColumn',
+  'StatusLine',
+}
+
+local function extend_with_background(highlights, background)
+  if not background then return highlights end
+
+  for _, group in ipairs(BACKGROUND_GROUPS) do
+    local current = highlights[group] or {}
+    current.bg = background
+    highlights[group] = current
+  end
+
+  return highlights
+end
+
+local function is_dark_background()
+  return vim.o.background ~= 'light'
+end
+
+
+local function build_color_overrides()
+  local overrides = {}
+  for _, flavour in ipairs({ 'mocha', 'macchiato', 'frappe' }) do
+    overrides[flavour] = {
+      base = BACKGROUND_DARK,
+      mantle = BACKGROUND_DARK,
+      crust = BACKGROUND_DARK,
+    }
+  end
+  return overrides
+end
+
 return {
   flavour = 'auto', -- latte, frappe, macchiato, mocha
   background = { -- :h background
@@ -53,8 +93,11 @@ return {
       background = true,
     },
   },
-  color_overrides = {},
-  custom_highlights = {},
+  color_overrides = build_color_overrides(),
+  custom_highlights = function(colors)
+    local background = is_dark_background() and BACKGROUND_DARK or nil
+    return extend_with_background({}, background)
+  end,
   default_integrations = true,
   auto_integrations = false,
   integrations = {

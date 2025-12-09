@@ -14,8 +14,8 @@ return {
       options = {
         theme = 'auto',
         icons_enabled = true,
-        component_separators = { left = '', right = '' },
-        section_separators = { left = '', right = '' },
+        componentSeparators = { left = '', right = '' },
+        section_separators = { left = '', right = '' },
         disabled_filetypes = {
           statusline = {},
           winbar = {},
@@ -51,9 +51,7 @@ return {
           {
             function()
               local clients = vim.lsp.get_clients({ bufnr = 0 })
-              if #clients == 0 then
-                return ''
-              end
+              if #clients == 0 then return '' end
 
               local client_names = {}
               for _, client in ipairs(clients) do
@@ -66,7 +64,7 @@ return {
           },
           'encoding',
           'fileformat',
-          'filetype'
+          'filetype',
         },
         lualine_y = { 'progress' },
         lualine_z = { 'location' },
