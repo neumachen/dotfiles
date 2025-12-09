@@ -122,18 +122,17 @@ zmodule wfxr/forgit --root completions --fpath _git-forgit
 zmodule x-motemen/ghq --root misc/zsh --fpath _ghq
 zmodule zsh-users/zsh-completions --fpath src
 
+# Load last
+zmodule completion
+
 zmodule-custom broot --source "${HOME}/.config/broot/launcher/bash/br"
 
 zmodule-custom zoxide --eval "zoxide init --cmd cd zsh"
 zmodule-custom starship --eval "starship init zsh"
 
 zmodule zdharma-continuum/fast-syntax-highlighting
-zmodule zsh-users/zsh-history-substring-search
 
 # fzf-tab needs to be loaded after compinit, but before plugins which will wrap
 # widgets, such as zsh-autosuggestions or fast-syntax-highlighting
 zmodule marlonrichert/zsh-autocomplete
 zmodule Aloxaf/fzf-tab
-
-# Load last
-zmodule completion

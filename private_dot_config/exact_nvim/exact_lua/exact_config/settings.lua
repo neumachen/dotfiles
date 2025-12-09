@@ -139,7 +139,7 @@ opt.pumblend = 0 -- Make popup window translucent
 opt.colorcolumn = '+1'
 opt.conceallevel = 2
 opt.breakindentopt = 'sbr'
-opt.linebreak = true -- lines wrap at words rather than random characters
+opt.linebreak = true -- Lines wrap at words rather than random characters
 opt.signcolumn = 'yes:1'
 opt.ruler = false
 opt.cmdheight = 0
@@ -166,9 +166,9 @@ opt.textwidth = 80
 opt.wrap = false
 opt.wrapmargin = 2
 -----------------------------------------------------------------------------//
-opt.autowriteall = true -- automatically :write before running commands and changing files
+opt.autowriteall = true -- Automatically :write before running commands and changing files
 opt.completeopt = 'menu,menuone,noselect,fuzzy'
-opt.confirm = true -- make vim prompt me to save before doing destructive things
+opt.confirm = true -- Make vim prompt me to save before doing destructive things
 opt.guifont = 'CartographCF Nerd Font:h14'
 opt.hlsearch = true
 opt.laststatus = 3
@@ -220,7 +220,7 @@ opt.sessionoptions = {
   'winsize',
 }
 opt.viewoptions = { 'cursor', 'folds' } -- save/restore just these (with `:{mk,load}view`)
-opt.virtualedit = 'block' -- allow cursor to move where there is no text in visual block mode
+opt.virtualedit = 'block' -- Allow cursor to move where there is no text in visual block mode
 -----------------------------------------------------------------------------//
 -- Jumplist
 -----------------------------------------------------------------------------//

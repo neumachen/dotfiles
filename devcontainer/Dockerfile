@@ -1,9 +1,9 @@
 FROM debian:12-slim
 
 RUN apt-get update \
-    && apt-get -y --no-install-recommends install \
-        sudo curl git ca-certificates build-essential \
-    && rm -rf /var/lib/apt/lists/*
+  && apt-get -y --no-install-recommends install \
+  && curl git ca-certificates build-essential \
+  && rm -rf /var/lib/apt/lists/*
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
