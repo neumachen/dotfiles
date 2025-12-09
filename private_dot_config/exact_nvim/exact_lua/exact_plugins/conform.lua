@@ -45,7 +45,7 @@ return {
           return { 'isort', 'black' }
         end
       end,
-      ruby = { 'rubyfmt' },
+      ruby = { 'rubocop' },
       json = { 'biome', 'dprint', stop_after_first = true },
       markdown = { 'prettierd', 'prettier', 'dprint', stop_after_first = true },
       ['markdown.mdx'] = {

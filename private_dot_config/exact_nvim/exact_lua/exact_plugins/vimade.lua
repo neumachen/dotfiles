@@ -1,11 +1,9 @@
 return {
-  {
-    'tadaa/vimade',
-    config = function()
-      require('vimade').setup({
-        recipe = { 'default', { animate = true } },
-        fadelevel = 0.4,
-      })
-    end,
-  },
+  'tadaa/vimade',
+  config = function()
+    require('vimade').setup({
+      recipe = { 'paradox', { animate = true } },
+      fadelevel = 0.6,
+    })
+  end,
 }

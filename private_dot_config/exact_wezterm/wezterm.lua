@@ -2,7 +2,6 @@ local keybinds = require('keybinds')
 local utils = require('modules.utils')
 local wezterm = require('wezterm')
 local gpus = wezterm.gui.enumerate_gpus()
--- local scheme = wezterm.get_builtin_color_schemes()['tokyonight_storm']
 require('modules.commands')
 
 -- /etc/ssh/sshd_config
@@ -39,7 +38,9 @@ end
 
 --- load local_config
 -- Write settings you don't want to make public, such as ssh_domains
-package.path = os.getenv('HOME') .. '/.local/share/wezterm/?.lua;' .. package.path
+package.path = os.getenv('HOME')
+  .. '/.local/share/wezterm/?.lua;'
+  .. package.path
 local function load_local_config(module)
   local m = package.searchpath(module, package.path)
   if m == nil then return {} end
@@ -83,7 +84,10 @@ local config = {
     {
       italic = true,
       intensity = 'Bold',
-      font = wezterm.font('CartographCF Nerd Font', { weight = 'Bold', italic = true }),
+      font = wezterm.font(
+        'CartographCF Nerd Font',
+        { weight = 'Bold', italic = true }
+      ),
     },
   },
   check_for_updates = true,
@@ -99,7 +103,7 @@ local config = {
   -- enable_wayland = enable_wayland(),
   -- https://github.com/wez/wezterm/issues/1772
   enable_wayland = false,
-  color_scheme = 'tokyonight_storm',
+  color_scheme = 'Tokyo Night Storm',
   color_scheme_dirs = { os.getenv('HOME') .. '/.config/wezterm/colors/' },
   hide_tab_bar_if_only_one_tab = false,
   adjust_window_size_when_changing_font_size = false,
@@ -144,4 +148,7 @@ table.insert(config.hyperlink_rules, {
 })
 
 local merged_config = utils.merge_tables(config, local_config)
-return utils.merge_tables(merged_config, create_ssh_domain_from_ssh_config(merged_config.ssh_domains))
+return utils.merge_tables(
+  merged_config,
+  create_ssh_domain_from_ssh_config(merged_config.ssh_domains)
+)
