@@ -15,6 +15,8 @@ local workspace_switcher = wezterm.plugin.require(
 M.tmux_keybinds = {
   { key = 'h', mods = 'ALT|CMD', action = act({ MoveTabRelative = -1 }) },
   { key = 'l', mods = 'ALT|CMD', action = act({ MoveTabRelative = 1 }) },
+  { key = 'h', mods = 'CMD', action = act({ ActivateTabRelative = -1 }) },
+  { key = 'l', mods = 'CMD', action = act({ ActivateTabRelative = 1 }) },
   { key = 'k', mods = 'ALT|CMD', action = act.ActivateCopyMode },
   {
     key = 'k',
@@ -71,8 +73,8 @@ M.default_keybinds = {
   { key = '-', mods = 'CMD|SHIFT', action = 'DecreaseFontSize' },
   { key = 'PageUp', mods = 'ALT', action = act({ ScrollByPage = -1 }) },
   { key = 'PageDown', mods = 'ALT', action = act({ ScrollByPage = 1 }) },
-  { key = 'b', mods = 'ALT', action = act({ ScrollByPage = -1 }) },
-  { key = 'f', mods = 'ALT', action = act({ ScrollByPage = 1 }) },
+  { key = 'b', mods = 'ALT', action = act({ ScrollByLine = -1 }) },
+  { key = 'f', mods = 'ALT', action = act({ ScrollByLine = 1 }) },
   { key = 'z', mods = 'ALT', action = 'ReloadConfiguration' },
   {
     key = 'z',
@@ -96,18 +98,18 @@ M.default_keybinds = {
   },
   { key = 'a', mods = 'CMD', action = wezterm.action.ShowLauncher },
   { key = ' ', mods = 'ALT|SHIFT', action = wezterm.action.ShowTabNavigator },
-  {
-    key = 'r',
-    mods = 'ALT',
-    action = act({
-      ActivateKeyTable = {
-        name = 'resize_pane',
-        one_shot = false,
-        timeout_milliseconds = 3000,
-        replace_current = false,
-      },
-    }),
-  },
+  -- {
+  --   key = 'r',
+  --   mods = 'ALT',
+  --   action = act({
+  --     ActivateKeyTable = {
+  --       name = 'resize_pane',
+  --       one_shot = false,
+  --       timeout_milliseconds = 3000,
+  --       replace_current = false,
+  --     },
+  --   }),
+  -- },
   {
     key = 's',
     mods = 'ALT',
