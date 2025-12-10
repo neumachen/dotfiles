@@ -19,7 +19,6 @@ local function set_background_colors(highlights, background)
   end
 end
 
-
 return {
   style = 'storm',
   light_style = 'day',
