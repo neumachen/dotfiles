@@ -93,6 +93,7 @@ zoxide = "latest"
 "cargo:sqruff" = "latest"
 "cargo:tealdeer" = "latest"
 "cargo:treemd" = "latest"
+"cargo:vivid" = "latest"
 
 "github:dlvhdr/gh-dash" = "latest"
 "github:JohnnyMorganz/StyLua" = "latest"
