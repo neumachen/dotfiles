@@ -13,14 +13,14 @@ local workspace_switcher = wezterm.plugin.require(
 --- keybinds
 ---------------------------------------------------------------
 M.tmux_keybinds = {
-  { key = 'h', mods = 'ALT|CMD', action = act({ MoveTabRelative = -1 }) },
-  { key = 'l', mods = 'ALT|CMD', action = act({ MoveTabRelative = 1 }) },
+  { key = 'h', mods = 'CMD|SHIFT', action = act({ MoveTabRelative = -1 }) },
+  { key = 'l', mods = 'CMD|SHIFT', action = act({ MoveTabRelative = 1 }) },
   { key = 'h', mods = 'CMD', action = act({ ActivateTabRelative = -1 }) },
   { key = 'l', mods = 'CMD', action = act({ ActivateTabRelative = 1 }) },
-  { key = 'k', mods = 'ALT|CMD', action = act.ActivateCopyMode },
+  { key = 'k', mods = 'CMD', action = act.ActivateCopyMode },
   {
     key = 'k',
-    mods = 'ALT|CMD',
+    mods = 'LEADER|SHIFT',
     action = act.Multiple({
       act.CopyMode('ClearSelectionMode'),
       act.ActivateCopyMode,
@@ -28,8 +28,8 @@ M.tmux_keybinds = {
     }),
   },
   {
-    key = 'j',
-    mods = 'ALT|CMD',
+    key = 'p',
+    mods = 'LEADER',
     action = act({ PasteFrom = 'PrimarySelection' }),
   },
   { key = '1', mods = 'CMD', action = act({ ActivateTab = 0 }) },
@@ -43,18 +43,18 @@ M.tmux_keybinds = {
   { key = '9', mods = 'CMD', action = act({ ActivateTab = 8 }) },
   {
     key = '-',
-    mods = 'CMD',
+    mods = 'LEADER',
     action = act({ SplitVertical = { domain = 'CurrentPaneDomain' } }),
   },
   {
     key = '|',
-    mods = 'CMD|SHIFT',
+    mods = 'LEADER|SHIFT',
     action = act({ SplitHorizontal = { domain = 'CurrentPaneDomain' } }),
   },
   { key = 'Enter', mods = 'CMD', action = 'QuickSelect' },
   {
     key = '/',
-    mods = 'ALT',
+    mods = 'LEADER|ALT',
     action = act.Search('CurrentSelectionOrEmptyString'),
   },
 }
@@ -63,29 +63,26 @@ M.default_keybinds = {
   { key = 'n', mods = 'CMD', action = wezterm.action.SpawnWindow },
   { key = 'c', mods = 'CMD', action = act({ CopyTo = 'Clipboard' }) },
   { key = 'v', mods = 'CMD', action = act({ PasteFrom = 'Clipboard' }) },
-  {
-    key = 'Insert',
-    mods = 'SHIFT',
-    action = act({ PasteFrom = 'PrimarySelection' }),
-  },
   { key = '=', mods = 'CMD', action = 'ResetFontSize' },
   { key = '+', mods = 'CMD|SHIFT', action = 'IncreaseFontSize' },
   { key = '-', mods = 'CMD|SHIFT', action = 'DecreaseFontSize' },
-  { key = 'PageUp', mods = 'ALT', action = act({ ScrollByPage = -1 }) },
-  { key = 'PageDown', mods = 'ALT', action = act({ ScrollByPage = 1 }) },
-  { key = 'b', mods = 'ALT', action = act({ ScrollByLine = -1 }) },
-  { key = 'f', mods = 'ALT', action = act({ ScrollByLine = 1 }) },
-  { key = 'z', mods = 'ALT', action = 'ReloadConfiguration' },
-  {
-    key = 'z',
-    mods = 'ALT|SHIFT',
-    action = act({ EmitEvent = 'toggle-tmux-keybinds' }),
-  },
-  {
-    key = 'e',
-    mods = 'ALT',
-    action = act({ EmitEvent = 'trigger-nvim-with-scrollback' }),
-  },
+  -- { key = 'PageUp', mods = 'LEADER', action = act({ ScrollByPage = -1 }) },
+  -- { key = 'PageDown', mods = 'LEADER', action = act({ ScrollByPage = 1 }) },
+  -- { key = 'b', mods = 'ALT', action = act({ ScrollByLine = -1 }) },
+  -- { key = 'f', mods = 'ALT', action = act({ ScrollByLine = 1 }) },
+  { key = 'z', mods = 'CMD', action = 'ReloadConfiguration' },
+  -- TODO: investigate behavior
+  -- {
+  --   key = 'z',
+  --   mods = 'ALT|SHIFT',
+  --   action = act({ EmitEvent = 'toggle-tmux-keybinds' }),
+  -- },
+  -- TODO: investigate behavior
+  -- {
+  --   key = 'e',
+  --   mods = 'ALT',
+  --   action = act({ EmitEvent = 'trigger-nvim-with-scrollback' }),
+  -- },
   {
     key = 'q',
     mods = 'CMD',
@@ -97,7 +94,7 @@ M.default_keybinds = {
     action = act({ CloseCurrentPane = { confirm = true } }),
   },
   { key = 'a', mods = 'CMD', action = wezterm.action.ShowLauncher },
-  { key = ' ', mods = 'ALT|SHIFT', action = wezterm.action.ShowTabNavigator },
+  { key = ' ', mods = 'LEADER', action = wezterm.action.ShowTabNavigator },
   -- {
   --   key = 'r',
   --   mods = 'ALT',
@@ -111,21 +108,25 @@ M.default_keybinds = {
   --   }),
   -- },
   {
-    key = 's',
-    mods = 'ALT',
+    key = 'p',
+    mods = 'LEADER',
     action = act.PaneSelect({
       alphabet = '1234567890',
     }),
   },
   {
     key = '`',
-    mods = 'ALT',
+    mods = 'LEADER',
     action = act.RotatePanes('CounterClockwise'),
   },
-  { key = '`', mods = 'ALT|SHIFT', action = act.RotatePanes('Clockwise') },
   {
-    key = 'e',
-    mods = 'LEADER',
+    key = '~',
+    mods = 'LEADER|SHIFT',
+    action = act.RotatePanes('Clockwise'),
+  },
+  {
+    key = 't',
+    mods = 'LEADER|SHIFT',
     action = act.PromptInputLine({
       description = 'Enter new name for tab',
       -- selene: allow(unused_variable)
@@ -139,8 +140,8 @@ M.default_keybinds = {
     }),
   },
   {
-    key = 'w',
-    mods = 'LEADER',
+    key = 'W',
+    mods = 'LEADER|SHIFT',
     action = act.PromptInputLine({
       description = wezterm.format({
         { Attribute = { Intensity = 'Bold' } },
@@ -163,12 +164,7 @@ M.default_keybinds = {
     }),
   },
   {
-    key = 's',
-    mods = 'LEADER',
-    action = workspace_switcher.switch_workspace(),
-  },
-  {
-    key = 'S',
+    key = 'w',
     mods = 'LEADER',
     action = workspace_switcher.switch_workspace(),
   },
