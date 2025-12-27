@@ -1,5 +1,7 @@
 return {
   'code-biscuits/nvim-biscuits',
+  -- TODO: Disable for now until
+  enabled = false,
   dependencies = {
     'nvim-treesitter/nvim-treesitter',
   },

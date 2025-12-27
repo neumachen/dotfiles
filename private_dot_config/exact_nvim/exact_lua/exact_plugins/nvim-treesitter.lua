@@ -1,171 +1,172 @@
+---@module "lazy"
+---@type LazySpec
 return {
-  {
-    'nvim-treesitter/nvim-treesitter',
-    build = ':TSUpdate',
-    event = 'VeryLazy',
-    init = function(plugin)
-      -- NOTE: add nvim-treesitter queries to the RTP and it's custom query predicates early
-      -- This is needed because a bunch of plugins no longer `require("nvim-treesitter")`, which
-      -- no longer trigger the **nvim-treesitter** module to be loaded in time.
-      -- Luckily, the only things that those plugins need are the custom queries, which we make available
-      -- during startup.
-      require('lazy.core.loader').add_to_rtp(plugin)
-      require('nvim-treesitter.query_predicates')
-      require('vim.treesitter.query').add_predicate(
-        'is-mise?',
-        function(_, _, bufnr, _)
-          local filepath = vim.api.nvim_buf_get_name(tonumber(bufnr) or 0)
-          local filename = vim.fn.fnamemodify(filepath, ':t')
-          return string.match(filename, '.*mise.*%.toml$') ~= nil
-        end,
-        { force = true, all = false }
-      )
-    end,
-    opts = {
-      ensure_installed = {
-        'bash',
-        'c',
-        'cmake',
-        'cpp',
-        'css',
-        'csv',
-        'diff',
-        'dockerfile',
-        'editorconfig',
-        'elixir',
-        'erlang',
-        'git_config',
-        'git_rebase',
-        'gleam',
-        'go',
-        'goctl',
-        'gomod',
-        'gosum',
-        'gotmpl',
-        'gowork',
-        'gpg',
-        'haskell',
-        'helm',
-        'html',
-        'hurl',
-        'javascript',
-        'jsdoc',
-        'json',
-        'jsonc',
-        'just',
-        'lua',
-        'luadoc',
-        'luap',
-        'markdown',
-        'markdown_inline',
-        'printf',
-        'proto',
-        'python',
-        'query',
-        'regex',
-        'ruby',
-        'rust',
-        'slim',
-        'ssh_config',
-        'toml',
-        'tsx',
-        'typescript',
-        'vim',
-        'vimdoc',
-        'xml',
-        'yaml',
-      },
-      sync_install = false,
-      auto_install = true,
-      highlight = {
-        enable = true,
-        additional_vim_regex_highlighting = { 'sql' },
-      },
-      incremental_selection = {
-        enable = true,
-        disable = { 'help' },
-        keymaps = {
-          init_selection = '<CR>', -- Maps in normal mode to init the node/scope selection
-          node_incremental = '<CR>', -- Increment to the upper named parent
-          node_decremental = '<C-CR>', -- decrement to the previous node
-        },
-      },
-      indent = {
-        enable = true,
-        disable = { 'yaml' },
-      },
-      textobjects = {
-        lookahead = true,
-        select = {
-          enable = true,
-          include_surrounding_whitespace = true,
-          keymaps = {
-            ['af'] = { query = '@function.outer', desc = 'ts: all function' },
-            ['if'] = { query = '@function.inner', desc = 'ts: inner function' },
-            ['ac'] = { query = '@class.outer', desc = 'ts: all class' },
-            ['ic'] = { query = '@class.inner', desc = 'ts: inner class' },
-            ['aC'] = {
-              query = '@conditional.outer',
-              desc = 'ts: all conditional',
-            },
-            ['iC'] = {
-              query = '@conditional.inner',
-              desc = 'ts: inner conditional',
-            },
-            ['aL'] = { query = '@assignment.lhs', desc = 'ts: assignment lhs' },
-            ['aR'] = { query = '@assignment.rhs', desc = 'ts: assignment rhs' },
-          },
-        },
-        move = {
-          enable = true,
-          set_jumps = true,
-          goto_next_start = {
-            [']m'] = '@function.outer',
-            [']M'] = '@class.outer',
-          },
-          goto_previous_start = {
-            ['[m'] = '@function.outer',
-            ['[M'] = '@class.outer',
-          },
-        },
-      },
-      autopairs = { enable = true },
-      playground = { persist_queries = true },
-      query_linter = {
-        enable = true,
-        use_virtual_text = true,
-        lint_events = { 'BufWrite', 'CursorHold' },
+  'nvim-treesitter/nvim-treesitter',
+  dependencies = {
+    {
+      'nvim-treesitter/nvim-treesitter-context',
+      opts = {
+        max_lines = 4,
+        multiline_threshold = 2,
       },
     },
-    config = function(_, opts)
-      local parser_config =
-        require('nvim-treesitter.parsers').get_parser_configs()
-      parser_config.d2 = {
-        install_info = {
-          url = 'https://github.com/ravsii/tree-sitter-d2',
-          files = { 'src/parser.c' },
-          branch = 'main',
-        },
-        filetype = 'd2',
-      }
-      require('nvim-treesitter.configs').setup(opts)
-    end,
-    dependencies = {
-      { 'nvim-treesitter/nvim-treesitter-textobjects' },
-    },
   },
-  {
-    'nvim-treesitter/playground',
-    cmd = { 'TSPlaygroundToggle' },
-    dependencies = { 'nvim-treesitter' },
-  },
-  {
-    'nvim-treesitter/nvim-treesitter-context',
-    event = 'VeryLazy',
-    opts = {
-      multiline_threshold = 4,
-      separator = '─', -- alternatives: ▁ ─ ▄
-      mode = 'cursor',
-    },
-  },
+  branch = 'main',
+  build = ':TSUpdate',
+  config = function()
+    local ts = require('nvim-treesitter')
+
+    -- Track buffers waiting for parser installation: { lang = { [buf] = true, ... } }
+    local waiting_buffers = {}
+    -- Track languages currently being installed to avoid duplicate install tasks
+    local installing_langs = {}
+
+    local group =
+      vim.api.nvim_create_augroup('TreesitterSetup', { clear = true })
+
+    -- Enable treesitter for a buffer
+    local function enable_treesitter(buf, lang)
+      if not vim.api.nvim_buf_is_valid(buf) then return false end
+
+      local ok = pcall(vim.treesitter.start, buf, lang)
+      if ok then
+        vim.bo[buf].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+      end
+      return ok
+    end
+
+    -- Install core parsers after lazy.nvim finishes loading all plugins
+    vim.api.nvim_create_autocmd('User', {
+      group = group,
+      pattern = 'LazyDone',
+      once = true,
+      desc = 'Install core treesitter parsers',
+      callback = function()
+        ts.install({
+          'bash',
+          'c',
+          'cmake',
+          'cpp',
+          'css',
+          'csv',
+          'diff',
+          'dockerfile',
+          'editorconfig',
+          'elixir',
+          'erlang',
+          'git_config',
+          'git_rebase',
+          'gitcommit',
+          'gleam',
+          'go',
+          'goctl',
+          'gomod',
+          'gosum',
+          'gotmpl',
+          'gowork',
+          'gpg',
+          'haskell',
+          'helm',
+          'html',
+          'hurl',
+          'javascript',
+          'jsdoc',
+          'json',
+          'jsonc',
+          'just',
+          'lua',
+          'luadoc',
+          'luap',
+          'markdown',
+          'markdown_inline',
+          'printf',
+          'proto',
+          'python',
+          'query',
+          'regex',
+          'ruby',
+          'rust',
+          'slim',
+          'ssh_config',
+          'toml',
+          'tsx',
+          'typescript',
+          'vim',
+          'vimdoc',
+          'xml',
+          'yaml',
+        })
+      end,
+    })
+
+    local ignore_filetypes = {
+      checkhealth = true,
+      lazy = true,
+      mason = true,
+      qf = true,
+      snacks_dashboard = true,
+      snacks_notif = true,
+      snacks_win = true,
+      toggleterm = true,
+    }
+
+    -- Auto-install parsers and enable highlighting on FileType
+    vim.api.nvim_create_autocmd('FileType', {
+      group = group,
+      desc = 'Enable treesitter highlighting and indentation',
+      callback = function(event)
+        if ignore_filetypes[event.match] then return end
+
+        local lang = vim.treesitter.language.get_lang(event.match)
+          or event.match
+        local buf = event.buf
+
+        if not enable_treesitter(buf, lang) then
+          -- Parser not available, queue buffer (set handles duplicates)
+          waiting_buffers[lang] = waiting_buffers[lang] or {}
+          waiting_buffers[lang][buf] = true
+
+          -- Only start install if not already in progress
+          if not installing_langs[lang] then
+            installing_langs[lang] = true
+            local task = ts.install({ lang })
+
+            -- Register callback for when installation completes
+            if task and task.await then
+              task:await(function()
+                vim.schedule(function()
+                  installing_langs[lang] = nil
+
+                  -- Enable treesitter on all waiting buffers for this language
+                  local buffers = waiting_buffers[lang]
+                  if buffers then
+                    for b in pairs(buffers) do
+                      enable_treesitter(b, lang)
+                    end
+                    waiting_buffers[lang] = nil
+                  end
+                end)
+              end)
+            else
+              -- Fallback: clear state if task doesn't support await
+              installing_langs[lang] = nil
+              waiting_buffers[lang] = nil
+            end
+          end
+        end
+      end,
+    })
+
+    -- Clean up waiting buffers when buffer is deleted
+    vim.api.nvim_create_autocmd('BufDelete', {
+      group = group,
+      desc = 'Clean up treesitter waiting buffers',
+      callback = function(event)
+        for lang, buffers in pairs(waiting_buffers) do
+          buffers[event.buf] = nil
+          if next(buffers) == nil then waiting_buffers[lang] = nil end
+        end
+      end,
+    })
+  end,
 }
