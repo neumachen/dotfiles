@@ -1,1 +1,19 @@
-words = ["multilines"]
+words = [
+    "bufnr",
+    "cursorline",
+    "foldtext",
+    "gitcommit",
+    "gitsigns",
+    "hlgroup",
+    "hlgroups",
+    "keymaps",
+    "localleader",
+    "mapleader",
+    "maplocalleader",
+    "mise",
+    "multilines",
+    "namu",
+    "neogit",
+    "nvim",
+    "yazi",
+]
