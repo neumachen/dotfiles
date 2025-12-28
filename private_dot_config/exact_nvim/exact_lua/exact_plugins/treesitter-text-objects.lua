@@ -118,79 +118,74 @@ return {
       end
     )
 
+    -- FIX: this entire keymap disables the leader key.
     -- Scope
-    vim.keymap.set(
-      { 'n', 'x', 'o' },
-      ']s',
-      function() move.goto_next_start('@local.scope', 'locals') end
-    )
-    vim.keymap.set(
-      { 'n', 'x', 'o' },
-      '[s',
-      function() move.goto_previous_start('@local.scope', 'locals') end
-    )
+    -- vim.keymap.set(
+    --   { 'n', 'x', 'o' },
+    --   ']s',
+    --   function() move.goto_next_start('@local.scope', 'locals') end
+    -- )
+    -- vim.keymap.set(
+    --   { 'n', 'x', 'o' },
+    --   '[s',
+    --   function() move.goto_previous_start('@local.scope', 'locals') end
+    -- )
+    --
+    -- -- Folds
+    -- vim.keymap.set(
+    --   { 'n', 'x', 'o' },
+    --   ']z',
+    --   function() move.goto_next_start('@fold', 'folds') end
+    -- )
+    -- vim.keymap.set(
+    --   { 'n', 'x', 'o' },
+    --   '[z',
+    --   function() move.goto_next_start('@fold', 'folds') end
+    -- )
+    --
+    -- -- Go to either the start or the end, whichever is closer.
+    -- -- Use if you want more granular movements
+    -- vim.keymap.set(
+    --   { 'n', 'x', 'o' },
+    --   ']d',
+    --   function() move.goto_next('@conditional.outer', 'textobjects') end
+    -- )
+    -- vim.keymap.set(
+    --   { 'n', 'x', 'o' },
+    --   '[d',
+    --   function() move.goto_previous('@conditional.outer', 'textobjects') end
+    -- )
 
-    -- Folds
-    vim.keymap.set(
-      { 'n', 'x', 'o' },
-      ']z',
-      function() move.goto_next_start('@fold', 'folds') end
-    )
-    vim.keymap.set(
-      { 'n', 'x', 'o' },
-      '[z',
-      function() move.goto_next_start('@fold', 'folds') end
-    )
-
-    -- Go to either the start or the end, whichever is closer.
-    -- Use if you want more granular movements
-    vim.keymap.set(
-      { 'n', 'x', 'o' },
-      ']d',
-      function() move.goto_next('@conditional.outer', 'textobjects') end
-    )
-    vim.keymap.set(
-      { 'n', 'x', 'o' },
-      '[d',
-      function() move.goto_previous('@conditional.outer', 'textobjects') end
-    )
-
-    local ts_repeat_move =
-      require('nvim-treesitter-textobjects.repeatable_move')
-
-    -- Repeat movement with ; and ,
-    -- ensure ; goes forward and , goes backward regardless of the last direction
-    vim.keymap.set({ 'n', 'x', 'o' }, ';', ts_repeat_move.repeat_last_move_next)
-    vim.keymap.set(
-      { 'n', 'x', 'o' },
-      ',',
-      ts_repeat_move.repeat_last_move_previous
-    )
-
-    -- Optionally, make builtin f, F, t, T also repeatable with ; and ,
-    vim.keymap.set(
-      { 'n', 'x', 'o' },
-      'f',
-      ts_repeat_move.builtin_f_expr,
-      { expr = true }
-    )
-    vim.keymap.set(
-      { 'n', 'x', 'o' },
-      'F',
-      ts_repeat_move.builtin_F_expr,
-      { expr = true }
-    )
-    vim.keymap.set(
-      { 'n', 'x', 'o' },
-      't',
-      ts_repeat_move.builtin_t_expr,
-      { expr = true }
-    )
-    vim.keymap.set(
-      { 'n', 'x', 'o' },
-      'T',
-      ts_repeat_move.builtin_T_expr,
-      { expr = true }
-    )
+    -- local ts_repeat_move = require('nvim-treesitter-textobjects.repeatable_move')
+    --
+    -- -- Repeat movement with ; (forward only, since , is used as leader)
+    -- vim.keymap.set({ 'n', 'x', 'o' }, ';', ts_repeat_move.repeat_last_move_next)
+    -- -- Note: Removed comma mapping to avoid conflict with mapleader
+    --
+    -- -- Optionally, make builtin f, F, t, T also repeatable with ; and ,
+    -- vim.keymap.set(
+    --   { 'n', 'x', 'o' },
+    --   'f',
+    --   ts_repeat_move.builtin_f_expr,
+    --   { expr = true }
+    -- )
+    -- vim.keymap.set(
+    --   { 'n', 'x', 'o' },
+    --   'F',
+    --   ts_repeat_move.builtin_F_expr,
+    --   { expr = true }
+    -- )
+    -- vim.keymap.set(
+    --   { 'n', 'x', 'o' },
+    --   't',
+    --   ts_repeat_move.builtin_t_expr,
+    --   { expr = true }
+    -- )
+    -- vim.keymap.set(
+    --   { 'n', 'x', 'o' },
+    --   'T',
+    --   ts_repeat_move.builtin_T_expr,
+    --   { expr = true }
+    -- )
   end,
 }

@@ -9,8 +9,9 @@ return {
   opts = {
     bigfile = { enabled = true },
     dashboard = require('plugins.snacks.dashboard'),
-    explorer = { enabled = false },
+    explorer = { enabled = true },
     indent = { enabled = true },
+    image = { enabled = true },
     input = { enabled = true },
     notifier = {
       enabled = true,
