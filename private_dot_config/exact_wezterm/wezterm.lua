@@ -132,7 +132,7 @@ local config = {
   },
   -- separate <Tab> <C-i>
   enable_csi_u_key_encoding = true,
-  leader = { key = 'a', mods = 'CTRL', timeout = 1000 },
+  leader = { key = 'b', mods = 'CTRL', timeout = 1000 },
   keys = keybinds.create_keybinds(),
   key_tables = keybinds.key_tables,
   mouse_bindings = keybinds.mouse_bindings,
