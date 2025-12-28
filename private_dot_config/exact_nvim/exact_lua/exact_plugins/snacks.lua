@@ -46,7 +46,6 @@ return {
     },
     { '<leader>e', function() Snacks.explorer() end, desc = 'File Explorer' },
     -- find
-    { '<leader>fb', function() Snacks.picker.buffers() end, desc = 'Buffers' },
     { '<leader>ff', function() Snacks.picker.files() end, desc = 'Find Files' },
     {
       '<leader>fg',
@@ -189,11 +188,11 @@ return {
     -- LSP
     {
       'gd',
-      function() Snacks.picker.lsp_definitions() end,
+      function() snacks.picker.lsp_definitions() end,
       desc = 'goto definition',
     },
     {
-      'gD',
+      'gd',
       function() snacks.picker.lsp_declarations() end,
       desc = 'goto declaration',
     },
