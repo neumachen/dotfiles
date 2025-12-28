@@ -16,7 +16,7 @@ if not vim.uv.fs_stat(lazypath) then
 end
 vim.opt.runtimepath:prepend(lazypath)
 
-local specs = { { import = 'plugins' }, { import = 'langs' } }
+local specs = { { import = 'plugins' } }
 -- Load extra plugins base on vim.g.enable_extra_plugins and merge to specs
 local extra_plugins = vim.g.enable_extra_plugins -- e.g: { "no-neck-pain", "nvim-eslint" }
 if extra_plugins then
@@ -31,7 +31,9 @@ end
 -----------------------------------------------------------------------------//
 -- NOTE: this must happen after the lazy path is setup
 -- If opening from inside neovim terminal then do not load other plugins
-if vim.env.NVIM then return require('lazy').setup({ { 'willothy/flatten.nvim', config = true } }) end
+if vim.env.NVIM then
+  return require('lazy').setup({ { 'willothy/flatten.nvim', config = true } })
+end
 -----------------------------------------------------------------------------//
 -- lazy.nvim configuration {{{1
 -----------------------------------------------------------------------------//
@@ -39,10 +41,11 @@ if vim.env.NVIM then return require('lazy').setup({ { 'willothy/flatten.nvim', c
 require('lazy').setup({
   spec = {
     { import = 'plugins', cond = function() return not vim.g.vscode end },
-    { import = 'vscode.plugins', cond = function() return vim.g.vscode end },
+    { import = 'vscode.settings', cond = function() return vim.g.vscode end },
   },
   defaults = { lazy = false },
-  concurrency = jit.os:find('Windows') and (vim.uv.available_parallelism() * 2) or nil,
+  concurrency = jit.os:find('Windows') and (vim.uv.available_parallelism() * 2)
+    or nil,
   ui = {
     border = vim.g.border,
     custom_keys = {
