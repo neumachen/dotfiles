@@ -1,5 +1,3 @@
-# vim:ft=zsh
-
 # https://github.com/zimfw/zimfw/issues/528#issuecomment-2600737209
 # REF: https://github.com/zimfw/zimfw/issues/528
 function zmodule-custom() {
