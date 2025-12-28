@@ -9,7 +9,7 @@ return {
   opts = {
     bigfile = { enabled = true },
     dashboard = require('plugins.snacks.dashboard'),
-    explorer = { enabled = true },
+    explorer = { enabled = false },
     indent = { enabled = true },
     input = { enabled = true },
     notifier = {
@@ -23,7 +23,7 @@ return {
     quickfile = { enabled = true },
     scope = { enabled = true },
     scroll = { enabled = true },
-    statuscolumn = { enabled = true },
+    statuscolumn = { enabled = false },
     words = { enabled = true },
     toggle = require('plugins.snacks.toggle'),
     styles = {
