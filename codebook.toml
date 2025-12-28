@@ -24,6 +24,7 @@ words = [
     "neogit",
     "noremap",
     "nvim",
+    "rebar",
     "tmux",
     "wezterm",
     "yazi",
