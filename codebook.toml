@@ -3,6 +3,7 @@ words = [
     "bufnr",
     "cmake",
     "cursorline",
+    "diffview",
     "foldtext",
     "gitcommit",
     "gitsigns",
@@ -26,6 +27,9 @@ words = [
     "nvim",
     "rebar",
     "tmux",
+    "tnc",
+    "tnp",
+    "tns",
     "wezterm",
     "yazi",
 ]
