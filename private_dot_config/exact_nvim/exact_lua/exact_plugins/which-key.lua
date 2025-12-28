@@ -5,12 +5,18 @@ return {
     'nvim-tree/nvim-web-devicons',
   },
   config = function()
-    local wk = require('which-key')
-    wk.setup({
-      plugins = { spelling = { enabled = true } },
+    require('which-key').setup({
+      preset = 'modern',
+      notify = true,
+      plugins = {
+        spelling = {
+          enabled = true,
+        },
+      },
       layout = { align = 'center' },
     })
-    wk.add({
+
+    require('which-key').add({
       -- Leader groups
       { '<leader>a', group = '+sidekick', desc = 'Sidekick plugin operations' },
       { '<leader>b', group = '+buffer', desc = 'Buffer operations' },
