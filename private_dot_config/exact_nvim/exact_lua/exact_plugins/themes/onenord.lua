@@ -74,7 +74,7 @@ return {
   inverse = {
     match_paren = false,
   },
-  custom_highlights = build_custom_highlights(),
-  custom_colors = build_custom_colors(),
+  -- custom_highlights = build_custom_highlights(),
+  -- custom_colors = build_custom_colors(),
   color_overrides = {}, -- Additional color overrides
 }
