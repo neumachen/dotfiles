@@ -30,8 +30,8 @@ return {
         hunk = { '󰐕', '󰍴' },
       },
       integrations = {
-        telescope = true,
         diffview = true,
+        snacks = true,
       },
     })
 
