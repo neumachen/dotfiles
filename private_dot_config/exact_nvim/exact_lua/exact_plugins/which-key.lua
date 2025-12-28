@@ -3,9 +3,12 @@ return {
   event = 'VeryLazy',
   dependencies = {
     'nvim-tree/nvim-web-devicons',
+    'nvim-mini/mini.icons',
   },
   config = function()
-    require('which-key').setup({
+    local wk = require('which-key')
+
+    wk.setup({
       preset = 'modern',
       notify = true,
       plugins = {
@@ -14,11 +17,14 @@ return {
         },
       },
       layout = { align = 'center' },
+      triggers = {
+        { '<leader>', mode = { 'n', 'v' } },
+        { '<localleader>', mode = { 'n', 'v' } },
+      },
     })
 
-    require('which-key').add({
+    wk.add({
       -- Leader groups
-      { '<leader>a', group = '+sidekick', desc = 'Sidekick plugin operations' },
       { '<leader>b', group = '+buffer', desc = 'Buffer operations' },
       {
         '<leader>c',
