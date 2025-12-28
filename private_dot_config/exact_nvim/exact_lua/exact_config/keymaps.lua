@@ -1,28 +1,83 @@
 local map = vim.keymap.set
 
 map({ 'n', 'v' }, ';;', ':', { desc = 'command line without colon' })
-map({ 'n', 'v' }, '<localleader>;', '@:', { desc = 'replay recent command without colon' })
+map(
+  { 'n', 'v' },
+  '<localleader>;',
+  '@:',
+  { desc = 'replay recent command without colon' }
+)
 
 -- Better up/down
-map({ 'n', 'x' }, 'j', "v:count == 0 ? 'gj' : 'j'", { desc = 'Down', expr = true, silent = true })
-map({ 'n', 'x' }, '<Down>', "v:count == 0 ? 'gj' : 'j'", { desc = 'Down', expr = true, silent = true })
-map({ 'n', 'x' }, 'k', "v:count == 0 ? 'gk' : 'k'", { desc = 'Up', expr = true, silent = true })
-map({ 'n', 'x' }, '<Up>', "v:count == 0 ? 'gk' : 'k'", { desc = 'Up', expr = true, silent = true })
+map(
+  { 'n', 'x' },
+  'j',
+  "v:count == 0 ? 'gj' : 'j'",
+  { desc = 'Down', expr = true, silent = true }
+)
+map(
+  { 'n', 'x' },
+  '<Down>',
+  "v:count == 0 ? 'gj' : 'j'",
+  { desc = 'Down', expr = true, silent = true }
+)
+map(
+  { 'n', 'x' },
+  'k',
+  "v:count == 0 ? 'gk' : 'k'",
+  { desc = 'Up', expr = true, silent = true }
+)
+map(
+  { 'n', 'x' },
+  '<Up>',
+  "v:count == 0 ? 'gk' : 'k'",
+  { desc = 'Up', expr = true, silent = true }
+)
 
 -- Move Lines
 local opts = { noremap = true, silent = true }
 
 -- NORMAL mode: move current line
-map('n', '<C-A-j>', ':m .+1<CR>==', vim.tbl_extend('force', opts, { desc = 'Move line down' }))
-map('n', '<C-A-k>', ':m .-2<CR>==', vim.tbl_extend('force', opts, { desc = 'Move line up' }))
+map(
+  'n',
+  '<C-A-j>',
+  ':m .+1<CR>==',
+  vim.tbl_extend('force', opts, { desc = 'Move line down' })
+)
+map(
+  'n',
+  '<C-A-k>',
+  ':m .-2<CR>==',
+  vim.tbl_extend('force', opts, { desc = 'Move line up' })
+)
 
 -- INSERT mode: move current line, return to insert at same spot
-map('i', '<C-A-j>', '<Esc>:m .+1<CR>==gi', vim.tbl_extend('force', opts, { desc = 'Move line down' }))
-map('i', '<C-A-k>', '<Esc>:m .-2<CR>==gi', vim.tbl_extend('force', opts, { desc = 'Move line up' }))
+map(
+  'i',
+  '<C-A-j>',
+  '<Esc>:m .+1<CR>==gi',
+  vim.tbl_extend('force', opts, { desc = 'Move line down' })
+)
+map(
+  'i',
+  '<C-A-k>',
+  '<Esc>:m .-2<CR>==gi',
+  vim.tbl_extend('force', opts, { desc = 'Move line up' })
+)
 
 -- VISUAL mode: move selected lines as a block
-map('v', '<C-A-j>', ":m '>+1<CR>gv=gv", vim.tbl_extend('force', opts, { desc = 'Move block down' }))
-map('v', '<C-A-k>', ":m '<-2<CR>gv=gv", vim.tbl_extend('force', opts, { desc = 'Move block up' }))
+map(
+  'v',
+  '<C-A-j>',
+  ":m '>+1<CR>gv=gv",
+  vim.tbl_extend('force', opts, { desc = 'Move block down' })
+)
+map(
+  'v',
+  '<C-A-k>',
+  ":m '<-2<CR>gv=gv",
+  vim.tbl_extend('force', opts, { desc = 'Move block up' })
+)
 
 -- Goto
 map('n', 'gl', '$', { desc = 'Go to end of line' })
@@ -37,7 +92,12 @@ map('n', '<leader>bb', '<cmd>e #<cr>', { desc = 'Switch to Other Buffer' })
 map('n', '<leader>`', '<cmd>e #<cr>', { desc = 'Switch to Other Buffer' })
 
 -- Clear search with <esc>
-map({ 'i', 'n' }, '<esc>', '<cmd>noh<cr><esc>', { desc = 'Escape and Clear hlsearch' })
+map(
+  { 'i', 'n' },
+  '<esc>',
+  '<cmd>noh<cr><esc>',
+  { desc = 'Escape and Clear hlsearch' }
+)
 
 -- Clear search, diff update and redraw
 -- taken from runtime/lua/_editor.lua
@@ -49,12 +109,42 @@ map(
 )
 
 -- https://github.com/mhinz/vim-galore#saner-behavior-of-n-and-n
-map('n', 'n', "'Nn'[v:searchforward].'zv'", { expr = true, desc = 'Next Search Result' })
-map('x', 'n', "'Nn'[v:searchforward]", { expr = true, desc = 'Next Search Result' })
-map('o', 'n', "'Nn'[v:searchforward]", { expr = true, desc = 'Next Search Result' })
-map('n', 'N', "'nN'[v:searchforward].'zv'", { expr = true, desc = 'Prev Search Result' })
-map('x', 'N', "'nN'[v:searchforward]", { expr = true, desc = 'Prev Search Result' })
-map('o', 'N', "'nN'[v:searchforward]", { expr = true, desc = 'Prev Search Result' })
+map(
+  'n',
+  'n',
+  "'Nn'[v:searchforward].'zv'",
+  { expr = true, desc = 'Next Search Result' }
+)
+map(
+  'x',
+  'n',
+  "'Nn'[v:searchforward]",
+  { expr = true, desc = 'Next Search Result' }
+)
+map(
+  'o',
+  'n',
+  "'Nn'[v:searchforward]",
+  { expr = true, desc = 'Next Search Result' }
+)
+map(
+  'n',
+  'N',
+  "'nN'[v:searchforward].'zv'",
+  { expr = true, desc = 'Prev Search Result' }
+)
+map(
+  'x',
+  'N',
+  "'nN'[v:searchforward]",
+  { expr = true, desc = 'Prev Search Result' }
+)
+map(
+  'o',
+  'N',
+  "'nN'[v:searchforward]",
+  { expr = true, desc = 'Prev Search Result' }
+)
 
 -- Add undo break-points
 map('i', ',', ',<c-g>u')
@@ -72,8 +162,18 @@ map('v', '<', '<gv')
 map('v', '>', '>gv')
 
 -- commenting
-map('n', 'gco', 'o<esc>Vcx<esc><cmd>normal gcc<cr>fxa<bs>', { desc = 'Add Comment Below' })
-map('n', 'gcO', 'O<esc>Vcx<esc><cmd>normal gcc<cr>fxa<bs>', { desc = 'Add Comment Above' })
+map(
+  'n',
+  'gco',
+  'o<esc>Vcx<esc><cmd>normal gcc<cr>fxa<bs>',
+  { desc = 'Add Comment Below' }
+)
+map(
+  'n',
+  'gcO',
+  'O<esc>Vcx<esc><cmd>normal gcc<cr>fxa<bs>',
+  { desc = 'Add Comment Above' }
+)
 
 -- lazy
 map('n', '<leader>zz', '<cmd>Lazy<cr>', { desc = 'Lazy' })
@@ -83,12 +183,18 @@ map('n', '<leader>fn', '<cmd>enew<cr>', { desc = 'New File' })
 
 -- location list
 map('n', '<leader>xl', function()
-  local success, err = pcall(vim.fn.getloclist(0, { winid = 0 }).winid ~= 0 and vim.cmd.lclose or vim.cmd.lopen)
+  local success, err = pcall(
+    vim.fn.getloclist(0, { winid = 0 }).winid ~= 0 and vim.cmd.lclose
+      or vim.cmd.lopen
+  )
   if not success and err then vim.notify(err, vim.log.levels.ERROR) end
 end, { desc = 'Location List' })
 -- quickfix list
 map('n', '<leader>xq', function()
-  local success, err = pcall(vim.fn.getqflist({ winid = 0 }).winid ~= 0 and vim.cmd.cclose or vim.cmd.copen)
+  local success, err = pcall(
+    vim.fn.getqflist({ winid = 0 }).winid ~= 0 and vim.cmd.cclose
+      or vim.cmd.copen
+  )
   if not success and err then vim.notify(err, vim.log.levels.ERROR) end
 end, { desc = 'Quickfix List' })
 
@@ -223,7 +329,12 @@ map('v', 'p', '"_dP', opts)
 map('n', '<C-c>', ':%y+<CR>', opts)
 
 -- Select all text in buffer with Alt-a
-map('n', '<A-a>', 'ggVG', { noremap = true, silent = true, desc = 'Select all' })
+map(
+  'n',
+  '<A-a>',
+  'ggVG',
+  { noremap = true, silent = true, desc = 'Select all' }
+)
 
 -- Visual --
 -- Stay in indent mode
