@@ -1,8 +1,6 @@
-local Lsp = require('utils.lsp')
 -- mise install -g github:docker/docker-language-server
 return {
   cmd = { 'docker-language-server', 'start', '--stdio' },
-  on_attach = Lsp.on_attach,
   filetypes = { 'dockerfile', 'yaml.docker-compose' },
   root_markers = {
     'Dockerfile',

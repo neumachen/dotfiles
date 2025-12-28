@@ -1,24 +1,22 @@
-local Lsp = require "utils.lsp"
 -- NOTE: npm install -g typescript typescript-language-server
 return {
-  on_attach = Lsp.on_attach,
-  init_options = { hostInfo = "neovim" },
-  cmd = { "typescript-language-server", "--stdio" },
+  init_options = { hostInfo = 'neovim' },
+  cmd = { 'typescript-language-server', '--stdio' },
   filetypes = {
-    "javascript",
-    "javascriptreact",
-    "javascript.jsx",
-    "typescript",
-    "typescriptreact",
-    "typescript.tsx",
+    'javascript',
+    'javascriptreact',
+    'javascript.jsx',
+    'typescript',
+    'typescriptreact',
+    'typescript.tsx',
   },
-  root_markers = { "tsconfig.json", "jsconfig.json", "package.json", ".git" },
+  root_markers = { 'tsconfig.json', 'jsconfig.json', 'package.json', '.git' },
   settings = {
     typescript = {
       -- Inlay Hints preferences
       inlayHints = {
         -- You can set this to 'all' or 'literals' to enable more hints
-        includeInlayParameterNameHints = "literals", -- 'none' | 'literals' | 'all'
+        includeInlayParameterNameHints = 'literals', -- 'none' | 'literals' | 'all'
         includeInlayParameterNameHintsWhenArgumentMatchesName = false,
         includeInlayFunctionParameterTypeHints = false,
         includeInlayVariableTypeHints = false,
@@ -46,7 +44,7 @@ return {
       inlayHints = {
         -- You can set this to 'all' or 'literals' to enable more hints
         includeInlayParameterNameHintsWhenArgumentMatchesName = false,
-        includeInlayParameterNameHints = "all", -- 'none' | 'literals' | 'all'
+        includeInlayParameterNameHints = 'all', -- 'none' | 'literals' | 'all'
         includeInlayVariableTypeHints = true,
         includeInlayFunctionParameterTypeHints = true,
         includeInlayVariableTypeHintsWhenTypeMatchesName = true,
