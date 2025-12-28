@@ -1,11 +1,13 @@
-local Lsp = require('utils.lsp')
-
 return {
   cmd = { 'golangci-lint-langserver' },
-  on_attach = Lsp.on_attach,
   filetypes = { 'go', 'gomod' },
   init_options = {
-    command = { 'golangci-lint', 'run', '--output.json.path=stdout', '--show-stats=false' },
+    command = {
+      'golangci-lint',
+      'run',
+      '--output.json.path=stdout',
+      '--show-stats=false',
+    },
   },
   root_markers = {
     '.golangci.yml',
@@ -25,13 +27,22 @@ return {
     if vim.fn.executable('go') == 1 then
       local exe = vim.fn.exepath('golangci-lint')
       local version = vim.system({ 'go', 'version', '-m', exe }):wait()
-      v1 = string.match(version.stdout, '\tmod\tgithub.com/golangci/golangci%-lint\t')
-      v2 = string.match(version.stdout, '\tmod\tgithub.com/golangci/golangci%-lint/v2\t')
+      v1 = string.match(
+        version.stdout,
+        '\tmod\tgithub.com/golangci/golangci%-lint\t'
+      )
+      v2 = string.match(
+        version.stdout,
+        '\tmod\tgithub.com/golangci/golangci%-lint/v2\t'
+      )
     end
     if not v1 and not v2 then
       local version = vim.system({ 'golangci-lint', 'version' }):wait()
       v1 = string.match(version.stdout, 'version v?1%.')
     end
-    if v1 then config.init_options.command = { 'golangci-lint', 'run', '--out-format', 'json' } end
+    if v1 then
+      config.init_options.command =
+        { 'golangci-lint', 'run', '--out-format', 'json' }
+    end
   end,
 }

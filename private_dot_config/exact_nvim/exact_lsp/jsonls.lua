@@ -1,4 +1,3 @@
-local Lsp = require('utils.lsp')
 local capabilities = vim.lsp.protocol.make_client_capabilities()
 
 capabilities.textDocument.completion.completionItem.snippetSupport = true
@@ -8,8 +7,7 @@ capabilities.textDocument.completion.completionItem.snippetSupport = true
 return {
   -- NOTE: npm i -g vscode-langservers-extracted
   cmd = { 'vscode-json-language-server', '--stdio' },
-  on_attach = Lsp.on_attach,
-  apabilities = capabilities,
+  capabilities = capabilities,
   filetypes = { 'json', 'jsonc' },
   root_markers = { '.git' },
   settings = {

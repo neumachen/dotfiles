@@ -1,20 +1,17 @@
--- Lsp for typescript
-local Lsp = require "utils.lsp"
 -- Source: https://github.com/yioneko/vtsls
 -- Usage: npm install -g @vtsls/language-server
 -- This config base on https://github.com/neovim/nvim-lspconfig/blob/master/lua/lspconfig/configs/vtsls.lua
 return {
-  cmd = { "vtsls", "--stdio" },
-  on_attach = Lsp.on_attach,
+  cmd = { 'vtsls', '--stdio' },
   filetypes = {
-    "javascript",
-    "javascriptreact",
-    "javascript.jsx",
-    "typescript",
-    "typescriptreact",
-    "typescript.tsx",
+    'javascript',
+    'javascriptreact',
+    'javascript.jsx',
+    'typescript',
+    'typescriptreact',
+    'typescript.tsx',
   },
-  root_markers = { "tsconfig.json", "package.json", "jsconfig.json", ".git" },
+  root_markers = { 'tsconfig.json', 'package.json', 'jsconfig.json', '.git' },
   settings = {
     complete_function_calls = true,
     vtsls = {
@@ -27,12 +24,12 @@ return {
       },
     },
     typescript = {
-      updateImportsOnFileMove = { enabled = "always" },
+      updateImportsOnFileMove = { enabled = 'always' },
       suggest = {
         completeFunctionCalls = true,
       },
       inlayHints = {
-        parameterNames = { enabled = "literals" },
+        parameterNames = { enabled = 'literals' },
         parameterTypes = { enabled = false },
         variableTypes = { enabled = false },
         propertyDeclarationTypes = { enabled = false },

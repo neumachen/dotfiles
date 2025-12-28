@@ -1,8 +1,5 @@
-local Lsp = require('utils.lsp')
-
 return {
   cmd = { 'harper-ls', '--stdio' },
-  on_attach = Lsp.on_attach,
   filetypes = {
     'c',
     'cpp',
