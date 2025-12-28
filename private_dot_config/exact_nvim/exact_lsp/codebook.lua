@@ -1,8 +1,6 @@
-local Lsp = require('utils.lsp')
 -- mise use -g cargo:codebook
 return {
   cmd = { 'codebook-lsp', 'serve' },
-  on_attach = Lsp.on_attach,
   filetypes = {
     'c',
     'css',

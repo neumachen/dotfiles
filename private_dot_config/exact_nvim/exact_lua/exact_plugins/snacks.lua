@@ -1,7 +1,8 @@
+---@module "lazy"
+---@type LazySpec
 return {
   'folke/snacks.nvim',
   priority = 1000,
-  lazy = false,
   ---@type snacks.Config
   opts = {
     bigfile = { enabled = true },
@@ -188,11 +189,11 @@ return {
     -- LSP
     {
       'gd',
-      function() snacks.picker.lsp_definitions() end,
+      function() Snacks.picker.lsp_definitions() end,
       desc = 'goto definition',
     },
     {
-      'gd',
+      'gD',
       function() snacks.picker.lsp_declarations() end,
       desc = 'goto declaration',
     },
