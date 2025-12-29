@@ -84,7 +84,7 @@ RUN set -eux; \
   apt-get purge -y --auto-remove gnupg dirmngr; \
   rm -rf /var/lib/apt/lists/*; \
   \
-  mise --version
+  mise --version;
 
 # mise runtime dirs and PATH
 ENV MISE_DATA_DIR="/mise"
@@ -97,7 +97,7 @@ ENV LC_ALL="C.UTF-8"
 
 # Copy entrypoint from repo-root build context
 COPY --chown=brownie:brownie devcontainer/brownie-container.entrypoint.sh /usr/local/bin/brownie-container.entrypoint.sh
-RUN chmod 0755 /usr/local/bin/brownie-container.entrypoint.sh
+RUN chmod 0755 /usr/local/bin/brownie-container.entrypoint.sh;
 
 USER brownie
 WORKDIR /workspace
@@ -123,7 +123,7 @@ ENV TOOL_DATA_SUBDIR="aider"
 # Install toolchain with mise.
 # GitHub token secret is REQUIRED and mounted readable by brownie (uid/gid/mode).
 RUN --mount=type=secret,id=github_token,required=true,uid=${UID},gid=${GID},mode=0400 \
-  set -euo pipefail; \
+  set -eu; \
   test -s /run/secrets/github_token || { echo "GitHub token secret is required."; exit 2; }; \
   token="$(cat /run/secrets/github_token)"; \
   export GITHUB_TOKEN="$token" GH_TOKEN="$token"; \
@@ -137,7 +137,6 @@ RUN --mount=type=secret,id=github_token,required=true,uid=${UID},gid=${GID},mode
   && aider --version
 
 CMD ["aider"]
-
 
 # -------------------------
 # FUTURE TARGET PLACEHOLDERS
