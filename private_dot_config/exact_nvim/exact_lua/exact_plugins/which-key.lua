@@ -17,10 +17,6 @@ return {
         },
       },
       layout = { align = 'center' },
-      triggers = {
-        { '<leader>', mode = { 'n', 'v' } },
-        { '<localleader>', mode = { 'n', 'v' } },
-      },
     })
 
     wk.add({
