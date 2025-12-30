@@ -4,8 +4,7 @@ return {
   ---@type CsvView.Options
   opts = {
     parser = { comments = { '#', '//' } },
-    keymaps = {
-      -- Text objects for selecting fields
+    keymaps = { -- Text objects for selecting fields
       textobject_field_inner = { 'if', mode = { 'o', 'x' } },
       textobject_field_outer = { 'af', mode = { 'o', 'x' } },
       -- Excel-like navigation:
@@ -18,5 +17,6 @@ return {
       jump_prev_row = { '<S-Enter>', mode = { 'n', 'v' } },
     },
   },
+  ft = 'csv',
   cmd = { 'CsvViewEnable', 'CsvViewDisable', 'CsvViewToggle' },
 }
