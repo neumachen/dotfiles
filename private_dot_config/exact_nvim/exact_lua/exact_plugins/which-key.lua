@@ -49,6 +49,11 @@ return {
         group = '+toggle',
         desc = 'Toggle operations',
       },
+      {
+        '<localleader>d',
+        group = '+diagnostics',
+        desc = 'Diagnostic operations',
+      },
       { '<localleader>f', group = '+format', desc = 'Format operations' },
       { '<localleader>g', group = '+git', desc = 'Git operations' },
       {
