@@ -99,6 +99,9 @@ map(
   { desc = 'Escape and Clear hlsearch' }
 )
 
+-- jk to escape in insert mode
+map('i', 'jk', '<esc>', { desc = 'Exit insert mode' })
+
 -- Clear search, diff update and redraw
 -- taken from runtime/lua/_editor.lua
 map(
