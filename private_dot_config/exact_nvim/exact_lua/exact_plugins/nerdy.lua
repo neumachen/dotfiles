@@ -3,5 +3,6 @@ return {
   dependencies = {
     'folke/snacks.nvim',
   },
+  config = true,
   cmd = 'Nerdy',
 }
