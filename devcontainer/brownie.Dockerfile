@@ -59,7 +59,7 @@ RUN set -eux; \
   fi; \
   \
   install -d -m 0755 -o "${UID}" -g "${GID}" /workspace /data /mise; \
-  install -d -m 0755 -o "${UID}" -g "${GID}" /home/brownie/.config
+  install -d -m 0755 -o "${UID}" -g "${GID}" /home/brownie/.config;
 
 # Standard mount point for all tool variants (each uses its own subdir)
 VOLUME ["/data"]
@@ -134,7 +134,7 @@ RUN --mount=type=secret,id=github_token,required=true,uid=${UID},gid=${GID},mode
   && python -m pip install --no-cache-dir --user "pipx==${PIPX_VERSION}" \
   && mise use -g "pipx:aider-chat@${AIDER_VERSION}" \
   && mise reshim \
-  && aider --version
+  && aider --version;
 
 CMD ["aider"]
 
