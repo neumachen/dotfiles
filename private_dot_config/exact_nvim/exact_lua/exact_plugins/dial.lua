@@ -1,3 +1,5 @@
+---@module "lazy"
+---@type LazySpec
 return {
   'monaqa/dial.nvim',
   keys = {
@@ -19,7 +21,12 @@ return {
     })
 
     local casing = augend.case.new({
-      types = { 'camelCase', 'snake_case', 'PascalCase', 'SCREAMING_SNAKE_CASE' },
+      types = {
+        'camelCase',
+        'snake_case',
+        'PascalCase',
+        'SCREAMING_SNAKE_CASE',
+      },
       cyclic = true,
     })
 

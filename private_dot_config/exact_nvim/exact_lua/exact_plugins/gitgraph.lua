@@ -1,3 +1,5 @@
+---@module "lazy"
+---@type LazySpec
 return {
   'isakbm/gitgraph.nvim',
   dependencies = { 'sindrets/diffview.nvim' },
@@ -13,7 +15,7 @@ return {
       GVER = '',
       GHOR = '',
       GCLD = '',
-      GCRD = '╭',
+      GIRD = '╭',
       GCLU = '',
       GCRU = '',
       GLRU = '',

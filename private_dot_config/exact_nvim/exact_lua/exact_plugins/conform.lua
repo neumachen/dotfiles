@@ -15,6 +15,8 @@ local function first(bufnr, ...)
   return select(1, ...)
 end
 
+---@module "lazy"
+---@type LazySpec
 return {
   'stevearc/conform.nvim',
   event = { 'BufWritePre' },
