@@ -18,6 +18,41 @@ url = "https://raw.githubusercontent.com/eza-community/eza/refs/heads/main/compl
 type = "file"
 exact = true
 refreshPeriod = "48h"
+[".config/zsh/completions/_kubectx"]
+url = "https://raw.githubusercontent.com/ahmetb/kubectx/refs/heads/master/completion/_kubectx.zsh"
+type = "file"
+exact = true
+refreshPeriod = "48h"
+[".config/zsh/completions/_kubens"]
+url = "https://raw.githubusercontent.com/ahmetb/kubectx/refs/heads/master/completion/_kubens.zsh"
+type = "file"
+exact = true
+refreshPeriod = "48h"
+[".config/zsh/completions/_cargo"]
+url = "https://raw.githubusercontent.com/rust-lang/cargo/refs/heads/master/src/etc/_cargo"
+type = "file"
+exact = true
+refreshPeriod = "48h"
+[".config/zsh/completions/_fd"]
+url = "https://raw.githubusercontent.com/sharkdp/fd/refs/heads/master/contrib/completion/_fd"
+type = "file"
+exact = true
+refreshPeriod = "48h"
+[".config/zsh/completions/_ghq"]
+url = "https://raw.githubusercontent.com/x-motemen/ghq/refs/heads/master/misc/zsh/_ghq"
+type = "file"
+exact = true
+refreshPeriod = "48h"
+[".config/zsh/completions/_git-forgit"]
+url = "https://raw.githubusercontent.com/wfxr/forgit/refs/heads/main/completions/_git-forgit"
+type = "file"
+exact = true
+refreshPeriod = "48h"
+[".config/zsh/completions/_docker"]
+url = "https://raw.githubusercontent.com/docker/cli/refs/heads/master/contrib/completion/zsh/_docker"
+type = "file"
+exact = true
+refreshPeriod = "48h"
 [".config/yazi/plugins/starship.yazi"]
 url = "https://github.com/Rolv-Apneseth/starship.yazi.git"
 type = "git-repo"

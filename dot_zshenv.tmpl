@@ -10,13 +10,14 @@ command_exists() { (( $+commands[$1] )); }
 manual_pathmunge "/usr/local/man" before
 
 export XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
+export XDG_DATA_HOME=${XDG_DATA_HOME:-$HOME/.local/share}
 export ZDOTDIR=${ZDOTDIR:-$XDG_CONFIG_HOME/zsh}
-export ZIM_CONFIG_FILE=${ZDOTDIR}/zimrc.zsh
-ZIM_HOME=${ZDOTDIR}/zim
-if [[ -d "$ZIM_HOME" ]]; then
-  mkdir -p "$ZIM_HOME"
+
+# zsh-snap configuration
+export ZNAP_HOME="${XDG_DATA_HOME}/zsh-snap"
+if [[ ! -d "$ZNAP_HOME" ]]; then
+  mkdir -p "$ZNAP_HOME"
 fi
-export ZIM_HOME=$ZIM_HOME
 
 # You can use .zprofile to set environment vars for non-login, non-interactive shells.
 if [[ ( "$SHLVL" -eq 1 && ! -o LOGIN ) && -s "${ZDOTDIR:-$HOME}/.zprofile" ]]; then
