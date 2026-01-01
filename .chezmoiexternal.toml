@@ -8,11 +8,6 @@ url = "https://raw.githubusercontent.com/junegunn/fzf/refs/heads/master/shell/co
 type = "file"
 exact = true
 refreshPeriod = "48h"
-[".config/zsh/completions/_chezmoi"]
-url = "https://raw.githubusercontent.com/twpayne/chezmoi/refs/heads/master/completions/chezmoi.zsh"
-type = "file"
-exact = true
-refreshPeriod = "48h"
 [".config/zsh/completions/_eza"]
 url = "https://raw.githubusercontent.com/eza-community/eza/refs/heads/main/completions/zsh/_eza"
 type = "file"
@@ -25,11 +20,6 @@ exact = true
 refreshPeriod = "48h"
 [".config/zsh/completions/_kubens"]
 url = "https://raw.githubusercontent.com/ahmetb/kubectx/refs/heads/master/completion/_kubens.zsh"
-type = "file"
-exact = true
-refreshPeriod = "48h"
-[".config/zsh/completions/_cargo"]
-url = "https://raw.githubusercontent.com/rust-lang/cargo/refs/heads/master/src/etc/_cargo"
 type = "file"
 exact = true
 refreshPeriod = "48h"
