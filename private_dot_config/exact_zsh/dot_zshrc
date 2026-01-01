@@ -103,6 +103,21 @@ key_info=(
 )
 
 #############################
+# Completion + menu behavior (MUST be before zsh-autocomplete)
+#############################
+
+# zsh-autocomplete: don't wait long to show menus; don't require lots of characters.
+# (Raise min-input to 2–3 if it feels too eager.)
+zstyle ':autocomplete:*' delay 0.05
+zstyle ':autocomplete:*' min-input 1
+
+# Make matching saner (case-insensitive).
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
+
+# fzf-tab quality-of-life (optional)
+zstyle ':fzf-tab:*' switch-group ',' '.'
+
+#############################
 # Clipboard Functions (inlined from ohmyzsh)
 #############################
 
@@ -153,6 +168,15 @@ znap source joke/zim-mise
 # Load zsh-vi-mode early to avoid rewriting fzf opts
 znap source jeffreytse/zsh-vi-mode
 
+# Syntax highlighting must load BEFORE zsh-autocomplete to avoid
+# "unhandled ZLE widget" warnings for menu-search/recent-paths
+znap source zdharma-continuum/fast-syntax-highlighting
+
+# IMPORTANT:
+# zsh-autocomplete must be loaded after syntax highlighting.
+# It also expects you to NOT run compinit manually.
+znap source marlonrichert/zsh-autocomplete
+
 # Git utilities (plugin functionality, completions via chezmoi external)
 znap source wfxr/forgit
 
@@ -197,28 +221,23 @@ fi
 
 # cargo (via rustup)
 if command_exists rustup; then
-  znap eval cargo 'rustup completions zsh cargo'
+  znap fpath _rustup 'rustup completions zsh'
+  znap fpath _cargo 'rustup completions zsh cargo'
 fi
 
 # chezmoi
 if command_exists chezmoi; then
-  znap eval chezmoi 'chezmoi completion zsh'
+  znap fpath _chezmoi 'chezmoi completion zsh'
 fi
 
 #############################
-# fzf-tab (must load after compinit, before syntax highlighting)
+# fzf-tab (load after zsh-autocomplete)
 #############################
 
 znap source Aloxaf/fzf-tab
 
-#############################
-# Syntax highlighting (load last)
-#############################
-
-znap source zdharma-continuum/fast-syntax-highlighting
-
-# Autocomplete (after syntax highlighting)
-znap source marlonrichert/zsh-autocomplete
+# fzf-tab recommended: let fzf-tab own the menu (optional but usually best)
+zstyle ':completion:*' menu no
 
 #############################
 # FZF keybindings
