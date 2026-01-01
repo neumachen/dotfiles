@@ -1,6 +1,6 @@
 return {
   'Wansmer/treesj',
-  dependencies = { 'nvim-treesitter/nvim-treesitter' }, -- if you install parsers with `nvim-treesitter`
+  dependencies = { 'nvim-treesitter/nvim-treesitter' },
   keys = {
     {
       '<localleader>ft',
@@ -19,7 +19,10 @@ return {
     },
   },
   config = function()
-    require('treesj').setup({
+    local tsj = require('treesj')
+    local dockerfile = require('plugins.treesj.dockerfile')
+
+    tsj.setup({
       ---@type boolean Use default keymaps (<space>m - toggle, <space>j - join, <space>s - split)
       use_default_keymaps = false,
       ---@type boolean Node with syntax error will not be formatted
@@ -39,6 +42,10 @@ return {
       dot_repeat = true,
       ---@type nil|function Callback for treesj error handler. func (err_text, level, ...other_text)
       on_error = nil,
+      ---@type table Presets for languages
+      langs = {
+        dockerfile = dockerfile.build_presets(),
+      },
     })
   end,
 }
