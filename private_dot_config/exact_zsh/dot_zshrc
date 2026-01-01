@@ -240,15 +240,17 @@ znap source Aloxaf/fzf-tab
 zstyle ':completion:*' menu no
 
 #############################
-# FZF keybindings
+# FZF keybindings (must be in zvm_after_init to survive zsh-vi-mode)
 #############################
 
-fzf_key_bindings_path="${HOME}/.local/share/fzf/shell/key-bindings.zsh"
-if [[ -f "$fzf_key_bindings_path" ]]; then
+function zvm_after_init() {
+  local fzf_key_bindings_path="${HOME}/.local/share/fzf/shell/key-bindings.zsh"
+  if [[ -f "$fzf_key_bindings_path" ]]; then
     source "$fzf_key_bindings_path"
-else
-  echo-warn "fzf keybindings file: $fzf_key_bindings_path not found"
-fi
+  else
+    echo-warn "fzf keybindings file: $fzf_key_bindings_path not found"
+  fi
+}
 
 #############################
 # Environment Variables
