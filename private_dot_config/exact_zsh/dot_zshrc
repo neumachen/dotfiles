@@ -33,7 +33,7 @@ source "${ZNAP_HOME}/znap/znap.zsh"
 
 # Add local completions directory to fpath
 # This includes completions managed by chezmoi external:
-# - _fzf, _chezmoi, _eza, _kubectx, _kubens, _cargo, _fd, _ghq, _git-forgit, _docker
+# - _fzf, _eza, _kubectx, _kubens, _fd, _ghq, _git-forgit, _docker
 # And local completions:
 # - _rg, _just, _brownie, _kind
 fpath=("${ZDOTDIR}/completions" $fpath)
@@ -193,6 +193,16 @@ fi
 # starship
 if command_exists starship; then
   znap eval starship 'starship init zsh'
+fi
+
+# cargo (via rustup)
+if command_exists rustup; then
+  znap eval cargo 'rustup completions zsh cargo'
+fi
+
+# chezmoi
+if command_exists chezmoi; then
+  znap eval chezmoi 'chezmoi completion zsh'
 fi
 
 #############################
