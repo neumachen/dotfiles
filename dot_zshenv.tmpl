@@ -3,10 +3,6 @@
 
 source "${HOME}/.shtils"
 
-# ZSH only and most performant way to check existence of an executable
-# https://www.topbug.net/blog/2016/10/11/speed-test-check-the-existence-of-a-command-in-bash-and-zsh/
-command_exists() { (( $+commands[$1] )); }
-
 manual_pathmunge "/usr/local/man" before
 
 export XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
@@ -15,14 +11,7 @@ export ZDOTDIR=${ZDOTDIR:-$XDG_CONFIG_HOME/zsh}
 
 # zsh-snap configuration
 export ZNAP_HOME="${XDG_DATA_HOME}/zsh-snap"
-if [[ ! -d "$ZNAP_HOME" ]]; then
-  mkdir -p "$ZNAP_HOME"
-fi
-
-# You can use .zprofile to set environment vars for non-login, non-interactive shells.
-if [[ ( "$SHLVL" -eq 1 && ! -o LOGIN ) && -s "${ZDOTDIR:-$HOME}/.zprofile" ]]; then
-  source "${ZDOTDIR:-$HOME}/.zprofile"
-fi
+[[ ! -d "$ZNAP_HOME" ]] && mkdir -p "$ZNAP_HOME"
 
 # Lang stuff
 export LANG=en_US.UTF-8
@@ -34,14 +23,8 @@ export LC_TIME=en_FI.UTF-8
 export CLICOLOR=1
 export VISUAL="nvim --cmd 'let g:flatten_wait=1'"
 export EDITOR="nvim"
-export PAGER=less
-export MANPAGER='less -is'
-export LESSOPEN="|/usr/local/bin/lesspipe.sh %s"
 
-if command_exists nvim; then
-  export MANPAGER='nvim +Man!'
-fi
-
+# meincodex directories (no command dependencies)
 meincodex_dir="${HOME}/meincodex"
 if [[ -d "$meincodex_dir" ]]; then
   export MEINCODEX_DIR="$meincodex_dir"
@@ -52,15 +35,12 @@ if [[ -d "$meincodex_dir" ]]; then
   do
     var_name="${dir_info%:*}"
     dir_path="${dir_info#*:}"
-
-    if [ -d "$dir_path" ]; then
-      export "$var_name"="$dir_path"
-    fi
+    [[ -d "$dir_path" ]] && export "$var_name"="$dir_path"
   done
 fi
 
 {{ if eq .chezmoi.os "darwin" -}}
-if [ -S "${HOME}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock" ]; then
+if [[ -S "${HOME}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock" ]]; then
   export SSH_AUTH_SOCK="${HOME}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
 fi
 {{ end -}}
