@@ -49,16 +49,16 @@ zle -N self-insert url-quote-magic
 # General
 setopt COMBINING_CHARS      # Combine zero-length punctuation characters
 setopt INTERACTIVE_COMMENTS # Enable comments in interactive shell
-setopt RC_QUOTES           # Allow 'Henry''s Whose' instead of 'Henry'\''s Whose'
-unsetopt MAIL_WARNING      # Don't print warning if mail file accessed
+setopt RC_QUOTES            # Allow 'Henry''s Whose' instead of 'Henry'\''s Whose'
+unsetopt MAIL_WARNING       # Don't print warning if mail file accessed
 
 # Jobs
-setopt LONG_LIST_JOBS      # List jobs in long format
-setopt AUTO_RESUME         # Attempt to resume existing job before creating new
-setopt NOTIFY              # Report status of background jobs immediately
-unsetopt BG_NICE           # Don't run background jobs at lower priority
-unsetopt HUP               # Don't kill jobs on shell exit
-unsetopt CHECK_JOBS        # Don't report on jobs when shell exit
+setopt LONG_LIST_JOBS       # List jobs in long format
+setopt AUTO_RESUME          # Attempt to resume existing job before creating new
+setopt NOTIFY               # Report status of background jobs immediately
+unsetopt BG_NICE            # Don't run background jobs at lower priority
+unsetopt HUP                # Don't kill jobs on shell exit
+unsetopt CHECK_JOBS         # Don't report on jobs when shell exit
 
 #############################
 # Input Settings
@@ -265,13 +265,14 @@ fi
 
 znap source Aloxaf/fzf-tab
 
-# fzf-tab recommended: let fzf-tab own the menu (optional but usually best)
+# fzf-tab recommended: disable zsh's default menu for fzf-tab to take over
 zstyle ':completion:*' menu no
 
-# fzf-tab: use colors from LS_COLORS for file/directory completions
-zstyle ':fzf-tab:complete:*' fzf-preview 'eza --color=always --icons $realpath 2>/dev/null || ls --color=always $realpath 2>/dev/null || echo $realpath'
-zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza --color=always --icons $realpath 2>/dev/null || ls --color=always $realpath'
-zstyle ':fzf-tab:complete:ls:*' fzf-preview 'eza --color=always --icons $realpath 2>/dev/null || ls --color=always $realpath'
+# fzf-tab: preview for file/directory completions
+# Use different preview for directories vs files
+zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza --color=always --icons -1 $realpath 2>/dev/null || ls --color=always $realpath 2>/dev/null'
+zstyle ':fzf-tab:complete:ls:*' fzf-preview 'eza --color=always --icons -1 $realpath 2>/dev/null || ls --color=always $realpath 2>/dev/null'
+zstyle ':fzf-tab:complete:*:*' fzf-preview 'if [[ -d $realpath ]]; then eza --color=always --icons -1 $realpath 2>/dev/null || ls --color=always $realpath 2>/dev/null; elif [[ -f $realpath ]]; then bat --color=always --style=numbers --line-range=:100 $realpath 2>/dev/null || head -100 $realpath 2>/dev/null; else echo $realpath; fi'
 
 #############################
 # FZF keybindings (must be in zvm_after_init to survive zsh-vi-mode)
@@ -287,7 +288,7 @@ function zvm_after_init() {
 }
 
 #############################
-# Environment Variables
+# Environment Variables (command-dependent, belongs in zshrc)
 #############################
 
 # Don't write python .pyc files, because they're not necessary and clutter
@@ -299,41 +300,68 @@ export FORGIT_LOG_FZF_OPTS="--bind='ctrl-e:execute(echo {} |grep -Eo [a-f0-9]+ |
 
 export RIPGREP_CONFIG_PATH="${HOME}/.config/rg/.ripgreprc"
 
+# Pager configuration - prefer ov over less
+if command_exists ov; then
+  export PAGER='ov'
+  # ov with sensible defaults for man pages
+  export MANPAGER='ov --section-delimiter "^[A-Z]" --section-header'
+elif command_exists less; then
+  export PAGER='less'
+  export MANPAGER='less -is'
+fi
+
+# MANPAGER with nvim (overrides above if nvim is available)
+if command_exists nvim; then
+  export MANPAGER='nvim +Man!'
+fi
+
+# LESSOPEN - use lesspipe if available (still useful even with ov as some tools use less directly)
+if command_exists lesspipe.sh; then
+  export LESSOPEN="|lesspipe.sh %s"
+elif [[ -x "/usr/local/bin/lesspipe.sh" ]]; then
+  export LESSOPEN="|/usr/local/bin/lesspipe.sh %s"
+elif [[ -x "/opt/homebrew/bin/lesspipe.sh" ]]; then
+  export LESSOPEN="|/opt/homebrew/bin/lesspipe.sh %s"
+fi
+
 #############################
 # Shell Options
 #############################
 
 # History
-setopt appendhistory
-setopt sharehistory
-setopt incappendhistory
-setopt histreduceblanks
-setopt histignorespace
-setopt histignorealldups
-setopt histexpiredupsfirst
-setopt histverify
-setopt extendedhistory
+setopt APPEND_HISTORY         # Append to history file
+setopt SHARE_HISTORY          # Share history between sessions
+setopt HIST_REDUCE_BLANKS     # Remove superfluous blanks
+setopt HIST_IGNORE_SPACE      # Don't record commands starting with space
+setopt HIST_IGNORE_ALL_DUPS   # Remove older duplicate entries
+setopt HIST_EXPIRE_DUPS_FIRST # Expire duplicates first when trimming
+setopt HIST_VERIFY            # Show command before executing from history
+setopt EXTENDED_HISTORY       # Record timestamp in history
 
 # Directory
-setopt autocd
-setopt autopushd pushdminus pushdsilent pushdtohome pushdignoredups
-setopt nohup
+setopt AUTO_CD                # cd by typing directory name
+setopt AUTO_PUSHD             # Push directories onto stack
+setopt PUSHD_MINUS            # Exchange + and - in pushd
+setopt PUSHD_SILENT           # Don't print directory stack
+setopt PUSHD_TO_HOME          # pushd with no args goes home
+setopt PUSHD_IGNORE_DUPS      # Don't push duplicates
+setopt NO_HUP                 # Don't kill background jobs on exit
 
 # Input/Output
-setopt automenu
-setopt cdablevars
-setopt listpacked
-setopt nolisttypes
-setopt listambiguous
-setopt hashlistall
-setopt alwaystoend
-setopt nocorrect nocorrectall
-setopt nobeep
-setopt interactivecomments
-setopt notify
-setopt longlistjobs
-setopt multios
-setopt completealiases
+setopt AUTO_MENU              # Show completion menu on tab
+setopt CDABLE_VARS            # cd to named directories
+setopt LIST_PACKED            # Compact completion lists
+setopt LIST_TYPES             # Show file type indicators in completion
+setopt HASH_LIST_ALL          # Hash command path on completion
+setopt ALWAYS_TO_END          # Move cursor to end after completion
+setopt NO_CORRECT             # Don't correct commands
+setopt NO_CORRECT_ALL         # Don't correct arguments
+setopt NO_BEEP                # No beep on error
+setopt INTERACTIVE_COMMENTS   # Allow comments in interactive shell
+setopt NOTIFY                 # Report job status immediately
+setopt LONG_LIST_JOBS         # Long format for jobs
+setopt MULTIOS                # Allow multiple redirections
+# Note: completealiases is intentionally NOT set - it breaks alias completion
 
 #############################
 # Aliases
@@ -368,7 +396,7 @@ fi
 
 if command_exists task; then
   taskwarrior_data_dir="${HOME}/.local/share/task"
-  if [ -d "${HOME}/Documents/taskwarrior" ]; then
+  if [[ -d "${HOME}/Documents/taskwarrior" ]]; then
     taskwarrior_data_dir="${HOME}/Documents/taskwarrior"
     export TASKWARRIOR_DATA="${taskwarrior_data_dir}"
     export TASKRC="${HOME}/.config/taskwarrior/taskrc"
@@ -395,10 +423,8 @@ fi
 if command_exists docker; then
   if docker compose >/dev/null 2>&1; then
     alias dcomp="docker compose"
-  else
-    if command_exists docker-compose >/dev/null 2>&1; then
-      alias dcomp="docker-compose"
-    fi
+  elif command_exists docker-compose; then
+    alias dcomp="docker-compose"
   fi
 fi
 
@@ -418,12 +444,10 @@ fi
 HISTFILE="${HOME}/.local/share/zsh/history"
 # Ensure the directory for HISTFILE exists
 histfile_dir="$(dirname "${HISTFILE}")"
-if [[ ! -d "${histfile_dir}" ]]; then
-  mkdir -p "${histfile_dir}"
-fi
+[[ ! -d "${histfile_dir}" ]] && mkdir -p "${histfile_dir}"
 
-# make some commands not show up in history
-HISTIGNORE="ls:ll:la:cd:cd -:pwd:exit:date:* --help"
+# Note: HISTIGNORE is a bash variable, not zsh. Use HISTORY_IGNORE for zsh:
+HISTORY_IGNORE="(ls|ll|la|cd|cd -|pwd|exit|date|* --help)"
 HISTSIZE=10000000
 SAVEHIST=10000000
 
@@ -432,16 +456,15 @@ SAVEHIST=10000000
 #############################
 
 function source-env() {
-  if [ $# -eq 0 ]; then
-    echo "${usage}"
-    exit 1
+  if [[ $# -eq 0 ]]; then
+    echo "Usage: source-env <file> [file...]" >&2
+    return 1
   fi
 
-  for file in "$@"
-  do
-    if [ ! -f "${file}" ]; then
+  for file in "$@"; do
+    if [[ ! -f "${file}" ]]; then
       echo-err "the given file : ${file} does not exist"
-      exit 1
+      return 1
     fi
 
     source <(cat "${file}" | sed -n -e '/^#/d;/^\s*$/d' \
@@ -452,12 +475,12 @@ function source-env() {
 }
 
 function y() {
-    local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
-    yazi "$@" --cwd-file="$tmp"
-    if cwd="$(command cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
-            builtin cd -- "$cwd"
-    fi
-    /bin/rm -- "$tmp"
+  local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+  yazi "$@" --cwd-file="$tmp"
+  if cwd="$(command cat -- "$tmp")" && [[ -n "$cwd" ]] && [[ "$cwd" != "$PWD" ]]; then
+    builtin cd -- "$cwd"
+  fi
+  command rm -f -- "$tmp"
 }
 
 function reload-shell() {
