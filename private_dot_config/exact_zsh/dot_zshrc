@@ -140,6 +140,15 @@ else
   export LS_COLORS='di=34:ln=35:so=32:pi=33:ex=31:bd=34;46:cd=34;43:su=30;41:sg=30;46:tw=30;42:ow=30;43'
 fi
 
+# Override other-writable (ow) and sticky+other-writable (tw) directory colors
+# Use orange/yellow foreground (RGB 229,192,123 from one-dark theme) without background
+# This makes them visually distinct from regular directories without the distracting green background
+export LS_COLORS="${LS_COLORS}:ow=0;38;2;229;192;123:tw=0;38;2;229;192;123"
+
+# EZA_COLORS: eza uses its own color variable; override ow/tw with orange/yellow
+# This ensures eza (aliased as ls) shows other-writable dirs in a distinct color
+export EZA_COLORS="${EZA_COLORS}:ow=38;2;229;192;123:tw=38;2;229;192;123"
+
 # Tell zsh completion to use LS_COLORS
 zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
 
