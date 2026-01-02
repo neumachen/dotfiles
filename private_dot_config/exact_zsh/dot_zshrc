@@ -118,6 +118,35 @@ zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
 zstyle ':fzf-tab:*' switch-group ',' '.'
 
 #############################
+# Colors for completions (MUST be before fzf-tab)
+#############################
+
+# Load complist module for colored completions
+zmodload zsh/complist
+
+# Set LS_COLORS (used by fzf-tab for file coloring)
+# If using eza/exa, you may already have EZA_COLORS; this covers ls-style colors
+if command_exists vivid; then
+  # If you have vivid installed, use it for a nice theme
+  export LS_COLORS="$(vivid generate one-dark)"
+elif command_exists dircolors; then
+  # GNU dircolors
+  eval "$(dircolors -b)"
+elif [[ -f /usr/share/LS_COLORS/LS_COLORS ]]; then
+  # Fallback to system LS_COLORS if available
+  export LS_COLORS="$(cat /usr/share/LS_COLORS/LS_COLORS)"
+else
+  # Minimal fallback
+  export LS_COLORS='di=34:ln=35:so=32:pi=33:ex=31:bd=34;46:cd=34;43:su=30;41:sg=30;46:tw=30;42:ow=30;43'
+fi
+
+# Tell zsh completion to use LS_COLORS
+zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+
+# fzf-tab specific: enable ANSI color codes in preview
+zstyle ':fzf-tab:*' fzf-flags --ansi
+
+#############################
 # Clipboard Functions (inlined from ohmyzsh)
 #############################
 
@@ -238,6 +267,11 @@ znap source Aloxaf/fzf-tab
 
 # fzf-tab recommended: let fzf-tab own the menu (optional but usually best)
 zstyle ':completion:*' menu no
+
+# fzf-tab: use colors from LS_COLORS for file/directory completions
+zstyle ':fzf-tab:complete:*' fzf-preview 'eza --color=always --icons $realpath 2>/dev/null || ls --color=always $realpath 2>/dev/null || echo $realpath'
+zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza --color=always --icons $realpath 2>/dev/null || ls --color=always $realpath'
+zstyle ':fzf-tab:complete:ls:*' fzf-preview 'eza --color=always --icons $realpath 2>/dev/null || ls --color=always $realpath'
 
 #############################
 # FZF keybindings (must be in zvm_after_init to survive zsh-vi-mode)
