@@ -273,6 +273,11 @@ if command_exists wezterm; then
   znap fpath _wezterm 'wezterm shell-completion --shell zsh'
 fi
 
+# aider
+if command_exists aider; then
+  znap fpath _aider 'aider --shell-completion zsh'
+fi
+
 #############################
 # fzf-tab (load after zsh-autocomplete)
 #############################
