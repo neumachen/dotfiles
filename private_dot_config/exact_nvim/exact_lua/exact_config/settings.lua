@@ -172,6 +172,7 @@ opt.confirm = true -- Make vim prompt me to save before doing destructive things
 opt.guifont = 'CartographCF Nerd Font:h14'
 opt.hlsearch = true
 opt.laststatus = 3
+opt.inccommand = 'split'
 opt.pumheight = 15
 opt.termguicolors = true
 -----------------------------------------------------------------------------//

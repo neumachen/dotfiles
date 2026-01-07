@@ -52,7 +52,9 @@ return {
         relative = 'editor',
         position = { row = 9, col = '50%' },
         border = { padding = { 0, 1 } },
-        win_options = { winhighlight = { Normal = 'NormalFloat', FloatBorder = 'FloatBorder' } },
+        win_options = {
+          winhighlight = { Normal = 'NormalFloat', FloatBorder = 'FloatBorder' },
+        },
       },
     },
     redirect = { view = 'popup', filter = { event = 'msg_show' } },
@@ -111,11 +113,21 @@ return {
             { event = 'msg_show', find = '^No hunks$' },
           },
         },
-        opts = { title = 'Warning', level = L.WARN, merge = false, replace = false },
+        opts = {
+          title = 'Warning',
+          level = L.WARN,
+          merge = false,
+          replace = false,
+        },
       },
       {
         view = 'notify',
-        opts = { title = 'Error', level = L.ERROR, merge = true, replace = false },
+        opts = {
+          title = 'Error',
+          level = L.ERROR,
+          merge = true,
+          replace = false,
+        },
         filter = {
           any = {
             { error = true },
@@ -150,8 +162,13 @@ return {
       if not require('noice.lsp').scroll(-4) then return '<c-b>' end
     end, { silent = true, expr = true })
 
-    vim.keymap.set('c', '<M-CR>', function() require('noice').redirect(fn.getcmdline()) end, {
-      desc = 'redirect Cmdline',
-    })
+    vim.keymap.set(
+      'c',
+      '<M-CR>',
+      function() require('noice').redirect(fn.getcmdline()) end,
+      {
+        desc = 'redirect Cmdline',
+      }
+    )
   end,
 }

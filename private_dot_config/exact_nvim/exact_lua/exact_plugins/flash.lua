@@ -7,7 +7,7 @@ return {
   opts = {
     modes = {
       char = {
-        keys = { 'f', 'F', 't', 'T', ';' }, -- remove "," from keys },
+        keys = { 'f', 'F', 't', 'T' }, -- remove "," from keys },
         search = { enabled = false },
       },
       jump = { nohlsearch = true },

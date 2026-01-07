@@ -1,9 +1,14 @@
 local map = vim.keymap.set
 
-map({ 'n', 'v' }, ';;', ':', { desc = 'command line without colon' })
 map(
   { 'n', 'v' },
   '<localleader>;',
+  ':',
+  { desc = 'command line without colon' }
+)
+map(
+  { 'n', 'v' },
+  '<localleader><localleader>;',
   '@:',
   { desc = 'replay recent command without colon' }
 )
@@ -365,3 +370,54 @@ map(
   "<cmd>lua require('utils.cspell').add_word_to_c_spell_dictionary()<CR>",
   { noremap = true, silent = true, desc = 'Add unknown to cspell dictionary' }
 )
+
+-- Replace selected character(s) in buffer (handles any encoding)
+-- Select character(s) in visual mode, press <leader>rc, enter replacement
+map('v', '<localleader>rc', function()
+  -- Yank the selected text
+  vim.cmd('normal! "zy')
+  local selected = vim.fn.getreg('z')
+
+  if selected == '' then
+    vim.notify('No text selected', vim.log.levels.WARN)
+    return
+  end
+
+  -- Show character info for reference
+  local char_codes = {}
+  for i = 1, vim.fn.strchars(selected) do
+    local char = vim.fn.strcharpart(selected, i - 1, 1)
+    local nr = vim.fn.char2nr(char)
+    table.insert(char_codes, string.format('%s (U+%04X)', char, nr))
+  end
+  vim.notify(
+    'Selected: ' .. table.concat(char_codes, ', '),
+    vim.log.levels.INFO
+  )
+
+  -- Prompt for replacement
+  vim.ui.input({ prompt = 'Replace with: ' }, function(replacement)
+    if replacement == nil then
+      vim.notify('Replacement cancelled', vim.log.levels.INFO)
+      return
+    end
+
+    -- Escape special characters for use in substitution
+    local escaped_selected = vim.fn.escape(selected, '/\\.*$^~[]')
+    local escaped_replacement = vim.fn.escape(replacement, '/\\&~')
+
+    -- Perform the substitution
+    local cmd =
+      string.format('%%s/%s/%s/g', escaped_selected, escaped_replacement)
+    local ok, err = pcall(vim.cmd, cmd)
+
+    if ok then
+      vim.notify(
+        string.format('Replaced "%s" with "%s"', selected, replacement),
+        vim.log.levels.INFO
+      )
+    else
+      vim.notify('Replacement failed: ' .. tostring(err), vim.log.levels.ERROR)
+    end
+  end)
+end, { desc = 'Replace selected char(s) in buffer' })
