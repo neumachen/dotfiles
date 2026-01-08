@@ -15,8 +15,8 @@ env-file: ${AIDER_ENV_FILE}
 # Main model:
 
 ## Specify the model to use for the main chat
-model: openrouter/anthropic/claude-opus-4.5
-weak-model: openrouter/openai/gpt-5-mini
+model: anthropic/claude-opus-4.5
+weak-model: openai/gpt-5-mini
 
 ## Set the reasoning_effort API parameter (default: not set)
 #reasoning-effort: xxx
@@ -34,10 +34,10 @@ weak-model: openrouter/openai/gpt-5-mini
 #edit-format: xxx
 
 ## Use architect edit format for the main chat
-#architect: false
+architect: true
 
 ## Enable/disable automatic acceptance of architect changes (default: True)
-auto-accept-architect: true
+auto-accept-architect: false
 
 ## Specify the model to use for editor tasks (default depends on --model)
 #editor-model: xxx
