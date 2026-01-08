@@ -1,50 +1,370 @@
 #!/bin/sh
 
-usage="Wrapper for chezmoi.
+set -e
+
+#############################
+# Configuration
+#############################
+
+# Default flags - can be overridden via environment variables
+DOTFILES_FORCE="${DOTFILES_FORCE:-true}"
+DOTFILES_KEEP_GOING="${DOTFILES_KEEP_GOING:-true}"
+DOTFILES_RECURSIVE="${DOTFILES_RECURSIVE:-true}"
+
+#############################
+# Notification/Progress Functions
+#############################
+
+# Colors for output (if terminal supports it)
+if [ -t 1 ]; then
+  COLOR_RESET='\033[0m'
+  COLOR_GREEN='\033[0;32m'
+  COLOR_YELLOW='\033[0;33m'
+  COLOR_RED='\033[0;31m'
+  COLOR_BLUE='\033[0;34m'
+  COLOR_BOLD='\033[1m'
+else
+  COLOR_RESET=''
+  COLOR_GREEN=''
+  COLOR_YELLOW=''
+  COLOR_RED=''
+  COLOR_BLUE=''
+  COLOR_BOLD=''
+fi
+
+notify_start() {
+  printf "${COLOR_BLUE}${COLOR_BOLD}▶ %s${COLOR_RESET}\n" "$1"
+}
+
+notify_progress() {
+  printf "${COLOR_YELLOW}  ⋯ %s${COLOR_RESET}\n" "$1"
+}
+
+notify_success() {
+  printf "${COLOR_GREEN}  ✓ %s${COLOR_RESET}\n" "$1"
+}
+
+notify_error() {
+  printf "${COLOR_RED}  ✗ %s${COLOR_RESET}\n" "$1" >&2
+}
+
+notify_info() {
+  printf "${COLOR_BLUE}  ℹ %s${COLOR_RESET}\n" "$1"
+}
+
+#############################
+# Helper Functions
+#############################
+
+# Build common flags based on configuration
+build_common_flags() {
+  flags=""
+  if [ "$use_force" = "true" ]; then
+    flags="$flags --force"
+  fi
+  if [ "$use_keep_going" = "true" ]; then
+    flags="$flags --keep-going"
+  fi
+  echo "$flags"
+}
+
+# Build flags including recursive
+build_update_flags() {
+  flags="$(build_common_flags)"
+  if [ "$use_recursive" = "true" ]; then
+    flags="$flags --recursive"
+  fi
+  echo "$flags"
+}
+
+# Run chezmoi with notification
+run_chezmoi() {
+  description="$1"
+  shift
+  notify_progress "$description"
+  if chezmoi "$@"; then
+    notify_success "$description completed"
+    return 0
+  else
+    notify_error "$description failed"
+    return 1
+  fi
+}
+
+#############################
+# Usage
+#############################
+
+usage="Wrapper for chezmoi dotfile manager with sensible defaults.
 
 Usage:
-  $(basename "$0") -h | --help            Show usage and exit.
-  $(basename "$0") apply [--noconfirm]    Show a diff and apply changes.
-  $(basename "$0") <any chezmoi command>  Passthrough to chezmoi.
+  $(basename "$0") -h | --help                Show usage and exit.
+  $(basename "$0") apply [OPTIONS]            Show diff and apply changes locally.
+  $(basename "$0") update [OPTIONS]           Pull updates and apply changes.
+  $(basename "$0") init [OPTIONS]             Initialize chezmoi (first-time setup).
+  $(basename "$0") diff                       Show pending changes.
+  $(basename "$0") status                     Show chezmoi status.
+  $(basename "$0") verify                     Verify dotfiles are up to date.
+  $(basename "$0") add <file>...              Add files to chezmoi.
+  $(basename "$0") edit <file>                Edit a chezmoi-managed file.
+  $(basename "$0") <any chezmoi command>      Passthrough to chezmoi.
+
+Options:
+  --noconfirm, --yes    Skip confirmation prompt.
+  --override            Override all safety checks: enables --force, --keep-going,
+                        --recursive, and skips confirmation. Use when you want to
+                        forcefully apply/update regardless of conflicts.
+  --no-force            Don't use --force flag (override default).
+  --no-keep-going       Don't use --keep-going flag (override default).
+  --no-recursive        Don't use --recursive flag (override default).
+  --force               Use --force flag (explicit).
+  --keep-going          Use --keep-going flag (explicit).
+  --recursive           Use --recursive flag (explicit).
+
+Environment Variables:
+  DOTFILES_FORCE        Set to 'false' to disable --force by default (default: true).
+  DOTFILES_KEEP_GOING   Set to 'false' to disable --keep-going by default (default: true).
+  DOTFILES_RECURSIVE    Set to 'false' to disable --recursive by default (default: true).
+
+Flag Behavior:
+  --force               Overwrite destination files without prompting.
+  --keep-going          Continue processing even if errors occur.
+  --recursive           Process submodules recursively (for update command).
+  --refresh-externals   Re-download external files (used in update).
+
+Examples:
+  $(basename "$0") apply                      # Interactive apply with defaults
+  $(basename "$0") apply --noconfirm          # Apply without confirmation
+  $(basename "$0") apply --override           # Force apply, skip all checks
+  $(basename "$0") update                     # Pull and apply updates
+  $(basename "$0") update --override          # Force update, ignore conflicts
+  $(basename "$0") update --no-force          # Pull and apply without --force
+  $(basename "$0") diff                       # Show what would change
 "
+
+#############################
+# Argument Parsing
+#############################
 
 command="$1"
 if [ -z "$command" ]; then
-	echo "$usage"
-	exit 1
+  echo "$usage"
+  exit 1
 fi
 
 shift
 
+# Initialize flags from environment/defaults
+use_force="$DOTFILES_FORCE"
+use_keep_going="$DOTFILES_KEEP_GOING"
+use_recursive="$DOTFILES_RECURSIVE"
+noconfirm="false"
+override_mode="false"
+
+# Parse remaining arguments for apply/update commands
+parse_options() {
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --noconfirm|--yes)
+        noconfirm="true"
+        ;;
+      --override)
+        # Override mode: force everything, skip confirmations
+        override_mode="true"
+        use_force="true"
+        use_keep_going="true"
+        use_recursive="true"
+        noconfirm="true"
+        ;;
+      --no-force)
+        use_force="false"
+        ;;
+      --no-keep-going)
+        use_keep_going="false"
+        ;;
+      --no-recursive)
+        use_recursive="false"
+        ;;
+      --force)
+        use_force="true"
+        ;;
+      --keep-going)
+        use_keep_going="true"
+        ;;
+      --recursive)
+        use_recursive="true"
+        ;;
+      *)
+        # Unknown option, could be passed to chezmoi
+        extra_args="$extra_args $1"
+        ;;
+    esac
+    shift
+  done
+}
+
+extra_args=""
+
+#############################
+# Commands
+#############################
+
 case "$command" in
--h | --help)
-	echo "$usage"
-	exit
-	;;
-apply)
-	cmd="safe-run"
-	for arg in "$@"; do
-		case "$arg" in
-		--noconfirm | --yes)
-			cmd="echo-run"
-			break
-			;;
-		esac
-	done
-	if [ "$cmd" = "safe-run" ] && echo-run chezmoi verify; then
-		echo-info "Nothing to apply."
-		exit
-	fi
-	if [ "$cmd" = "safe-run" ] && ! echo-run chezmoi diff --no-pager; then
-		echo-warn "Error showing diff. Are you signed in to 1Password?"
-		exit 1
-	fi
-	if ! "$cmd" chezmoi apply; then
-		echo-info "You can run 'dotfiles add <file>...' to update the source."
-		exit
-	fi
-	;;
-*)
-	echo-run chezmoi "$command" "$@"
-	;;
+  -h|--help)
+    echo "$usage"
+    exit 0
+    ;;
+
+  apply)
+    parse_options "$@"
+
+    if [ "$override_mode" = "true" ]; then
+      notify_start "Applying dotfiles locally (OVERRIDE MODE)"
+      notify_info "Forcing apply with --force --keep-going, skipping confirmation"
+    else
+      notify_start "Applying dotfiles locally"
+    fi
+
+    # Check if there are any changes
+    notify_progress "Checking for changes..."
+    if chezmoi verify 2>/dev/null; then
+      notify_info "Nothing to apply - dotfiles are up to date."
+      exit 0
+    fi
+
+    # Show diff (unless in override mode with noconfirm)
+    if [ "$noconfirm" = "false" ]; then
+      notify_progress "Showing pending changes..."
+      if ! chezmoi diff --no-pager; then
+        notify_error "Error showing diff. Are you signed in to 1Password?"
+        exit 1
+      fi
+
+      # Confirm
+      printf "\n${COLOR_YELLOW}Apply these changes? [y/N] ${COLOR_RESET}"
+      read -r response
+      case "$response" in
+        [yY]|[yY][eE][sS])
+          ;;
+        *)
+          notify_info "Apply cancelled."
+          exit 0
+          ;;
+      esac
+    fi
+
+    # Build and run apply command
+    common_flags=$(build_common_flags)
+    notify_progress "Applying changes..."
+    notify_info "Flags:$common_flags"
+
+    # shellcheck disable=SC2086
+    if chezmoi apply $common_flags $extra_args; then
+      notify_success "Dotfiles applied successfully!"
+    else
+      notify_error "Apply failed."
+      notify_info "You can run 'dotfiles add <file>...' to update the source."
+      exit 1
+    fi
+    ;;
+
+  update)
+    parse_options "$@"
+
+    if [ "$override_mode" = "true" ]; then
+      notify_start "Updating dotfiles from remote (OVERRIDE MODE)"
+      notify_info "Forcing update with all flags, ignoring conflicts"
+    else
+      notify_start "Updating dotfiles from remote"
+    fi
+
+    # Build flags for update
+    # --recursive: process git submodules
+    # --refresh-externals: re-download external files
+    common_flags=$(build_update_flags)
+    update_flags="--apply --refresh-externals"
+
+    notify_progress "Pulling and applying updates..."
+    notify_info "Flags: $update_flags$common_flags"
+
+    # shellcheck disable=SC2086
+    if chezmoi update $update_flags $common_flags $extra_args; then
+      notify_success "Dotfiles updated successfully!"
+    else
+      notify_error "Update failed."
+      notify_info "Check the error above and try again."
+      notify_info "You may need to resolve conflicts manually."
+      notify_info "Try 'dotfiles update --override' to force through conflicts."
+      exit 1
+    fi
+    ;;
+
+  init)
+    parse_options "$@"
+
+    if [ "$override_mode" = "true" ]; then
+      notify_start "Initializing chezmoi (OVERRIDE MODE)"
+    else
+      notify_start "Initializing chezmoi"
+    fi
+
+    common_flags=$(build_common_flags)
+    notify_progress "Running chezmoi init..."
+    notify_info "Flags:$common_flags"
+
+    # shellcheck disable=SC2086
+    if chezmoi init $common_flags $extra_args; then
+      notify_success "Chezmoi initialized successfully!"
+    else
+      notify_error "Initialization failed."
+      exit 1
+    fi
+    ;;
+
+  diff)
+    notify_start "Showing pending dotfile changes"
+
+    if chezmoi verify 2>/dev/null; then
+      notify_info "No pending changes - dotfiles are up to date."
+      exit 0
+    fi
+
+    chezmoi diff --no-pager "$@"
+    ;;
+
+  status)
+    notify_start "Checking dotfiles status"
+    chezmoi status "$@"
+    ;;
+
+  verify)
+    notify_start "Verifying dotfiles"
+    if chezmoi verify "$@"; then
+      notify_success "Dotfiles are up to date."
+    else
+      notify_info "There are pending changes. Run 'dotfiles diff' to see them."
+      exit 1
+    fi
+    ;;
+
+  add)
+    notify_start "Adding files to chezmoi"
+    run_chezmoi "Adding files" add "$@"
+    ;;
+
+  edit)
+    notify_start "Editing chezmoi-managed file"
+    chezmoi edit "$@"
+    ;;
+
+  # Completion helper - outputs available commands for shell completion
+  --list-commands)
+    echo "apply update init diff status verify add edit"
+    ;;
+
+  *)
+    # Passthrough to chezmoi
+    notify_progress "Running: chezmoi $command $*"
+    chezmoi "$command" "$@"
+    ;;
 esac
