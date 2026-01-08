@@ -1,0 +1,114 @@
+#compdef dotfiles
+
+# Zsh completion for dotfiles wrapper script
+# This provides completion for dotfiles commands and passes through to chezmoi
+# for chezmoi-specific completions
+
+_dotfiles() {
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  local -a dotfiles_commands
+  dotfiles_commands=(
+    'apply:Show diff and apply changes locally'
+    'update:Pull updates and apply changes'
+    'init:Initialize chezmoi (first-time setup)'
+    'diff:Show pending changes'
+    'status:Show chezmoi status'
+    'verify:Verify dotfiles are up to date'
+    'add:Add files to chezmoi'
+    'edit:Edit a chezmoi-managed file'
+  )
+
+  local -a common_options
+  common_options=(
+    '--help[Show usage and exit]'
+    '-h[Show usage and exit]'
+    '--noconfirm[Skip confirmation prompt]'
+    '--yes[Skip confirmation prompt]'
+    '--override[Override all safety checks: force, keep-going, recursive, skip confirmation]'
+    '--no-force[Do not use --force flag]'
+    '--no-keep-going[Do not use --keep-going flag]'
+    '--no-recursive[Do not use --recursive flag]'
+    '--force[Use --force flag]'
+    '--keep-going[Use --keep-going flag]'
+    '--recursive[Use --recursive flag]'
+  )
+
+  _arguments -C \
+    '1: :->command' \
+    '*:: :->args'
+
+  case $state in
+    command)
+      # First argument: show dotfiles commands + chezmoi commands
+      _describe -t dotfiles-commands 'dotfiles commands' dotfiles_commands
+
+      # Also offer chezmoi commands for passthrough
+      if (( $+commands[chezmoi] )); then
+        local -a chezmoi_commands
+        chezmoi_commands=(${(f)"$(chezmoi completion zsh 2>/dev/null | grep -oP "(?<=')[a-z-]+(?=\[)" | sort -u)"})
+        if [[ -n "$chezmoi_commands" ]]; then
+          _describe -t chezmoi-commands 'chezmoi commands (passthrough)' chezmoi_commands
+        fi
+      fi
+      ;;
+
+    args)
+      case $line[1] in
+        apply|update|init)
+          # These commands accept our custom options
+          _arguments $common_options \
+            '*:file:_files'
+          ;;
+
+        diff|status|verify)
+          # These pass through to chezmoi, use chezmoi completion
+          if (( $+commands[chezmoi] )); then
+            # Attempt to use chezmoi's completion for these subcommands
+            _arguments '*:file:_files'
+          fi
+          ;;
+
+        add)
+          # Add command takes files
+          _arguments \
+            '*:file to add:_files'
+          ;;
+
+        edit)
+          # Edit command - complete with chezmoi-managed files
+          if (( $+commands[chezmoi] )); then
+            local -a managed_files
+            managed_files=(${(f)"$(chezmoi managed 2>/dev/null)"})
+            if [[ -n "$managed_files" ]]; then
+              _describe -t managed-files 'chezmoi managed files' managed_files
+            else
+              _files
+            fi
+          else
+            _files
+          fi
+          ;;
+
+        -h|--help)
+          # No further completion needed
+          ;;
+
+        *)
+          # Unknown command - pass through to chezmoi completion
+          if (( $+commands[chezmoi] )); then
+            # Try to invoke chezmoi's completion
+            words[1]=chezmoi
+            _chezmoi 2>/dev/null || _files
+          else
+            _files
+          fi
+          ;;
+      esac
+      ;;
+  esac
+}
+
+# Register the completion function
+_dotfiles "$@"
