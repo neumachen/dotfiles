@@ -447,9 +447,10 @@ if command_exists docker; then
   fi
 fi
 
+# Use Neovim as default vim/vi if available
 if command_exists nvim; then
-  unalias -m 'vim'
   alias vim='nvim'
+  alias vi='nvim'
 fi
 
 if [[ -x "/opt/homebrew/opt/macos-trash/bin/trash" ]]; then
