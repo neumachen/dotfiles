@@ -31,6 +31,15 @@ source "${ZNAP_HOME}/znap/znap.zsh"
 # Local completions (before compinit)
 #############################
 
+# Add Homebrew completions to fpath (must be before compinit/zsh-autocomplete)
+if [[ -d "/opt/homebrew/share/zsh/site-functions" ]]; then
+  # Homebrew on Apple Silicon
+  fpath=("/opt/homebrew/share/zsh/site-functions" $fpath)
+elif [[ -d "/usr/local/share/zsh/site-functions" ]]; then
+  # Homebrew on Intel Mac or Linux
+  fpath=("/usr/local/share/zsh/site-functions" $fpath)
+fi
+
 # Add local completions directory to fpath
 # This includes completions managed by chezmoi external:
 # - _fzf, _eza, _kubectx, _kubens, _fd, _ghq, _git-forgit, _docker
