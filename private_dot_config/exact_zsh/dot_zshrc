@@ -268,6 +268,11 @@ if command_exists chezmoi; then
   znap fpath _chezmoi 'chezmoi completion zsh'
 fi
 
+# mole
+if command_exists chezmoi; then
+  znap fpath _mo 'mo completion zsh'
+fi
+
 # wezterm
 if command_exists wezterm; then
   znap fpath _wezterm 'wezterm shell-completion --shell zsh'
