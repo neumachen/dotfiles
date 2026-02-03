@@ -98,5 +98,6 @@ zoxide = "latest"
 "github:dlvhdr/gh-dash" = "latest"
 "github:docker/docker-language-server" = { version = "latest", bin = "docker-language-server" }
 "github:erlang-ls/erlang_ls" = "latest"
+"github:marph91/jimmy" = "latest"
 "github:mr-karan/doggo" = "latest"
 "github:mrjosh/helm-ls" = "latest"
