@@ -277,9 +277,15 @@ if command_exists chezmoi; then
   znap fpath _chezmoi 'chezmoi completion zsh'
 fi
 
+# op (1Password CLI)
+if command_exists chezmoi; then
+  znap fpath _op 'op completion zsh'
+fi
+
 # mole
 if command_exists chezmoi; then
   znap fpath _mo 'mo completion zsh'
+  znap fpath _mole 'mole completion zsh'
 fi
 
 # wezterm
