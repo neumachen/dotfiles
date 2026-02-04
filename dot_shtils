@@ -62,8 +62,6 @@ meine_helferlein_dir="${HOME}/.local/share/meine-helferlein"
 if [ -d "$meine_helferlein_dir" ]; then
   pathmunge "$meine_helferlein_dir"
   export MEINE_HELFERLEIN="$meine_helferlein_dir"
-else
-  echo "$meine_helferlein_dir dir does not exist, custom functions will fail"
 fi
 
 # 1Password
@@ -125,13 +123,16 @@ autoload_script() {
   }"
 }
 
-autoload_script echo_eval "${MEINE_HELFERLEIN}/echo-eval"
-autoload_script echo_run "${MEINE_HELFERLEIN}/echo-run"
-autoload_script safe_run "${MEINE_HELFERLEIN}/safe-run"
-autoload_script echo_info "${MEINE_HELFERLEIN}/echo-info"
-autoload_script echo_err "${MEINE_HELFERLEIN}/echo-err"
-autoload_script echo_warn "${MEINE_HELFERLEIN}/echo-warn"
-autoload_script echo_ok "${MEINE_HELFERLEIN}/echo-ok"
+# Only autoload helper scripts if the directory exists and is populated
+if [ -n "$MEINE_HELFERLEIN" ] && [ -d "$MEINE_HELFERLEIN" ]; then
+  autoload_script echo_eval "${MEINE_HELFERLEIN}/echo-eval"
+  autoload_script echo_run "${MEINE_HELFERLEIN}/echo-run"
+  autoload_script safe_run "${MEINE_HELFERLEIN}/safe-run"
+  autoload_script echo_info "${MEINE_HELFERLEIN}/echo-info"
+  autoload_script echo_err "${MEINE_HELFERLEIN}/echo-err"
+  autoload_script echo_warn "${MEINE_HELFERLEIN}/echo-warn"
+  autoload_script echo_ok "${MEINE_HELFERLEIN}/echo-ok"
+fi
 
 take() {
 	# shellcheck disable=SC2164
@@ -363,4 +364,3 @@ if [ "$VIRTUAL_ENV" != "" ]; then
 	# shellcheck disable=SC1090
 	echo_run . "$VIRTUAL_ENV/bin/activate"
 fi
-
