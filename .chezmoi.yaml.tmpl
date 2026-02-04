@@ -1,6 +1,6 @@
 # vim: ft=yaml
 ---
-sourceDir: ~/MeinCodex/codebasis/github.com/neumachen/dotfiles
+sourceDir: ~/MeinCodex/Codebasis/github.com/neumachen/dotfiles
 diff:
   command: nvim
   args:
@@ -20,6 +20,7 @@ data:
       [user]
         email = kareem@hepburn.info
         name = Kareem Hepburn
+{{- if stat "/Applications/1Password.app/Contents/MacOS/op-ssh-sign" }}
         signingKey = ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFoyAAGM4r9Lkj2rsjZbXE2f3TfW63Y7GXsURireuGvb
       [gpg]
         format = ssh
@@ -27,5 +28,6 @@ data:
         program = "/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
       [commit]
         gpgsign = true
+{{- end }}
 
   envvars: []

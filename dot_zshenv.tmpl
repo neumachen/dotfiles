@@ -24,14 +24,14 @@ export CLICOLOR=1
 export VISUAL="nvim --cmd 'let g:flatten_wait=1'"
 export EDITOR="nvim"
 
-# meincodex directories (no command dependencies)
-meincodex_dir="${HOME}/meincodex"
+# MeinCodex directories (no command dependencies)
+meincodex_dir="${HOME}/MeinCodex"
 if [[ -d "$meincodex_dir" ]]; then
   export MEINCODEX_DIR="$meincodex_dir"
   for dir_info in \
-    "NOTIZEN_DIR:${MEINCODEX_DIR}/notizen" \
-    "CODEBASIS_DIR:${MEINCODEX_DIR}/codebasis" \
-    "CODESCHNIPSEL_DIR:${MEINCODEX_DIR}/codeschnipsel"
+    "NOTIZEN_DIR:${MEINCODEX_DIR}/Notizen" \
+    "CODEBASIS_DIR:${MEINCODEX_DIR}/Codebasis" \
+    "CODESCHNIPSEL_DIR:${MEINCODEX_DIR}/Codeschnipsel"
   do
     var_name="${dir_info%:*}"
     dir_path="${dir_info#*:}"
