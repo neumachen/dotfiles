@@ -15,8 +15,6 @@ local function first(bufnr, ...)
   return select(1, ...)
 end
 
----@module "lazy"
----@type LazySpec
 return {
   'stevearc/conform.nvim',
   event = { 'BufWritePre' },
@@ -90,6 +88,15 @@ return {
           first(bufnr, 'biome', 'deno_fmt', 'prettierd', 'prettier', 'dprint'),
         }
       end,
+      html = { 'prettierd', 'prettier', stop_after_first = true },
+      css = { 'prettierd', 'prettier', stop_after_first = true },
+      scss = { 'prettierd', 'prettier', stop_after_first = true },
+      yaml = { 'prettierd', 'prettier', stop_after_first = true },
+      toml = { 'taplo' },
+      sql = { 'sql_formatter', 'sqlfluff', stop_after_first = true },
+      sh = { 'shfmt' },
+      bash = { 'shfmt' },
+      zsh = { 'shfmt' },
     },
     formatters = {
       biome = {
