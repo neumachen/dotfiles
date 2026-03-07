@@ -1,85 +1,91 @@
 #!/usr/bin/env bash
-# brownie: launch aider in a container with a per-session persistent volume
+# brownie: launch AiderDesk in a container with per-session persistent data
 #
 # Why "Brownie"?
 #   In Scottish/English folklore, a Brownie is a helpful house-spirit that
 #   tidies and assists quietly at night—so long as it's respected. This script
-#   aims to be that kind of helper for your Aider sessions: unobtrusive,
-#   practical, and tidy about your files.
+#   wraps AiderDesk in a container with persistent sessions, SSH agent
+#   forwarding for 1Password commit signing, and sensible mounts.
 #
 # Usage:
-#   brownie [wrapper-opts] [aider-opts ...] -- [docker run opts ...]
+#   brownie [wrapper-opts] -- [docker run opts ...]
 #
 # Behavior:
-#   • Args BEFORE `--` go to Aider inside the container.
-#   • Args AFTER  `--` go to `docker run`.
-#   • Env/config are bind-mounted read-only to /config/<basename> in the container.
-#   • If not provided in [aider-opts], defaults injected:
-#       --env-file /config/<env basename>
-#       --config   /config/<config basename>
+#   • Args BEFORE `--` are wrapper options.
+#   • Args AFTER  `--` are passed directly to `docker run`.
+#   • Git identity and signing config are injected via env vars.
+#   • AiderDesk runs as a headless web server (detached).
 
 set -Eeuo pipefail
 
-DEFAULT_IMAGE="paulgauthier/aider-full:latest"
+# ---------- defaults ----------
+DEFAULT_IMAGE="brownie:latest"
 DEFAULT_PREFIX="brownie"
+DEFAULT_PORT=24337
 
+IMAGE="$DEFAULT_IMAGE"
 PULL_IMAGE=0
 SESSION_NAME=""
-IMAGE="$DEFAULT_IMAGE"
-GIT_CONFIG_DIR_OVERRIDE=""
+HOST_PORT="$DEFAULT_PORT"
+PROJECT_DIR="$PWD"
 DOCKER_EXTRAS=()
-AIDER_ARGS=()
 
 BROWNIE_ABOUT=$'Brownie — a friendly nod to the Scottish/English household spirit.\n\
 In folklore, a Brownie is a quiet helper who keeps things tidy if treated well.\n\
-Likewise, this tool keeps Aider sessions neat by creating a persistent per-session\n\
-volume under ~/.local/share/aider/sessions and mounting it at /aider.\n\
-Be respectful; keep your config/env in order—and the work flows. 🙂'
+This tool wraps AiderDesk in a container with persistent sessions, SSH agent\n\
+forwarding for 1Password commit signing, and sensible mounts for your project.\n\
+Be respectful; keep your config in order—and the work flows. 🙂'
 
-die() { printf 'error: %s\n' "$*" >&2; exit 1; }
+die() {
+  printf 'error: %s\n' "$*" >&2
+  exit 1
+}
 
 usage() {
   cat <<'USAGE'
 Usage:
-  brownie [wrapper-opts] [aider-opts ...] -- [docker run opts ...]
+  brownie [wrapper-opts] -- [docker run opts ...]
 
 Wrapper options (before --):
-  -n, --name         Docker-compatible session/container/volume name.
-  -i, --image        Image to run (default: paulgauthier/aider-full:latest).
-      --git-config   Path to Git config directory (default: XDG config path).
+  -n, --name         Session/container name (auto-generated if omitted).
+  -i, --image        Image to run (default: brownie:latest).
+  -p, --port         Host port for AiderDesk UI (default: 24337).
+  -d, --dir          Project directory to mount (default: $PWD).
       --pull         Always docker pull IMAGE before running.
       --about        Explain why this tool is named "Brownie".
   -h, --help         Show this help and exit.
 
-Mounting & defaults:
-  • $AIDER_ENV_FILE   → /config/<env basename>   (read-only)
-  • $AIDER_CONTAINER_CONFIG → /config/<config basename> (read-only)
-  • Git config dir   → /config/git              (read-only)
-  • Injected into Aider iff you didn't provide them:
-      --env-file /config/<env basename>
-      --config   /config/<config basename>
+Required environment variables:
+  GIT_USER_NAME      Git identity: user name.
+  GIT_USER_EMAIL     Git identity: user email.
+
+Optional environment variables:
+  GIT_SIGNING_KEY    SSH public key for commit signing.
+  GIT_SIGN_COMMITS   "true" (default when GIT_SIGNING_KEY is set) or "false".
+
+SSH agent forwarding (required for commit signing):
+  The 1Password SSH agent socket at ~/.1password/agent.sock is
+  automatically mounted when it exists.
+
+Mounts (automatic):
+  Project dir              → /projects/<basename>  (project directory)
+  ~/.config/aider-desk/    → /root/.aider-desk/    (global hooks, skills, etc.)
+  Named volume (per-session) → /app/data           (AiderDesk persistent data)
+  ~/.1password/agent.sock  → /run/1password/agent.sock  (SSH agent, if exists)
+
+  Project-level .aider-desk/ (hooks, skills, tasks) travels with the
+  project mount automatically.
 
 Examples:
-  brownie --model o4-mini -- --rm --network host
-  brownie --message "Hello" -- --rm -e FOO=bar
-  brownie -n docs -- --rm
+  brownie
+  brownie -n my-project
+  brownie -p 8080
+  brownie -d ~/code/my-app -n my-app
+  brownie --pull -n docs -- --network host
 USAGE
 }
 
 have() { command -v "$1" >/dev/null 2>&1; }
-require_env() { local var="$1"; [ -n "${!var:-}" ] || die "$var is not set. Export it and retry."; }
-
-get_git_config_dir() {
-  local git_config_dir
-  if [ -n "$GIT_CONFIG_DIR_OVERRIDE" ]; then
-    git_config_dir="$GIT_CONFIG_DIR_OVERRIDE"
-  elif [ -n "${XDG_CONFIG_HOME:-}" ]; then
-    git_config_dir="$XDG_CONFIG_HOME/git"
-  else
-    git_config_dir="$HOME/.config/git"
-  fi
-  printf '%s\n' "$git_config_dir"
-}
 lower() { tr '[:upper:]' '[:lower:]'; }
 
 sanitize_docker_name() {
@@ -93,8 +99,8 @@ sanitize_docker_name() {
 }
 
 rand6() {
-  LC_ALL=C tr -dc 'a-z0-9' </dev/urandom 2>/dev/null | head -c6 || \
-  printf '%s' "$(date +%s%N | md5 2>/dev/null | cut -c1-6)"
+  LC_ALL=C tr -dc 'a-z0-9' </dev/urandom 2>/dev/null | head -c6 ||
+    printf '%s' "$(date +%s%N | md5 2>/dev/null | cut -c1-6)"
 }
 
 ensure_unique_container_name() {
@@ -105,23 +111,24 @@ ensure_unique_container_name() {
 }
 
 list_existing_sessions() {
-  docker ps -a --filter "name=${DEFAULT_PREFIX}-" --format "table {{.Names}}\t{{.Status}}\t{{.CreatedAt}}" 2>/dev/null || true
+  docker ps -a --filter "name=${DEFAULT_PREFIX}-" \
+    --format "table {{.Names}}\t{{.Status}}\t{{.CreatedAt}}" 2>/dev/null || true
 }
 
 get_existing_session_names() {
-  docker ps -a --filter "name=${DEFAULT_PREFIX}-" --format "{{.Names}}" 2>/dev/null | sort || true
+  docker ps -a --filter "name=${DEFAULT_PREFIX}-" \
+    --format "{{.Names}}" 2>/dev/null | sort || true
 }
 
 prompt_session_choice() {
   local existing_sessions
   existing_sessions="$(get_existing_session_names)"
-  
+
   if [ -z "$existing_sessions" ]; then
-    # No existing sessions, proceed with new session creation
     SESSION_NAME="$(prompt_session_name)"
     return 0
   fi
-  
+
   echo "Found existing sessions:"
   list_existing_sessions
   echo
@@ -129,57 +136,44 @@ prompt_session_choice() {
   echo "  1) Resume an existing session"
   echo "  2) Create a new session"
   echo
-  
   local choice
   read -r -p "Choose option (1 or 2): " choice
-  
+
   case "$choice" in
-    1)
-      echo "Available sessions:"
-      local i=1
-      local session_array=()
-      while IFS= read -r session; do
-        echo "  $i) $session"
-        session_array+=("$session")
-        ((i++))
-      done <<< "$existing_sessions"
-      
-      if [ ${#session_array[@]} -eq 1 ]; then
-        SESSION_NAME="${session_array[0]}"
+  1)
+    echo "Available sessions:"
+    local i=1 session_array=()
+    while IFS= read -r session; do
+      echo "  $i) $session"
+      session_array+=("$session")
+      ((i++))
+    done <<<"$existing_sessions"
+
+    if [ ${#session_array[@]} -eq 1 ]; then
+      SESSION_NAME="${session_array[0]}"
+      echo "Resuming session: $SESSION_NAME"
+    else
+      echo
+      read -r -p "Enter session number to resume: " session_num
+      if [[ "$session_num" =~ ^[0-9]+$ ]] &&
+        [ "$session_num" -ge 1 ] &&
+        [ "$session_num" -le ${#session_array[@]} ]; then
+        SESSION_NAME="${session_array[$((session_num - 1))]}"
         echo "Resuming session: $SESSION_NAME"
       else
-        echo
-        read -r -p "Enter session number to resume: " session_num
-        if [[ "$session_num" =~ ^[0-9]+$ ]] && [ "$session_num" -ge 1 ] && [ "$session_num" -le ${#session_array[@]} ]; then
-          SESSION_NAME="${session_array[$((session_num-1))]}"
-          echo "Resuming session: $SESSION_NAME"
-        else
-          die "Invalid session number"
-        fi
+        die "Invalid session number"
       fi
-      return 1  # Signal that we're resuming
-      ;;
-    2)
-      SESSION_NAME="$(prompt_session_name)"
-      return 0  # Signal that we're creating new
-      ;;
-    *)
-      die "Invalid choice. Please enter 1 or 2."
-      ;;
+    fi
+    return 1 # resuming
+    ;;
+  2)
+    SESSION_NAME="$(prompt_session_name)"
+    return 0 # new
+    ;;
+  *)
+    die "Invalid choice."
+    ;;
   esac
-}
-
-ensure_volume_bound() {
-  local vol="$1" hostdir="$2"
-  mkdir -p "$hostdir"
-  if ! docker volume inspect "$vol" >/dev/null 2>&1; then
-    docker volume create \
-      --driver local \
-      --opt type=none \
-      --opt o=bind \
-      --opt device="$hostdir" \
-      "$vol" >/dev/null
-  fi
 }
 
 prompt_session_name() {
@@ -187,7 +181,7 @@ prompt_session_name() {
   read -r -p "Session name (leave blank to auto-generate): " candidate || true
   candidate="$(sanitize_docker_name "$candidate")"
   if [ -z "$candidate" ] || [ "$candidate" = "session" ]; then
-    base="$(basename "$PWD" | sanitize_docker_name)"
+    base="$(basename "$PROJECT_DIR" | sanitize_docker_name)"
     [ -n "$base" ] || base="workspace"
     hash="$(rand6)"
     candidate="$(sanitize_docker_name "${DEFAULT_PREFIX}-${base}-${hash}")"
@@ -197,27 +191,57 @@ prompt_session_name() {
 
 print_about() { printf '%s\n' "$BROWNIE_ABOUT"; }
 
-# ---------- parse args: wrapper opts anywhere before `--`; others -> Aider ----------
+# ---------- parse args ----------
 parse_args() {
   local after_delim=0
   while [ $# -gt 0 ]; do
     case "$1" in
-      --) after_delim=1; shift; break ;;
-      -h|--help) usage; exit 0 ;;
-      --about) print_about; exit 0 ;;
-      -n|--name) [ $# -ge 2 ] || die "--name requires an argument"
-                 SESSION_NAME="$(sanitize_docker_name "$2")"; shift 2 ;;
-      -i|--image) [ $# -ge 2 ] || die "--image requires an argument"
-                  IMAGE="$2"; shift 2 ;;
-      --git-config) [ $# -ge 2 ] || die "--git-config requires an argument"
-                    GIT_CONFIG_DIR_OVERRIDE="$2"; shift 2 ;;
-      --pull) PULL_IMAGE=1; shift ;;
-      *) AIDER_ARGS+=("$1"); shift ;;  # Aider arg
+    --)
+      after_delim=1
+      shift
+      break
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    --about)
+      print_about
+      exit 0
+      ;;
+    -n | --name)
+      [ $# -ge 2 ] || die "--name requires an argument"
+      SESSION_NAME="$(sanitize_docker_name "$2")"
+      shift 2
+      ;;
+    -i | --image)
+      [ $# -ge 2 ] || die "--image requires an argument"
+      IMAGE="$2"
+      shift 2
+      ;;
+    -p | --port)
+      [ $# -ge 2 ] || die "--port requires an argument"
+      HOST_PORT="$2"
+      shift 2
+      ;;
+    -d | --dir)
+      [ $# -ge 2 ] || die "--dir requires an argument"
+      PROJECT_DIR="$2"
+      shift 2
+      ;;
+    --pull)
+      PULL_IMAGE=1
+      shift
+      ;;
+    *) die "Unknown option: $1 (use -- to pass extra flags to docker run)" ;;
     esac
   done
 
   if [ "$after_delim" -eq 1 ]; then
-    while [ $# -gt 0 ]; do DOCKER_EXTRAS+=("$1"); shift; done
+    while [ $# -gt 0 ]; do
+      DOCKER_EXTRAS+=("$1")
+      shift
+    done
   fi
 }
 
@@ -225,110 +249,147 @@ parse_args "$@"
 
 # ---------- preflight ----------
 have docker || die "docker not found in PATH."
-require_env "AIDER_CONTAINER_CONFIG"
-require_env "AIDER_ENV_FILE"
-[ -f "$AIDER_CONTAINER_CONFIG" ] || die "AIDER_CONTAINER_CONFIG points to a non-file: $AIDER_CONTAINER_CONFIG"
-[ -f "$AIDER_ENV_FILE" ] || die "AIDER_ENV_FILE points to a non-file: $AIDER_ENV_FILE"
+have git || die "git not found in PATH (needed to read host identity)."
 
-# Git config directory
-GIT_CONFIG_DIR="$(get_git_config_dir)"
-GIT_CONFIG_IN="/config/git"
+# Fall back to the host's git config if env vars aren't explicitly set.
+# This reads through ~/.config/git/config → profile include chain.
+: "${GIT_USER_NAME:=$(git config user.name 2>/dev/null || true)}"
+: "${GIT_USER_EMAIL:=$(git config user.email 2>/dev/null || true)}"
 
-# Derive container-side config paths under /config
-CONF_DIR_IN="/config"
-ENV_BASENAME="$(basename -- "$AIDER_ENV_FILE")"
-CONF_BASENAME="$(basename -- "$AIDER_CONTAINER_CONFIG")"
-ENV_IN="${CONF_DIR_IN}/${ENV_BASENAME}"
-CONF_IN="${CONF_DIR_IN}/${CONF_BASENAME}"
+[ -n "${GIT_USER_NAME:-}" ] || die "GIT_USER_NAME is not set and git config user.name is empty."
+[ -n "${GIT_USER_EMAIL:-}" ] || die "GIT_USER_EMAIL is not set and git config user.email is empty."
 
-# Session name & storage volume
+# Resolve project dir to absolute path
+PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
+[ -d "$PROJECT_DIR" ] || die "Project directory does not exist: $PROJECT_DIR"
+
+# ---------- paths ----------
+# AiderDesk global config (host uses XDG location managed by dotfiles)
+AIDER_DESK_GLOBAL="${HOME}/.config/aider-desk"
+# Aider engine config (dotfiles-managed)
+AIDER_CONFIG="${HOME}/.config/aider/aider.conf.yml"
+
+# SSH agent socket (1Password symlink)
+SSH_AGENT_SOCK="${HOME}/.1password/agent.sock"
+
+# Project name for container-side mount path
+PROJECT_BASENAME="$(basename "$PROJECT_DIR")"
+PROJECT_CONTAINER_PATH="/projects/${PROJECT_BASENAME}"
+
+# Ensure global AiderDesk config dir exists with expected subdirs
+mkdir -p \
+  "${AIDER_DESK_GLOBAL}/hooks" \
+  "${AIDER_DESK_GLOBAL}/skills" \
+  "${AIDER_DESK_GLOBAL}/agents" \
+  "${AIDER_DESK_GLOBAL}/commands" \
+  "${AIDER_DESK_GLOBAL}/prompts" \
+  "${AIDER_DESK_GLOBAL}/rules"
+
+# ---------- session ----------
 RESUME_SESSION=0
 if [ -z "$SESSION_NAME" ]; then
   if prompt_session_choice; then
-    # Creating new session
     ensure_unique_container_name "$SESSION_NAME"
   else
-    # Resuming existing session
     RESUME_SESSION=1
   fi
 else
-  # Session name provided via command line
   if docker ps -a --format '{{.Names}}' | grep -qx "$SESSION_NAME"; then
     echo "Session '$SESSION_NAME' already exists."
     read -r -p "Resume existing session? (y/N): " resume_choice
     case "$resume_choice" in
-      [Yy]|[Yy][Ee][Ss])
-        RESUME_SESSION=1
-        ;;
-      *)
-        die "Session name '$SESSION_NAME' already exists. Choose a different --name or resume the existing one."
-        ;;
+    [Yy] | [Yy][Ee][Ss]) RESUME_SESSION=1 ;;
+    *) die "Session '$SESSION_NAME' exists. Choose a different --name or resume." ;;
     esac
   else
     ensure_unique_container_name "$SESSION_NAME"
   fi
 fi
 
-SESS_ROOT="${HOME}/.local/share/aider/sessions"
-SESS_PATH="${SESS_ROOT}/${SESSION_NAME}"
+# Volume name for AiderDesk persistent data (per-session)
+DATA_VOLUME="${SESSION_NAME}-data"
 
-if [ "$RESUME_SESSION" -eq 0 ]; then
-  ensure_volume_bound "$SESSION_NAME" "$SESS_PATH"
-fi
-
-# Image pull policy
+# ---------- image pull ----------
 if [ "$PULL_IMAGE" -eq 1 ]; then
   docker pull "$IMAGE"
 else
   docker image inspect "$IMAGE" >/dev/null 2>&1 || docker pull "$IMAGE"
 fi
 
-# ---------- inject default Aider flags if not present (use container paths) ----------
-contains_flag() {
-  local f="$1"; shift || true
-  local x
-  for x in "$@"; do
-    if [ "$x" = "$f" ]; then return 0; fi
-    case "$x" in "$f"=*) return 0 ;; esac
-  done
-  return 1
-}
-
-if ! contains_flag --env-file "${AIDER_ARGS[@]+"${AIDER_ARGS[@]}"}"; then
-  AIDER_ARGS+=(--env-file "$ENV_IN")
-fi
-if ! contains_flag --config "${AIDER_ARGS[@]+"${AIDER_ARGS[@]}"}"; then
-  AIDER_ARGS+=(--config "$CONF_IN")
-fi
-
 # ---------- run ----------
 if [ "$RESUME_SESSION" -eq 1 ]; then
-  echo "Resuming existing session: $SESSION_NAME"
-  set -x
-  docker start -ai "$SESSION_NAME"
-  set +x
+  # AiderDesk is a daemon — just restart the stopped container
+  echo "Resuming session: $SESSION_NAME"
+  docker start "$SESSION_NAME"
+  echo ""
+  echo "Session '$SESSION_NAME' resumed."
+  echo "  UI:   http://localhost:${HOST_PORT}"
+  echo "  Logs: docker logs -f $SESSION_NAME"
+  echo "  Stop: docker stop $SESSION_NAME"
 else
-  DOCKER_VOLUMES=(
-    --volume "$PWD:/app"
-    --volume "$SESSION_NAME:/aider"
-    --volume "$AIDER_ENV_FILE:$ENV_IN:ro"
-    --volume "$AIDER_CONTAINER_CONFIG:$CONF_IN:ro"
+  # --- Environment ---
+  DOCKER_ENV=(
+    -e "GIT_USER_NAME=${GIT_USER_NAME}"
+    -e "GIT_USER_EMAIL=${GIT_USER_EMAIL}"
+    -e "AIDER_DESK_PROJECTS=${PROJECT_CONTAINER_PATH}"
   )
 
-  # Mount Git config if it exists
-  if [ -d "$GIT_CONFIG_DIR" ]; then
-    DOCKER_VOLUMES+=(--volume "$GIT_CONFIG_DIR:$GIT_CONFIG_IN:ro")
+  # Fall back to host git config for signing key
+  if [ -z "${GIT_SIGNING_KEY:-}" ]; then
+    host_gpg_format="$(git config gpg.format 2>/dev/null || true)"
+    if [ "$host_gpg_format" = "ssh" ]; then
+      : "${GIT_SIGNING_KEY:=$(git config user.signingkey 2>/dev/null || true)}"
+    fi
+  fi
+  if [ -n "${GIT_SIGN_COMMITS:-}" ]; then
+    DOCKER_ENV+=(-e "GIT_SIGN_COMMITS=${GIT_SIGN_COMMITS}")
   fi
 
+  # SSH agent forwarding
+  if [ -S "$SSH_AGENT_SOCK" ]; then
+    DOCKER_ENV+=(-e "SSH_AUTH_SOCK=/run/1password/agent.sock")
+  elif [ -n "${GIT_SIGNING_KEY:-}" ]; then
+    echo "WARNING: GIT_SIGNING_KEY is set but ${SSH_AGENT_SOCK} not found." >&2
+    echo "         Commit signing will fail without the SSH agent socket." >&2
+  fi
+
+  # --- Volumes ---
+  DOCKER_VOLUMES=(
+    -v "${PROJECT_DIR}:${PROJECT_CONTAINER_PATH}"
+    -v "${DATA_VOLUME}:/app/data"
+    -v "${AIDER_DESK_GLOBAL}:/root/.aider-desk"
+  )
+  # Aider engine config (read-only, home-level fallback)
+  if [ -f "$AIDER_CONFIG" ]; then
+    DOCKER_VOLUMES+=(-v "${AIDER_CONFIG}:/root/.aider.conf.yml:ro")
+  fi
+
+  if [ -S "$SSH_AGENT_SOCK" ]; then
+    DOCKER_VOLUMES+=(-v "${SSH_AGENT_SOCK}:/run/1password/agent.sock")
+  fi
+
+  # --- Port ---
+  DOCKER_PORTS=(-p "${HOST_PORT}:24337")
+
   echo "Starting new session: $SESSION_NAME"
-  set -x
+  echo "  Project:  ${PROJECT_DIR} → ${PROJECT_CONTAINER_PATH}"
+  echo "  Config:   ${AIDER_DESK_GLOBAL} → /root/.aider-desk"
+  echo "  Data vol: ${DATA_VOLUME} → /app/data"
+  echo "  UI:       http://localhost:${HOST_PORT}"
+  echo ""
+
   docker run \
-    -it \
+    -d \
     --name "$SESSION_NAME" \
-    --user "$(id -u):$(id -g)" \
     "${DOCKER_VOLUMES[@]}" \
+    "${DOCKER_ENV[@]}" \
+    "${DOCKER_PORTS[@]}" \
     ${DOCKER_EXTRAS[@]+"${DOCKER_EXTRAS[@]}"} \
-    "$IMAGE" \
-    "${AIDER_ARGS[@]}"
-  set +x
+    "$IMAGE"
+
+  echo ""
+  echo "Session '$SESSION_NAME' started."
+  echo "  UI:   http://localhost:${HOST_PORT}"
+  echo "  Logs: docker logs -f $SESSION_NAME"
+  echo "  Stop: docker stop $SESSION_NAME"
 fi

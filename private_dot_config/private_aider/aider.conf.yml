@@ -1,175 +1,55 @@
 ---
-env-file: ${AIDER_ENV_FILE}
-
-# Note: You can only put OpenAI and Anthropic API keys in the YAML
-# config file. Keys for all APIs can be stored in a .env file
-# https://aider.chat/docs/config/dotenv.html
-
-##########
-# options:
-
-## show this help message and exit
-#help: xxx
+# .aider.conf.yml — Aider engine config for AiderDesk
+#
+# AiderDesk controls the UI; only engine-relevant settings belong here.
+# API keys go in .env (same directory) or the AiderDesk UI.
 
 #############
 # Main model:
 
-## Specify the model to use for the main chat
 model: openrouter/anthropic/claude-opus-4.5
 weak-model: openai/gpt-5-mini
-
-## Set the reasoning_effort API parameter (default: not set)
-#reasoning-effort: xxx
-
-## Set the thinking token budget for models that support it. Use 0 to disable. (default: not set)
-#thinking-tokens: xxx
-
-## Verify the SSL cert when connecting to models (default: True)
-#verify-ssl: true
-
-## Timeout in seconds for API calls (default: None)
-#timeout: xxx
-
-## Specify what edit format the LLM should use (default depends on model)
-#edit-format: xxx
 
 ## Use architect edit format for the main chat
 architect: true
 
-## Enable/disable automatic acceptance of architect changes (default: True)
+## Require manual acceptance of architect changes
 auto-accept-architect: false
-
-## Specify the model to use for editor tasks (default depends on --model)
-#editor-model: xxx
-
-## Specify the edit format for the editor model (default: depends on editor model)
-#editor-edit-format: xxx
-
-## Only work with models that have meta-data available (default: True)
-#show-model-warnings: true
-
-## Check if model accepts settings like reasoning_effort/thinking_tokens (default: True)
-#check-model-accepts-settings: true
-
-## Soft limit on tokens for chat history, after which summarization begins. If unspecified, defaults to the model's max_chat_history_tokens.
-#max-chat-history-tokens: xxx
 
 #################
 # Cache Settings:
 
-## Enable caching of prompts (default: False)
 cache-prompts: true
 
 ################
-# History Files:
+# History:
 
-## Specify the chat input history file (default: .aider.input.history)
-# input-history-file: /aider/aider.input.history
-
-## Specify the chat history file (default: .aider.chat.history.md)
-# chat-history-file: /aider/aider.chat.history.md
-
-## Restore the previous chat history messages (default: False)
 restore-chat-history: true
-
-## Log the conversation with the LLM to this file (for example, .aider.llm.history)
-# llm-history-file: /aider/aider.llm.history
-
-##################
-# Output Settings:
-
-## Use colors suitable for a dark terminal background (default: False)
-dark-mode: false
-
-## Use colors suitable for a light terminal background (default: False)
-light-mode: false
-
-## Enable/disable pretty, colorized output (default: True)
-pretty: true
-
-## Enable/disable streaming responses (default: True)
-stream: false
-
-## Set the color for user input (default: #00cc00)
-user-input-color: #00cc00
-
-## Set the color for tool output (default: None)
-#tool-output-color: xxx
-
-## Set the color for tool error messages (default: #FF2222)
-#tool-error-color: #FF2222
-
-## Set the color for tool warning messages (default: #FFA500)
-#tool-warning-color: #FFA500
-
-## Set the color for assistant output (default: #0088ff)
-#assistant-output-color: #0088ff
-
-## Set the color for the completion menu (default: terminal's default text color)
-#completion-menu-color: xxx
-
-## Set the background color for the completion menu (default: terminal's default background color)
-#completion-menu-bg-color: xxx
-
-## Set the color for the current item in the completion menu (default: terminal's default background color)
-#completion-menu-current-color: xxx
-
-## Set the background color for the current item in the completion menu (default: terminal's default text color)
-#completion-menu-current-bg-color: xxx
-
-## Set the markdown code theme (default: default, other options include monokai, solarized-dark, solarized-light)
-#code-theme: default
-
-## Show diffs when committing changes (default: False)
-#show-diffs: false
 
 ###############
 # Git Settings:
 
-## Enable/disable looking for a git repo (default: True)
-git: true
-
-## Enable/disable adding .aider* to .gitignore (default: True)
-gitignore: false
-
-## Specify the aider ignore file (default: .aiderignore in git root)
-aiderignore: /aider/.aiderignore
-
-## Only consider files in the current subtree of the git repository
-subtree-only: false
-
-## Enable/disable auto commit of LLM changes (default: True)
+## Let AiderDesk / the user control commits
 auto-commits: false
 
-## Enable/disable commits when repo is found dirty (default: True)
+## Allow commits when repo is dirty
 dirty-commits: true
 
-## Attribute aider code changes in the git author name (default: True)
+## No aider attribution in commits — we use our own commit-prompt
 attribute-author: false
-
-## Attribute aider commits in the git committer name (default: True)
 attribute-committer: false
-
-## Prefix commit messages with 'aider: ' if aider authored the changes (default: False)
 attribute-commit-message-author: false
-
-## Prefix all commit messages with 'aider: ' (default: False)
 attribute-commit-message-committer: false
-
-## Attribute aider edits using the Co-authored-by trailer in the commit message (default: True). If True, this takes precedence over default --attribute-author and --attribute-committer behavior unless they are explicitly set to True.
 attribute-co-authored-by: false
 
-## Commit all pending changes with a suitable commit message, then exit
-commit: false
-
-## Specify a custom prompt for generating commit messages
+## Custom commit message prompt
 commit-prompt: |-
   You are my hands-on Staff/Principal Engineer collaborator generating a Git commit message.
   You must produce ONE commit message that accurately reflects what is being committed.
 
   INPUTS YOU MUST USE
-  - The staged diff / provided patch content (source of truth for “what changed”).
-  - Any available conversation context (source of truth for “why it changed” and intended behavior).
+  - The staged diff / provided patch content (source of truth for "what changed").
+  - Any available conversation context (source of truth for "why it changed" and intended behavior).
 
   CORE PRINCIPLES
   - Diff is truth for WHAT. User/context (if present) explains WHY and INTENT.
@@ -201,21 +81,21 @@ commit-prompt: |-
   BODY RULES (preferred when changes are non-trivial)
   - Body SHOULD explain:
     1) What changed (high-level behavior, not file lists)
-    2) Why it changed (rationale, problem, tradeoffs) — ONLY if supported by provided context; otherwise state “Why: not provided.”
+    2) Why it changed (rationale, problem, tradeoffs) — ONLY if supported by provided context; otherwise state "Why: not provided."
     3) Any notable constraints/impacts (compatibility, perf, security, ops) when relevant/visible
   - Be detailed but not verbose: aim for 3–8 short lines or bullet points.
   - Do NOT include:
-    - file names, directory lists, or “changed X files”
+    - file names, directory lists, or "changed X files"
     - raw diffs, function-by-function summaries, or long code blocks
   - Wrap at ~120 characters per line.
 
   TESTING NOTE (when relevant)
   - If tests were added/updated: mention the intent (behavior verified) and optionally how to run (brief).
-  - If tests were not added but arguably should be: include a short rationale ONLY if supported by context; otherwise state “Tests: not indicated.”
+  - If tests were not added but arguably should be: include a short rationale ONLY if supported by context; otherwise state "Tests: not indicated."
 
   FOOTERS
   - If the commit introduces a breaking change (clear from diff/context):
-    - Add “!” after TYPE or TYPE(SCOPE)! in the subject, AND
+    - Add "!" after TYPE or TYPE(SCOPE)! in the subject, AND
     - Add a footer: BREAKING CHANGE: <clear description of what breaks and migration note>.
   - Include issue references if present (e.g., Refs: ABC-123).
   - Use other conventional footers only when meaningful.
@@ -223,9 +103,9 @@ commit-prompt: |-
   CHALLENGE / CONSISTENCY CHECK (NON-INTERACTIVE)
   - Compare any provided intent/rationale to the diff.
   - If there is a mismatch, do NOT ask questions; instead, describe the change according to the diff and include a brief note in the body:
-    “Note: stated intent differs from observed diff; message reflects staged changes.”
+    "Note: stated intent differs from observed diff; message reflects staged changes."
 
-  TYPE & SCOPE SELECTION HEURISTICS
+  TYPE & SCOPE SELECTION HEURISTIC
   - feat: new user-visible capability
   - fix: bug correction
   - refactor: internal change without behavior change
@@ -237,185 +117,25 @@ commit-prompt: |-
   OUTPUT REQUIREMENT
   Reply with ONLY the commit message text (subject + optional body + optional footers).
   No additional commentary, explanations, or preface outside the commit message.
-#dry-run: false
-## Skip the sanity check for the git repository (default: False)
-#skip-sanity-check-repo: false
 
-## Enable/disable watching files for ai coding comments (default: False)
-watch-files: false
+## Don't add .aider* to .gitignore (we manage it ourselves)
+gitignore: false
 
 ########################
 # Fixing and committing:
 
-## Lint and fix provided files, or dirty files if none provided
-#lint: false
-
-## Specify lint commands to run for different languages, eg: "python: flake8 --select=..." (can be used multiple times)
-#lint-cmd: xxx
-## Specify multiple values like this:
-#lint-cmd:
-#  - xxx
-#  - yyy
-#  - zzz
-
-## Enable/disable automatic linting after changes (default: True)
 auto-lint: true
-
-## Specify command to run tests
-#test-cmd: xxx
-
-## Enable/disable automatic testing after changes (default: False)
 auto-test: false
-
-## Run tests, fix problems found and then exit
-test: false
 
 ############
 # Analytics:
 
-## Enable/disable analytics for current session (default: random)
-#analytics: xxx
-
-## Specify a file to log analytics events
-#analytics-log: xxx
-
-## Permanently disable analytics
 analytics-disable: true
 
 ############
 # Upgrading:
 
-## Check for updates and return status in the exit code
+check-update: false
 just-check-update: false
-
-## Check for new aider versions on launch
-check-update: true
-
-## Show release notes on first run of new version (default: None, ask user)
-#show-release-notes: xxx
-
-## Install the latest version from the main branch
 install-main-branch: false
-
-## Upgrade aider to the latest version from PyPI
 upgrade: false
-
-## Show the version number and exit
-#version: xxx
-
-########
-# Modes:
-
-## Specify a single message to send the LLM, process reply then exit (disables chat mode)
-#message: xxx
-
-## Specify a file containing the message to send the LLM, process reply, then exit (disables chat mode)
-#message-file: xxx
-
-## Run aider in your browser (default: False)
-gui: false
-
-## Enable automatic copy/paste of chat between aider and web UI (default: False)
-copy-paste: false
-
-## Apply the changes from the given file instead of running the chat (debug)
-#apply: xxx
-
-## Apply clipboard contents as edits using the main model's editor format
-apply-clipboard-edits: false
-
-## Do all startup activities then exit before accepting user input (debug)
-exit: false
-
-## Print the repo map and exit (debug)
-show-repo-map: false
-
-## Print the system prompts and exit (debug)
-show-prompts: false
-
-#################
-# Voice settings:
-
-## Audio format for voice recording (default: wav). webm and mp3 require ffmpeg
-voice-format: mp3
-
-## Specify the language for voice using ISO 639-1 code (default: auto)
-voice-language: en
-
-## Specify the input device name for voice recording
-#voice-input-device: xxx
-
-#################
-# Other Settings:
-
-## Never prompt for or attempt to install Playwright for web scraping (default: False).
-disable-playwright: false
-
-## specify a file to edit (can be used multiple times)
-#file: xxx
-## Specify multiple values like this:
-#file:
-#  - xxx
-#  - yyy
-#  - zzz
-
-## specify a read-only file (can be used multiple times)
-#read: xxx
-## Specify multiple values like this:
-#read:
-#  - xxx
-#  - yyy
-#  - zzz
-
-# Use VI editing mode in the terminal (default: False)
-vim: true
-
-## Specify the language to use in the chat (default: None, uses system settings)
-#chat-language: xxx
-
-## Always say yes to every confirmation
-yes-always: false
-
-## Enable verbose output
-verbose: false
-
-## Show the version number and exit
-#version: xxx
-
-## Load and execute /commands from a file on launch
-#load: xxx
-
-## Specify the encoding for input and output (default: utf-8)
-encoding: utf-8
-
-## Line endings to use when writing files (default: platform)
-line-endings: platform
-
-## Specify the config file (default: search for .aider.conf.yml in git root, cwd or home directory)
-#config: xxx
-
-## Specify the .env file to load (default: .env in git root)
-#env-file: .env
-
-## Enable/disable suggesting shell commands (default: True)
-suggest-shell-commands: true
-
-## Enable/disable fancy input with history and completion (default: True)
-fancy-input: true
-
-## Enable/disable multi-line input mode with Meta-Enter to submit (default: False)
-multiline: false
-
-## Enable/disable terminal bell notifications when LLM responses are ready (default: False)
-notifications: false
-
-## Specify a command to run for notifications instead of the terminal bell. If not specified, a default command for your OS may be used.
-#notifications-command: xxx
-
-## Enable/disable detection and offering to add URLs to chat (default: True)
-detect-urls: true
-
-## Specify which editor to use for the /editor command
-editor: nvim
-## Print shell completion script for the specified SHELL and exit. Supported shells: bash, tcsh, zsh. Example: aider --shell-completions bash
-#shell-completions: xxx

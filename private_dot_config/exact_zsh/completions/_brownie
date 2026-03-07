@@ -1,4 +1,4 @@
-#compdef brownie brownie-run
+#compdef brownie
 
 _brownie() {
   local context state state_descr
@@ -24,25 +24,25 @@ _brownie() {
     fi
   fi
 
-  # Before `--`: complete wrapper opts and common aider flags
+  # Before `--`: complete wrapper options only
   _arguments -S -s \
     '(-h --help)'{-h,--help}'[show help and exit]' \
     '--about[explain the Brownie folklore name]' \
-    '(-n --name)'{-n,--name}'[docker-compatible session name]:session name:_brownie_sessions' \
+    '(-n --name)'{-n,--name}'[session/container name]:session name:_brownie_sessions' \
     '(-i --image)'{-i,--image}'[container image to run]:image:_brownie_images' \
+    '(-p --port)'{-p,--port}'[host port for AiderDesk UI (default: 24337)]:port:' \
+    '(-d --dir)'{-d,--dir}'[project directory to mount (default: $PWD)]:directory:_directories' \
     '--pull[pull the image before running]' \
-    '--[end of Aider args; start docker run args]' \
-    '*::aider-opt:_brownie_aider'
+    '--[end of wrapper args; start docker run args]'
 }
 
 _brownie_sessions() {
-  local sessdir="${HOME}/.local/share/aider/sessions"
-  if [[ -d "$sessdir" ]]; then
-    local -a entries
-    entries=(${(f)"$(command ls -1A -- "$sessdir" 2>/dev/null)"})
-    (( $#entries )) && compadd -- $entries || _message 'session name'
+  local -a sessions
+  sessions=(${(f)"$(docker ps -a --filter 'name=brownie-' --format '{{.Names}}' 2>/dev/null)"})
+  if (( $#sessions )); then
+    _describe 'session' sessions
   else
-    _message 'session name'
+    _message 'session name (leave blank to auto-generate)'
   fi
 }
 
@@ -50,17 +50,6 @@ _brownie_images() {
   local -a imgs
   imgs=(${(f)"$(docker image ls --format '{{.Repository}}:{{.Tag}}' 2>/dev/null)"})
   (( $#imgs )) && compadd -- $imgs || _message 'image'
-}
-
-# Light suggestions for common Aider flags; everything else passes through.
-_brownie_aider() {
-  _values 'aider options' \
-    '--config[path to aider config]' \
-    '--env-file[path to env file with keys]' \
-    '--model[LLM model]' \
-    '--message[initial message]' \
-    '--no-stream[disable streaming]' \
-    '--yes[assume yes to prompts]'
 }
 
 _brownie "$@"
