@@ -173,9 +173,11 @@
 # URL shorthands
 [url "git@github.com:"]
   insteadOf = "gh:"
-  insteadOf = "https://github.com/"
   pushInsteadOf = "github:"
   pushInsteadOf = "git://github.com/"
+{{- if stat "/Applications/1Password.app/Contents/MacOS/op-ssh-sign" }}
+  insteadOf = "https://github.com/"
+{{- end }}
 
 [url "git://github.com/"]
   insteadOf = "github:"
