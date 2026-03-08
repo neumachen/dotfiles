@@ -3,6 +3,13 @@
 
 set -e # -e: exit on error
 
+# Ensure Homebrew is in PATH
+if [ -f /opt/homebrew/bin/brew ]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+elif [ -f /usr/local/bin/brew ]; then
+  eval "$(/usr/local/bin/brew shellenv)"
+fi
+
 HELFERLEIN_DIR="${HOME}/.local/share/meine-helferlein"
 if [ -d "${HELFERLEIN_DIR}" ]; then
   export PATH="${HELFERLEIN_DIR}:${PATH}"
@@ -13,19 +20,12 @@ _log_ok()    { if command -v echo-ok    &>/dev/null; then echo-ok    "$@"; else 
 _log_warn()  { if command -v echo-warn  &>/dev/null; then echo-warn  "$@"; else echo "[WARN] --- $*" >&2; fi; }
 _log_err()   { if command -v echo-err   &>/dev/null; then echo-err   "$@"; else echo "[ERROR] --- $*" >&2; fi; }
 
-if ! command -v brew &>/dev/null; then
-  _log_info "Installing Homebrew..."
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-  # Add Homebrew to PATH for the remainder of this run
-  if [ -f /opt/homebrew/bin/brew ]; then
-    eval "$(/opt/homebrew/bin/brew shellenv)"
-  elif [ -f /usr/local/bin/brew ]; then
-    eval "$(/usr/local/bin/brew shellenv)"
-  fi
-
-  _log_ok "Homebrew installed successfully."
+LINUXIFY="${HELFERLEIN_DIR}/linuxify"
+if [ -x "${LINUXIFY}" ]; then
+  _log_info "Running linuxify install..."
+  "${LINUXIFY}" install
+  _log_ok "linuxify install complete."
 else
-  _log_ok "Homebrew is already installed."
+  _log_warn "${LINUXIFY} not found or not executable, skipping."
 fi
 {{- end }}
