@@ -15,6 +15,14 @@
 #   • Args AFTER  `--` are passed directly to `docker run`.
 #   • Git identity and signing config are injected via env vars.
 #   • AiderDesk runs as a headless web server (detached).
+#
+# Session lifecycle:
+#   • Session data lives at ~/.local/share/aider-desk/<session>/data
+#   • If a container exists (running or stopped), it is reused.
+#   • If the container is gone but the data directory remains,
+#     a new container is created pointing at the existing data.
+#   • Specifying `-n <name>` without a random suffix allows
+#     deterministic session restore after container removal.
 
 set -Eeuo pipefail
 
@@ -47,7 +55,9 @@ Usage:
   brownie [wrapper-opts] -- [docker run opts ...]
 
 Wrapper options (before --):
-  -n, --name         Session/container name (auto-generated if omitted).
+  -n, --name         Session/container name (default: brownie-<project>).
+                     Deterministic names allow restoring sessions even
+                     after the container has been removed.
   -i, --image        Image to run (default: brownie:latest).
   -p, --port         Host port for AiderDesk UI (default: 24337).
   -d, --dir          Project directory to mount (default: $PWD).
@@ -69,16 +79,22 @@ SSH agent forwarding (required for commit signing):
 
 Mounts (automatic):
   Project dir              → /projects/<basename>  (project directory)
+  ~/.local/share/aider-desk/<session>/data
+                           → /app/state            (persistent data, survives container removal)
   ~/.config/aider-desk/    → /root/.aider-desk/    (global hooks, skills, etc.)
-  Named volume (per-session) → /app/data           (AiderDesk persistent data)
+  ~/.config/aider/aider.conf.yml
+                           → /root/.aider.conf.yml (aider config, read-only)
   ~/.1password/agent.sock  → /run/1password/agent.sock  (SSH agent, if exists)
 
-  Project-level .aider-desk/ (hooks, skills, tasks) travels with the
-  project mount automatically.
+Session restore:
+  Data is stored on the host at ~/.local/share/aider-desk/<session>/data.
+  If the container is removed, running brownie with the same -n <name>
+  will create a new container that picks up the existing data.
 
 Examples:
-  brownie
-  brownie -n my-project
+  brownie                          # auto-named from project dir
+  brownie -n my-project            # deterministic name, restorable
+  brownie -n my-project            # same command restores the session
   brownie -p 8080
   brownie -d ~/code/my-app -n my-app
   brownie --pull -n docs -- --network host
@@ -98,18 +114,6 @@ sanitize_docker_name() {
   printf '%s\n' "$out"
 }
 
-rand6() {
-  LC_ALL=C tr -dc 'a-z0-9' </dev/urandom 2>/dev/null | head -c6 ||
-    printf '%s' "$(date +%s%N | md5 2>/dev/null | cut -c1-6)"
-}
-
-ensure_unique_container_name() {
-  local name="$1"
-  if docker ps -a --format '{{.Names}}' | grep -qx "$name"; then
-    die "Container name '$name' already exists. Choose a different --name."
-  fi
-}
-
 list_existing_sessions() {
   docker ps -a --filter "name=${DEFAULT_PREFIX}-" \
     --format "table {{.Names}}\t{{.Status}}\t{{.CreatedAt}}" 2>/dev/null || true
@@ -120,73 +124,90 @@ get_existing_session_names() {
     --format "{{.Names}}" 2>/dev/null | sort || true
 }
 
-prompt_session_choice() {
-  local existing_sessions
-  existing_sessions="$(get_existing_session_names)"
+# List sessions that have data on disk (including those without containers)
+get_data_sessions() {
+  local data_root="${HOME}/.local/share/aider-desk"
+  if [ -d "$data_root" ]; then
+    find "$data_root" -maxdepth 1 -mindepth 1 -type d -exec basename {} \; 2>/dev/null | sort || true
+  fi
+}
 
-  if [ -z "$existing_sessions" ]; then
-    SESSION_NAME="$(prompt_session_name)"
-    return 0
+prompt_session_choice() {
+  local -a container_sessions=() data_only_sessions=() all_sessions=()
+
+  # Sessions with live containers
+  while IFS= read -r s; do
+    [ -n "$s" ] && container_sessions+=("$s")
+  done < <(get_existing_session_names)
+
+  # Sessions with data on disk but no container
+  while IFS= read -r s; do
+    [ -n "$s" ] || continue
+    local found=0
+    for cs in "${container_sessions[@]+"${container_sessions[@]}"}"; do
+      [ "$cs" = "$s" ] && {
+        found=1
+        break
+      }
+    done
+    [ "$found" -eq 0 ] && data_only_sessions+=("$s")
+  done < <(get_data_sessions)
+
+  all_sessions=("${container_sessions[@]+"${container_sessions[@]}"}" "${data_only_sessions[@]+"${data_only_sessions[@]}"}")
+
+  if [ ${#all_sessions[@]} -eq 0 ]; then
+    SESSION_NAME="$(make_default_session_name)"
+    return 0 # new session
   fi
 
   echo "Found existing sessions:"
-  list_existing_sessions
-  echo
+  echo ""
+  local i=1
+  for s in "${container_sessions[@]+"${container_sessions[@]}"}"; do
+    local status
+    status="$(docker inspect --format '{{.State.Status}}' "$s" 2>/dev/null || echo "unknown")"
+    echo "  $i) $s  [container: ${status}]"
+    ((i++))
+  done
+  for s in "${data_only_sessions[@]+"${data_only_sessions[@]}"}"; do
+    echo "  $i) $s  [data only — container removed]"
+    ((i++))
+  done
+  echo ""
   echo "Options:"
-  echo "  1) Resume an existing session"
-  echo "  2) Create a new session"
-  echo
+  echo "  Enter a number to resume a session"
+  echo "  Or press Enter to create a new session"
+  echo ""
+
   local choice
-  read -r -p "Choose option (1 or 2): " choice
+  read -r -p "Choice: " choice
 
-  case "$choice" in
-  1)
-    echo "Available sessions:"
-    local i=1 session_array=()
-    while IFS= read -r session; do
-      echo "  $i) $session"
-      session_array+=("$session")
-      ((i++))
-    done <<<"$existing_sessions"
+  if [ -z "$choice" ]; then
+    SESSION_NAME="$(make_default_session_name)"
+    return 0 # new session
+  fi
 
-    if [ ${#session_array[@]} -eq 1 ]; then
-      SESSION_NAME="${session_array[0]}"
-      echo "Resuming session: $SESSION_NAME"
+  if [[ "$choice" =~ ^[0-9]+$ ]] &&
+    [ "$choice" -ge 1 ] &&
+    [ "$choice" -le ${#all_sessions[@]} ]; then
+    SESSION_NAME="${all_sessions[$((choice - 1))]}"
+
+    # Check if this is a container session or data-only
+    if docker ps -a --format '{{.Names}}' | grep -qx "$SESSION_NAME"; then
+      return 1 # resume existing container
     else
-      echo
-      read -r -p "Enter session number to resume: " session_num
-      if [[ "$session_num" =~ ^[0-9]+$ ]] &&
-        [ "$session_num" -ge 1 ] &&
-        [ "$session_num" -le ${#session_array[@]} ]; then
-        SESSION_NAME="${session_array[$((session_num - 1))]}"
-        echo "Resuming session: $SESSION_NAME"
-      else
-        die "Invalid session number"
-      fi
+      return 2 # restore from data (no container)
     fi
-    return 1 # resuming
-    ;;
-  2)
-    SESSION_NAME="$(prompt_session_name)"
-    return 0 # new
-    ;;
-  *)
-    die "Invalid choice."
-    ;;
-  esac
+  fi
+
+  die "Invalid choice."
 }
 
-prompt_session_name() {
-  local base hash candidate
-  read -r -p "Session name (leave blank to auto-generate): " candidate || true
-  candidate="$(sanitize_docker_name "$candidate")"
-  if [ -z "$candidate" ] || [ "$candidate" = "session" ]; then
-    base="$(basename "$PROJECT_DIR" | sanitize_docker_name)"
-    [ -n "$base" ] || base="workspace"
-    hash="$(rand6)"
-    candidate="$(sanitize_docker_name "${DEFAULT_PREFIX}-${base}-${hash}")"
-  fi
-  printf '%s\n' "$candidate"
+make_default_session_name() {
+  local base
+  base="$(basename "$PROJECT_DIR" | sanitize_docker_name)"
+  [ -n "$base" ] || base="workspace"
+  sanitize_docker_name "${DEFAULT_PREFIX}-${base}"
 }
 
 print_about() { printf '%s\n' "$BROWNIE_ABOUT"; }
@@ -211,7 +232,7 @@ parse_args() {
       ;;
     -n | --name)
       [ $# -ge 2 ] || die "--name requires an argument"
-      SESSION_NAME="$(sanitize_docker_name "$2")"
+      SESSION_NAME="$(sanitize_docker_name "${DEFAULT_PREFIX}-$2")"
       shift 2
       ;;
     -i | --image)
@@ -251,32 +272,24 @@ parse_args "$@"
 have docker || die "docker not found in PATH."
 have git || die "git not found in PATH (needed to read host identity)."
 
-# Fall back to the host's git config if env vars aren't explicitly set.
-# This reads through ~/.config/git/config → profile include chain.
 : "${GIT_USER_NAME:=$(git config user.name 2>/dev/null || true)}"
 : "${GIT_USER_EMAIL:=$(git config user.email 2>/dev/null || true)}"
 
 [ -n "${GIT_USER_NAME:-}" ] || die "GIT_USER_NAME is not set and git config user.name is empty."
 [ -n "${GIT_USER_EMAIL:-}" ] || die "GIT_USER_EMAIL is not set and git config user.email is empty."
 
-# Resolve project dir to absolute path
 PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
 [ -d "$PROJECT_DIR" ] || die "Project directory does not exist: $PROJECT_DIR"
 
 # ---------- paths ----------
-# AiderDesk global config (host uses XDG location managed by dotfiles)
 AIDER_DESK_GLOBAL="${HOME}/.config/aider-desk"
-# Aider engine config (dotfiles-managed)
+AIDER_DESK_DATA_ROOT="${HOME}/.local/share/aider-desk"
 AIDER_CONFIG="${HOME}/.config/aider/aider.conf.yml"
-
-# SSH agent socket (1Password symlink)
 SSH_AGENT_SOCK="${HOME}/.1password/agent.sock"
 
-# Project name for container-side mount path
 PROJECT_BASENAME="$(basename "$PROJECT_DIR")"
 PROJECT_CONTAINER_PATH="/projects/${PROJECT_BASENAME}"
 
-# Ensure global AiderDesk config dir exists with expected subdirs
 mkdir -p \
   "${AIDER_DESK_GLOBAL}/hooks" \
   "${AIDER_DESK_GLOBAL}/skills" \
@@ -285,29 +298,29 @@ mkdir -p \
   "${AIDER_DESK_GLOBAL}/prompts" \
   "${AIDER_DESK_GLOBAL}/rules"
 
-# ---------- session ----------
-RESUME_SESSION=0
+# ---------- session resolution ----------
+# Returns:
+#   0 = new session
+#   1 = resume existing container (stopped or running)
+#   2 = restore from data directory (container removed)
+SESSION_ACTION=0
+
 if [ -z "$SESSION_NAME" ]; then
-  if prompt_session_choice; then
-    ensure_unique_container_name "$SESSION_NAME"
-  else
-    RESUME_SESSION=1
-  fi
+  prompt_session_choice
+  SESSION_ACTION=$?
 else
+  # Name was provided explicitly
   if docker ps -a --format '{{.Names}}' | grep -qx "$SESSION_NAME"; then
-    echo "Session '$SESSION_NAME' already exists."
-    read -r -p "Resume existing session? (y/N): " resume_choice
-    case "$resume_choice" in
-    [Yy] | [Yy][Ee][Ss]) RESUME_SESSION=1 ;;
-    *) die "Session '$SESSION_NAME' exists. Choose a different --name or resume." ;;
-    esac
+    SESSION_ACTION=1 # container exists
+  elif [ -d "${AIDER_DESK_DATA_ROOT}/${SESSION_NAME}/data" ]; then
+    SESSION_ACTION=2 # data exists, no container
   else
-    ensure_unique_container_name "$SESSION_NAME"
+    SESSION_ACTION=0 # fresh
   fi
 fi
 
-# Volume name for AiderDesk persistent data (per-session)
-DATA_VOLUME="${SESSION_NAME}-data"
+# Session data directory on host
+SESSION_DATA="${AIDER_DESK_DATA_ROOT}/${SESSION_NAME}/data"
 
 # ---------- image pull ----------
 if [ "$PULL_IMAGE" -eq 1 ]; then
@@ -316,80 +329,131 @@ else
   docker image inspect "$IMAGE" >/dev/null 2>&1 || docker pull "$IMAGE"
 fi
 
-# ---------- run ----------
-if [ "$RESUME_SESSION" -eq 1 ]; then
-  # AiderDesk is a daemon — just restart the stopped container
-  echo "Resuming session: $SESSION_NAME"
-  docker start "$SESSION_NAME"
-  echo ""
-  echo "Session '$SESSION_NAME' resumed."
-  echo "  UI:   http://localhost:${HOST_PORT}"
-  echo "  Logs: docker logs -f $SESSION_NAME"
-  echo "  Stop: docker stop $SESSION_NAME"
-else
+# ---------- helper: build docker run command ----------
+run_new_container() {
+  # Ensure data directory exists
+  mkdir -p "$SESSION_DATA"
+
   # --- Environment ---
-  DOCKER_ENV=(
+  local -a docker_env=(
     -e "GIT_USER_NAME=${GIT_USER_NAME}"
     -e "GIT_USER_EMAIL=${GIT_USER_EMAIL}"
     -e "AIDER_DESK_PROJECTS=${PROJECT_CONTAINER_PATH}"
+    -e "AIDER_DESK_DATA_DIR=/app/state"
   )
 
-  # Fall back to host git config for signing key
+  # Signing key (fall back to host git config)
   if [ -z "${GIT_SIGNING_KEY:-}" ]; then
+    local host_gpg_format
     host_gpg_format="$(git config gpg.format 2>/dev/null || true)"
     if [ "$host_gpg_format" = "ssh" ]; then
       : "${GIT_SIGNING_KEY:=$(git config user.signingkey 2>/dev/null || true)}"
     fi
   fi
+  if [ -n "${GIT_SIGNING_KEY:-}" ]; then
+    docker_env+=(-e "GIT_SIGNING_KEY=${GIT_SIGNING_KEY}")
+  fi
   if [ -n "${GIT_SIGN_COMMITS:-}" ]; then
-    DOCKER_ENV+=(-e "GIT_SIGN_COMMITS=${GIT_SIGN_COMMITS}")
+    docker_env+=(-e "GIT_SIGN_COMMITS=${GIT_SIGN_COMMITS}")
   fi
 
-  # SSH agent forwarding
+  # SSH agent
   if [ -S "$SSH_AGENT_SOCK" ]; then
-    DOCKER_ENV+=(-e "SSH_AUTH_SOCK=/run/1password/agent.sock")
+    docker_env+=(-e "SSH_AUTH_SOCK=/run/1password/agent.sock")
   elif [ -n "${GIT_SIGNING_KEY:-}" ]; then
     echo "WARNING: GIT_SIGNING_KEY is set but ${SSH_AGENT_SOCK} not found." >&2
     echo "         Commit signing will fail without the SSH agent socket." >&2
   fi
 
   # --- Volumes ---
-  DOCKER_VOLUMES=(
+  local -a docker_volumes=(
     -v "${PROJECT_DIR}:${PROJECT_CONTAINER_PATH}"
-    -v "${DATA_VOLUME}:/app/data"
+    -v "${SESSION_DATA}:/app/state"
     -v "${AIDER_DESK_GLOBAL}:/root/.aider-desk"
   )
-  # Aider engine config (read-only, home-level fallback)
+
   if [ -f "$AIDER_CONFIG" ]; then
-    DOCKER_VOLUMES+=(-v "${AIDER_CONFIG}:/root/.aider.conf.yml:ro")
+    docker_volumes+=(-v "${AIDER_CONFIG}:/root/.aider.conf.yml:ro")
   fi
 
   if [ -S "$SSH_AGENT_SOCK" ]; then
-    DOCKER_VOLUMES+=(-v "${SSH_AGENT_SOCK}:/run/1password/agent.sock")
+    docker_volumes+=(-v "${SSH_AGENT_SOCK}:/run/1password/agent.sock")
   fi
 
   # --- Port ---
-  DOCKER_PORTS=(-p "${HOST_PORT}:24337")
-
-  echo "Starting new session: $SESSION_NAME"
-  echo "  Project:  ${PROJECT_DIR} → ${PROJECT_CONTAINER_PATH}"
-  echo "  Config:   ${AIDER_DESK_GLOBAL} → /root/.aider-desk"
-  echo "  Data vol: ${DATA_VOLUME} → /app/data"
-  echo "  UI:       http://localhost:${HOST_PORT}"
-  echo ""
+  local -a docker_ports=(-p "${HOST_PORT}:24337")
 
   docker run \
     -d \
     --name "$SESSION_NAME" \
-    "${DOCKER_VOLUMES[@]}" \
-    "${DOCKER_ENV[@]}" \
-    "${DOCKER_PORTS[@]}" \
+    "${docker_volumes[@]}" \
+    "${docker_env[@]}" \
+    "${docker_ports[@]}" \
     ${DOCKER_EXTRAS[@]+"${DOCKER_EXTRAS[@]}"} \
     "$IMAGE"
+}
+
+# ---------- run ----------
+case "$SESSION_ACTION" in
+0)
+  # New session
+  echo "Creating new session: $SESSION_NAME"
+  echo "  Project:  ${PROJECT_DIR} → ${PROJECT_CONTAINER_PATH}"
+  echo "  Config:   ${AIDER_DESK_GLOBAL} → /root/.aider-desk"
+  if [ -f "$AIDER_CONFIG" ]; then
+    echo "  Aider:    ${AIDER_CONFIG} → /root/.aider.conf.yml (ro)"
+  fi
+  echo "  Data:     ${SESSION_DATA} → /app/state"
+  echo "  UI:       http://localhost:${HOST_PORT}"
+  echo ""
+
+  run_new_container
 
   echo ""
   echo "Session '$SESSION_NAME' started."
   echo "  UI:   http://localhost:${HOST_PORT}"
   echo "  Logs: docker logs -f $SESSION_NAME"
   echo "  Stop: docker stop $SESSION_NAME"
-fi
+  ;;
+
+1)
+  # Existing container (running or stopped)
+  container_status="$(docker inspect --format '{{.State.Status}}' "$SESSION_NAME" 2>/dev/null || echo "unknown")"
+
+  if [ "$container_status" = "running" ]; then
+    echo "Session '$SESSION_NAME' is already running."
+    echo "  UI:   http://localhost:${HOST_PORT}"
+    echo "  Logs: docker logs -f $SESSION_NAME"
+    echo "  Stop: docker stop $SESSION_NAME"
+  else
+    echo "Resuming session: $SESSION_NAME"
+    docker start "$SESSION_NAME"
+    echo ""
+    echo "Session '$SESSION_NAME' resumed."
+    echo "  UI:   http://localhost:${HOST_PORT}"
+    echo "  Logs: docker logs -f $SESSION_NAME"
+    echo "  Stop: docker stop $SESSION_NAME"
+  fi
+  ;;
+
+2)
+  # Data exists but container was removed — restore
+  echo "Restoring session: $SESSION_NAME (container was removed, data preserved)"
+  echo "  Project:  ${PROJECT_DIR} → ${PROJECT_CONTAINER_PATH}"
+  echo "  Config:   ${AIDER_DESK_GLOBAL} → /root/.aider-desk"
+  if [ -f "$AIDER_CONFIG" ]; then
+    echo "  Aider:    ${AIDER_CONFIG} → /root/.aider.conf.yml (ro)"
+  fi
+  echo "  Data:     ${SESSION_DATA} → /app/state (existing)"
+  echo "  UI:       http://localhost:${HOST_PORT}"
+  echo ""
+
+  run_new_container
+
+  echo ""
+  echo "Session '$SESSION_NAME' restored."
+  echo "  UI:   http://localhost:${HOST_PORT}"
+  echo "  Logs: docker logs -f $SESSION_NAME"
+  echo "  Stop: docker stop $SESSION_NAME"
+  ;;
+esac
