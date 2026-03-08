@@ -15,13 +15,16 @@ merge:
     - "{{`{{ .Source }}"
     - "{{ .Target }}`}}"
 data:
+  onepassword:
+    vault: {{ promptStringOnce . "onepassword.vault" "1Password vault name (e.g. Personal, Private)" | quote }}
+    ssh_signing_key: {{ promptStringOnce . "onepassword.ssh_signing_key" "SSH signing key (e.g. ssh-ed25519 AAAA...)" | quote }}
   git:
     profile: |
       [user]
         email = kareem@hepburn.info
         name = Kareem Hepburn
 {{- if stat "/Applications/1Password.app/Contents/MacOS/op-ssh-sign" }}
-        signingKey = ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFoyAAGM4r9Lkj2rsjZbXE2f3TfW63Y7GXsURireuGvb
+        signingKey = {{ .onepassword.ssh_signing_key }}
       [gpg]
         format = ssh
       [gpg "ssh"]

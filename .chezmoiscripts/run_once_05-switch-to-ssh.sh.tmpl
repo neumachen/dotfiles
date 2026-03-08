@@ -1,0 +1,120 @@
+#!/bin/bash
+{{- if eq .chezmoi.os "darwin" }}
+
+set -e # -e: exit on error
+
+# Ensure Homebrew is in PATH
+if [ -f /opt/homebrew/bin/brew ]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+elif [ -f /usr/local/bin/brew ]; then
+  eval "$(/usr/local/bin/brew shellenv)"
+fi
+
+HELFERLEIN_DIR="${HOME}/.local/share/meine-helferlein"
+if [ -d "${HELFERLEIN_DIR}" ]; then
+  export PATH="${HELFERLEIN_DIR}:${PATH}"
+fi
+
+_log_info()  { if command -v echo-info  &>/dev/null; then echo-info  "$@"; else echo "[INFO] --- $*"; fi; }
+_log_ok()    { if command -v echo-ok    &>/dev/null; then echo-ok    "$@"; else echo "[SUCCESS] --- $*"; fi; }
+_log_warn()  { if command -v echo-warn  &>/dev/null; then echo-warn  "$@"; else echo "[WARN] --- $*" >&2; fi; }
+_log_err()   { if command -v echo-err   &>/dev/null; then echo-err   "$@"; else echo "[ERROR] --- $*" >&2; fi; }
+
+OP_SSH_SIGN="/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
+
+if [ ! -f "${OP_SSH_SIGN}" ]; then
+  _log_warn "1Password SSH agent not found, keeping HTTPS remotes."
+  exit 0
+fi
+
+# Verify 1Password CLI is available and can authenticate
+if ! command -v op &>/dev/null; then
+  _log_warn "1Password CLI (op) not found, keeping HTTPS remotes."
+  _log_warn "Ensure 'cask 1password-cli' was installed and run 'chezmoi apply' again."
+  exit 0
+fi
+
+_log_info "Verifying 1Password CLI integration with desktop app..."
+if op account list &>/dev/null; then
+  _log_ok "1Password CLI is configured and can authenticate."
+else
+  _log_info "1Password CLI needs to connect to the desktop app."
+  _log_info "Please ensure:"
+  _log_info "  1. 1Password desktop app is running and unlocked"
+  _log_info "  2. Settings > Developer > 'Integrate with 1Password CLI' is enabled"
+
+  if op signin 2>/dev/null; then
+    _log_ok "1Password CLI signed in successfully."
+  else
+    _log_warn "Could not sign in to 1Password CLI."
+    _log_warn "Enable CLI integration in 1Password and run 'chezmoi apply' again."
+    exit 0
+  fi
+fi
+
+# Verify access to the configured 1Password vault
+OP_VAULT="{{ .onepassword.vault }}"
+if [ -n "${OP_VAULT}" ]; then
+  _log_info "Verifying access to 1Password vault: ${OP_VAULT}..."
+  if op vault get "${OP_VAULT}" &>/dev/null; then
+    _log_ok "1Password vault '${OP_VAULT}' is accessible."
+  else
+    _log_warn "Cannot access 1Password vault '${OP_VAULT}'."
+    _log_warn "Check vault name and permissions, then run 'chezmoi apply' again."
+    exit 0
+  fi
+else
+  _log_warn "No 1Password vault configured. Run 'chezmoi init' to set it."
+  exit 0
+fi
+
+# Test SSH connectivity to GitHub via 1Password SSH agent
+_log_info "Testing SSH connectivity to GitHub..."
+if ssh -o StrictHostKeyChecking=accept-new -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
+  _log_ok "SSH authentication to GitHub successful."
+else
+  _log_warn "SSH authentication to GitHub failed, keeping HTTPS remotes."
+  _log_warn "Ensure your SSH key is configured in 1Password and added to GitHub."
+  exit 0
+fi
+
+_log_info "1Password SSH agent detected. Switching to SSH..."
+
+# Switch the chezmoi source repo remote from HTTPS to SSH
+SOURCE_DIR="{{ .chezmoi.sourceDir }}"
+if [ -d "${SOURCE_DIR}/.git" ] || [ -f "${SOURCE_DIR}/.git" ]; then
+  current_url="$(git -C "${SOURCE_DIR}" remote get-url origin 2>/dev/null || true)"
+  case "${current_url}" in
+    https://github.com/*)
+      # Convert https://github.com/user/repo.git -> git@github.com:user/repo.git
+      ssh_url="$(echo "${current_url}" | sed 's|https://github.com/|git@github.com:|')"
+      git -C "${SOURCE_DIR}" remote set-url origin "${ssh_url}"
+      _log_ok "Switched chezmoi source remote to SSH: ${ssh_url}"
+      ;;
+    git@github.com:*)
+      _log_ok "Chezmoi source remote already using SSH."
+      ;;
+    *)
+      _log_warn "Chezmoi source remote URL not recognized: ${current_url}"
+      ;;
+  esac
+else
+  _log_warn "Chezmoi source directory not found at ${SOURCE_DIR}, skipping remote switch."
+fi
+
+# Re-apply chezmoi to regenerate templates now that 1Password is available.
+# This ensures git config picks up the SSH signing key and insteadOf rewrite,
+# and the git profile includes the gpg/commit signing configuration.
+CHEZMOI="${HOME}/.local/bin/chezmoi"
+if [ ! -x "${CHEZMOI}" ]; then
+  CHEZMOI="$(command -v chezmoi 2>/dev/null || true)"
+fi
+
+if [ -n "${CHEZMOI}" ] && [ -x "${CHEZMOI}" ]; then
+  _log_info "Re-applying chezmoi to regenerate templates with SSH/signing config..."
+  "${CHEZMOI}" apply --force
+  _log_ok "chezmoi re-apply complete."
+else
+  _log_warn "chezmoi not found, please run 'chezmoi apply' manually to update templates."
+fi
+{{- end }}
