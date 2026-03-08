@@ -117,6 +117,8 @@ commit-prompt: |-
   OUTPUT REQUIREMENT
   Reply with ONLY the commit message text (subject + optional body + optional footers).
   No additional commentary, explanations, or preface outside the commit message.
+  Do NOT wrap the output in markdown code fences (```), backticks, or any other formatting.
+  The response must be plain text only — ready to pass directly to `git commit -m`.
 
 ## Don't add .aider* to .gitignore (we manage it ourselves)
 gitignore: false
