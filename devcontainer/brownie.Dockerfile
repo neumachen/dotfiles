@@ -25,6 +25,11 @@ ENV AIDER_DESK_DATA_DIR=/app/data
 ENV AIDER_DESK_PORT=24337
 
 VOLUME ["/app/data"]
+# Override the data directory to a path without a VOLUME declaration.
+# The upstream VOLUME ["/app/data"] causes Docker to auto-create
+# anonymous volumes; using /app/state avoids that entirely.
+ENV AIDER_DESK_DATA_DIR=/app/state
+
 EXPOSE ${AIDER_DESK_PORT}
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
