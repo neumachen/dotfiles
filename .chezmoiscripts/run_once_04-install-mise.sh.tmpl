@@ -1,0 +1,46 @@
+#!/bin/bash
+{{- if eq .chezmoi.os "darwin" }}
+
+set -e # -e: exit on error
+
+# Ensure Homebrew is in PATH
+if [ -f /opt/homebrew/bin/brew ]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+elif [ -f /usr/local/bin/brew ]; then
+  eval "$(/usr/local/bin/brew shellenv)"
+fi
+
+HELFERLEIN_DIR="${HOME}/.local/share/meine-helferlein"
+if [ -d "${HELFERLEIN_DIR}" ]; then
+  export PATH="${HELFERLEIN_DIR}:${PATH}"
+fi
+
+_log_info()  { if command -v echo-info  &>/dev/null; then echo-info  "$@"; else echo "[INFO] --- $*"; fi; }
+_log_ok()    { if command -v echo-ok    &>/dev/null; then echo-ok    "$@"; else echo "[SUCCESS] --- $*"; fi; }
+_log_warn()  { if command -v echo-warn  &>/dev/null; then echo-warn  "$@"; else echo "[WARN] --- $*" >&2; fi; }
+_log_err()   { if command -v echo-err   &>/dev/null; then echo-err   "$@"; else echo "[ERROR] --- $*" >&2; fi; }
+
+if command -v mise &>/dev/null; then
+  _log_info "Installing mise-managed tools..."
+  mise install --yes
+  _log_ok "mise tools installed successfully."
+else
+  _log_warn "mise not found, skipping mise install."
+fi
+
+_log_ok "Setup complete. Restarting terminal..."
+
+# Restart WezTerm so the new shell picks up all PATH changes
+if wezterm cli spawn --new-window &>/dev/null; then
+  # WezTerm server was already running; spawned a new window, close this session
+  sleep 1
+  kill -TERM "${PPID}" 2>/dev/null || true
+elif [ -d "/Applications/WezTerm.app" ]; then
+  # WezTerm is installed but not running (e.g. first run from Terminal.app)
+  open -a WezTerm
+  sleep 1
+  kill -TERM "${PPID}" 2>/dev/null || true
+else
+  _log_warn "WezTerm not found. Please close and reopen your terminal manually."
+fi
+{{- end }}

@@ -4,10 +4,20 @@
 
 set -e # -e: exit on error
 
+HELFERLEIN_DIR="${HOME}/.local/share/meine-helferlein"
+if [ -d "${HELFERLEIN_DIR}" ]; then
+  export PATH="${HELFERLEIN_DIR}:${PATH}"
+fi
+
+_log_info()  { if command -v echo-info  >/dev/null 2>&1; then echo-info  "$@"; else echo "[INFO] --- $*"; fi; }
+_log_ok()    { if command -v echo-ok    >/dev/null 2>&1; then echo-ok    "$@"; else echo "[SUCCESS] --- $*"; fi; }
+_log_warn()  { if command -v echo-warn  >/dev/null 2>&1; then echo-warn  "$@"; else echo "[WARN] --- $*" >&2; fi; }
+_log_err()   { if command -v echo-err   >/dev/null 2>&1; then echo-err   "$@"; else echo "[ERROR] --- $*" >&2; fi; }
+
 # Create required directories before chezmoi runs
 # These are needed by various dotfiles and chezmoi itself
 create_required_dirs() {
-  echo "Creating required directories..."
+  _log_info "Creating required directories..."
   
   # Local bin directories
   mkdir -p "${HOME}/.local/bin"
@@ -39,7 +49,7 @@ if [ ! "$(command -v chezmoi)" ]; then
   elif command -v wget >/dev/null 2>&1; then
     sh -c "$(wget -qO- https://git.io/chezmoi)" -- -b "$bin_dir"
   else
-    echo "To install chezmoi, you must have curl or wget installed." >&2
+    _log_err "To install chezmoi, you must have curl or wget installed."
     exit 1
   fi
 else
@@ -57,6 +67,6 @@ else
   # Fresh install - clone via HTTPS (no SSH key required)
   repo="https://github.com/neumachen/dotfiles.git"
   
-  echo "Cloning dotfiles via HTTPS (no SSH key required)..."
+  _log_info "Cloning dotfiles via HTTPS (no SSH key required)..."
   exec "$chezmoi" init --apply "$repo"
 fi
