@@ -15,6 +15,8 @@
 #   • Args AFTER  `--` are passed directly to `docker run`.
 #   • Git identity and signing config are injected via env vars.
 #   • AiderDesk runs as a headless web server (detached).
+#   • Use --rebuild to (re)build the local image from the Dockerfile,
+#     pulling the latest upstream AiderDesk base image in the process.
 #
 # Session lifecycle:
 #   • Session data lives at ~/.local/share/aider-desk/<session>/data
@@ -33,6 +35,7 @@ DEFAULT_PORT=24337
 
 IMAGE="$DEFAULT_IMAGE"
 PULL_IMAGE=0
+REBUILD_IMAGE=0
 SESSION_NAME=""
 HOST_PORT="$DEFAULT_PORT"
 PROJECT_DIR="$PWD"
@@ -61,7 +64,9 @@ Wrapper options (before --):
   -i, --image        Image to run (default: brownie:latest).
   -p, --port         Host port for AiderDesk UI (default: 24337).
   -d, --dir          Project directory to mount (default: $PWD).
-      --pull         Always docker pull IMAGE before running.
+      --pull         Pull the upstream base image and rebuild before running.
+      --rebuild      (Re)build the local brownie image from the Dockerfile.
+                     Implies pulling the latest upstream AiderDesk image.
       --about        Explain why this tool is named "Brownie".
   -h, --help         Show this help and exit.
 
@@ -254,6 +259,10 @@ parse_args() {
       PULL_IMAGE=1
       shift
       ;;
+    --rebuild)
+      REBUILD_IMAGE=1
+      shift
+      ;;
     *) die "Unknown option: $1 (use -- to pass extra flags to docker run)" ;;
     esac
   done
@@ -306,8 +315,18 @@ mkdir -p \
 SESSION_ACTION=0
 
 if [ -z "$SESSION_NAME" ]; then
-  prompt_session_choice
-  SESSION_ACTION=$?
+  # Check if the default session name for this directory already exists
+  default_name="$(make_default_session_name)"
+  if docker ps -a --format '{{.Names}}' | grep -qx "$default_name"; then
+    SESSION_NAME="$default_name"
+    SESSION_ACTION=1 # container exists
+  elif [ -d "${AIDER_DESK_DATA_ROOT}/${default_name}/data" ]; then
+    SESSION_NAME="$default_name"
+    SESSION_ACTION=2 # data exists, no container
+  else
+    prompt_session_choice
+    SESSION_ACTION=$?
+  fi
 else
   # Name was provided explicitly
   if docker ps -a --format '{{.Names}}' | grep -qx "$SESSION_NAME"; then
@@ -322,11 +341,49 @@ fi
 # Session data directory on host
 SESSION_DATA="${AIDER_DESK_DATA_ROOT}/${SESSION_NAME}/data"
 
-# ---------- image pull ----------
-if [ "$PULL_IMAGE" -eq 1 ]; then
-  docker pull "$IMAGE"
+# ---------- locate Dockerfile (for --rebuild / --pull on local image) ----------
+BROWNIE_SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
+# Walk up from script dir to find the repo root (contains devcontainer/)
+BROWNIE_DOCKERFILE="${BROWNIE_DOCKERFILE:-}"
+if [ -z "$BROWNIE_DOCKERFILE" ]; then
+  # Try common relative paths from the script location
+  for candidate in \
+    "${BROWNIE_SCRIPT_DIR}/../../devcontainer/brownie.Dockerfile" \
+    "${BROWNIE_SCRIPT_DIR}/../../../devcontainer/brownie.Dockerfile" \
+    "${HOME}/.local/share/chezmoi/devcontainer/brownie.Dockerfile"; do
+    candidate="$(realpath -m "$candidate")"
+    if [ -f "$candidate" ]; then
+      BROWNIE_DOCKERFILE="$candidate"
+      break
+    fi
+  done
+fi
+
+build_image() {
+  if [ -z "$BROWNIE_DOCKERFILE" ] || [ ! -f "$BROWNIE_DOCKERFILE" ]; then
+    die "Cannot find brownie.Dockerfile. Set BROWNIE_DOCKERFILE=/path/to/brownie.Dockerfile or ensure the chezmoi source tree is present."
+  fi
+  local build_context
+  build_context="$(dirname "$BROWNIE_DOCKERFILE")"
+  echo "Building image '${IMAGE}' from ${BROWNIE_DOCKERFILE} ..."
+  echo "  (pulling latest upstream AiderDesk base image)"
+  docker build \
+    --pull \
+    --file "$BROWNIE_DOCKERFILE" \
+    --tag "$IMAGE" \
+    "$build_context"
+  echo "Image '${IMAGE}' built successfully."
+  echo ""
+}
+
+# ---------- image pull / build ----------
+if [ "$REBUILD_IMAGE" -eq 1 ] || [ "$PULL_IMAGE" -eq 1 ]; then
+  build_image
 else
-  docker image inspect "$IMAGE" >/dev/null 2>&1 || docker pull "$IMAGE"
+  docker image inspect "$IMAGE" >/dev/null 2>&1 || {
+    echo "Image '${IMAGE}' not found locally — building from Dockerfile ..."
+    build_image
+  }
 fi
 
 # ---------- helper: build docker run command ----------

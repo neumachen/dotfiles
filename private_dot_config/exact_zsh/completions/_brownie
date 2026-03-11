@@ -32,7 +32,8 @@ _brownie() {
     '(-i --image)'{-i,--image}'[container image to run]:image:_brownie_images' \
     '(-p --port)'{-p,--port}'[host port for AiderDesk UI (default: 24337)]:port:' \
     '(-d --dir)'{-d,--dir}'[project directory to mount (default: $PWD)]:directory:_directories' \
-    '--pull[pull the image before running]' \
+    '--pull[pull upstream base image and rebuild before running]' \
+    '--rebuild[(re)build the local brownie image from the Dockerfile]' \
     '--[end of wrapper args; start docker run args]'
 }
 
