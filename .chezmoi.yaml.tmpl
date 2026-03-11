@@ -3,6 +3,7 @@
 sourceDir: ~/MeinCodex/Codebasis/github.com/neumachen/dotfiles
 diff:
   command: nvim
+  page: ""
   args:
     - -d
     - "{{`{{ .Destination }}`}}"
@@ -12,8 +13,8 @@ merge:
   args:
     - -d
     - "{{`{{ .Destination }}`}}"
-    - "{{`{{ .Source }}"
-    - "{{ .Target }}`}}"
+    - "{{`{{ .Source }}`}}"
+    - "{{`{{ .Target }}`}}"
 data:
   onepassword:
     vault: {{ promptStringOnce . "onepassword.vault" "1Password vault name (e.g. Personal, Private)" | quote }}
