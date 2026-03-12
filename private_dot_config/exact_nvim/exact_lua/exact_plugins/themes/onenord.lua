@@ -24,38 +24,6 @@ local background_by_theme = {
   dark = '#2C3441',
 }
 
-local function build_custom_colors()
-  local custom_colors = {}
-  for theme_name, background in pairs(background_by_theme) do
-    custom_colors[theme_name] = {
-      bg = background,
-      float = background,
-      menu = background,
-    }
-  end
-  return custom_colors
-end
-
-local function build_custom_highlights()
-  local highlights = {
-    all = {},
-  }
-
-  if background_by_theme.dark then
-    highlights.dark = {
-      Normal = { bg = background_by_theme.dark },
-      NormalNC = { bg = background_by_theme.dark },
-      NormalSB = { bg = background_by_theme.dark },
-      NormalFloat = { bg = background_by_theme.dark },
-      SignColumn = { bg = background_by_theme.dark },
-      FoldColumn = { bg = background_by_theme.dark },
-      StatusLine = { bg = background_by_theme.dark },
-    }
-  end
-
-  return highlights
-end
-
 local theme = resolve_theme()
 
 return {
@@ -74,7 +42,5 @@ return {
   inverse = {
     match_paren = false,
   },
-  -- custom_highlights = build_custom_highlights(),
-  -- custom_colors = build_custom_colors(),
   color_overrides = {}, -- Additional color overrides
 }

@@ -42,9 +42,6 @@ return {
     map('n', '<localleader>G', function() neogit.open() end, {
       desc = 'open Neogit',
     })
-    map('n', '<leader>tns', function() neogit.open() end, {
-      desc = 'open Neogit status buffer',
-    })
     map('n', '<leader>tnc', function() neogit.open({ 'commit' }) end, {
       desc = 'open commit buffer',
     })

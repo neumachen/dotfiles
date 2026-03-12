@@ -45,7 +45,9 @@ return {
         'dadbod',
         'spell',
         'dictionary',
+        'thesaurus',
         'emoji',
+        'ripgrep',
       },
       providers = {
         lazydev = {
