@@ -1,7 +1,7 @@
 #compdef brownie
 
 _brownie() {
-  local context state state_descr
+  local context state state_descr line
   typeset -A opt_args
 
   local idx_docker=${words[(I)--]}
@@ -10,18 +10,50 @@ _brownie() {
   # If after `--`, delegate to docker run completion
   if (( after_docker )); then
     if (( ${+functions[_docker]} )); then
-      local save_words=("${words[@]}") saveCURRENT=$CURRENT
-      local -a rest
+      local -a save_words rest
+      local saveCURRENT=$CURRENT
+
+      save_words=("${words[@]}")
       rest=("${words[@]:idx_docker+1}")
+
       words=(docker run "${rest[@]}")
-      CURRENT=$(( ${#words[@]} ))
+      CURRENT=$(( saveCURRENT - idx_docker + 2 ))
+
       _docker
-      words=("${save_words[@]}"); CURRENT=$saveCURRENT
+
+      words=("${save_words[@]}")
+      CURRENT=$saveCURRENT
       return
     else
       _message 'docker run options (install Docker zsh completion for full support)'
       return
     fi
+  fi
+
+
+  # Handle additional directory values after -d/--dir.
+  # The wrapper keeps consuming non-option words as directories until the next
+  # option (anything starting with -) or `--`.
+  local i in_dir_list=0
+  for (( i = 2; i < CURRENT; i++ )); do
+    case ${words[i]} in
+      --)
+        break
+        ;;
+      -d|--dir)
+        in_dir_list=1
+        ;;
+      -*)
+        in_dir_list=0
+        ;;
+      *)
+        ;;
+    esac
+  done
+
+  if (( in_dir_list )) && [[ -z ${words[CURRENT]} || ${words[CURRENT]} != -* ]]; then
+    _directories
+    return
   fi
 
   # Before `--`: complete wrapper options only
@@ -31,7 +63,7 @@ _brownie() {
     '(-n --name)'{-n,--name}'[session/container name]:session name:_brownie_sessions' \
     '(-i --image)'{-i,--image}'[container image to run]:image:_brownie_images' \
     '(-p --port)'{-p,--port}'[host port for AiderDesk UI (default: 24337)]:port:' \
-    '*'{-d,--dir}'[project directory to mount (may be repeated)]:directory:_directories' \
+    '*'{-d,--dir}'[project directory to mount (one or more may follow)]:directory:_directories' \
     '--pull[pull upstream base image and rebuild before running]' \
     '--rebuild[(re)build the local brownie image from the Dockerfile]' \
     '--[end of wrapper args; start docker run args]'
