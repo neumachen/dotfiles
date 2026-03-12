@@ -1,5 +1,14 @@
 local Lsp = require('utils.lsp')
 
+---Returns true when biome.json exists and is NOT inside the nvim config dir
+local function use_biome()
+  local path = Lsp.biome_config_path()
+  return path ~= nil and not string.match(path, 'nvim')
+end
+
+---Returns true when prettier/prettierd should be used (i.e. biome is absent)
+local function use_prettier() return not use_biome() end
+
 ---Run the first available formatter followed by more formatters
 ---@param bufnr integer
 ---@param ... string
@@ -99,45 +108,11 @@ return {
       zsh = { 'shfmt' },
     },
     formatters = {
-      biome = {
-        condition = function()
-          local path = Lsp.biome_config_path()
-          -- Skip if biome.json is in nvim
-          local is_nvim = path and string.match(path, 'nvim')
-
-          if path and not is_nvim then return true end
-
-          return false
-        end,
-      },
-      deno_fmt = {
-        condition = function() return Lsp.deno_config_exist() end,
-      },
-      dprint = {
-        condition = function() return Lsp.dprint_config_exist() end,
-      },
-      prettier = {
-        condition = function()
-          local path = Lsp.biome_config_path()
-          -- Skip if biome.json is in nvim
-          local is_nvim = path and string.match(path, 'nvim')
-
-          if path and not is_nvim then return false end
-
-          return true
-        end,
-      },
-      prettierd = {
-        condition = function()
-          local path = Lsp.biome_config_path()
-          -- Skip if biome.json is in nvim
-          local is_nvim = path and string.match(path, 'nvim')
-
-          if path and not is_nvim then return false end
-
-          return true
-        end,
-      },
+      biome = { condition = use_biome },
+      deno_fmt = { condition = function() return Lsp.deno_config_exist() end },
+      dprint = { condition = function() return Lsp.dprint_config_exist() end },
+      prettier = { condition = use_prettier },
+      prettierd = { condition = use_prettier },
     },
     default_format_opts = {
       lsp_format = 'fallback',

@@ -2,7 +2,7 @@
 ---@type LazySpec
 return {
   'sindrets/diffview.nvim',
-  key = {
+  keys = {
     {
       '<localleader>gd',
       '<Cmd>DiffviewOpen<CR>',

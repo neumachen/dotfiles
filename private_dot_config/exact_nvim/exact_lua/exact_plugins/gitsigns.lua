@@ -1,5 +1,5 @@
 local cwd = vim.fn.getcwd
-local map = map or vim.keymap.set
+local map = vim.keymap.set
 
 return {
   'lewis6991/gitsigns.nvim',

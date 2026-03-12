@@ -31,14 +31,16 @@ return {
       },
     })
 
+    -- foldKeymaps.setup=true already maps h/l/$; these additionally bind
+    -- arrow keys to the same origami functions for ergonomic access.
     map('n', '<Left>', function() require('origami').h() end, {
-      desc = 'Origami: fold a line when used on the first non-blank character (or before)',
+      desc = 'Origami: fold (same as h)',
     })
     map('n', '<Right>', function() require('origami').l() end, {
-      desc = 'Origami: unfolds the cursorline when used on a folded line',
+      desc = 'Origami: unfold (same as l)',
     })
     map('n', '<End>', function() require('origami').dollar() end, {
-      desc = 'Origami: unfolds the cursorline recursively when used on a folded line',
+      desc = 'Origami: unfold recursively (same as $)',
     })
   end,
 }
