@@ -23,6 +23,8 @@
 #   • If a container exists (running or stopped), it is reused.
 #   • If the container is gone but the data directory remains,
 #     a new container is created pointing at the existing data.
+#   • Multiple -d/--dir flags mount several directories into the container
+#     and all are registered as AiderDesk projects.
 #   • Specifying `-n <name>` without a random suffix allows
 #     deterministic session restore after container removal.
 
@@ -38,7 +40,7 @@ PULL_IMAGE=0
 REBUILD_IMAGE=0
 SESSION_NAME=""
 HOST_PORT="$DEFAULT_PORT"
-PROJECT_DIR="$PWD"
+PROJECT_DIRS=()
 DOCKER_EXTRAS=()
 
 BROWNIE_ABOUT=$'Brownie — a friendly nod to the Scottish/English household spirit.\n\
@@ -64,6 +66,9 @@ Wrapper options (before --):
   -i, --image        Image to run (default: brownie:latest).
   -p, --port         Host port for AiderDesk UI (default: 24337).
   -d, --dir          Project directory to mount (default: $PWD).
+                     May be specified multiple times to mount several
+                     directories; all are registered as AiderDesk projects.
+                     The first directory is used for session naming.
       --pull         Pull the upstream base image and rebuild before running.
       --rebuild      (Re)build the local brownie image from the Dockerfile.
                      Implies pulling the latest upstream AiderDesk image.
@@ -83,7 +88,7 @@ SSH agent forwarding (required for commit signing):
   automatically mounted when it exists.
 
 Mounts (automatic):
-  Project dir              → /projects/<basename>  (project directory)
+  Project dir(s)           → /projects/<basename>  (one mount per -d dir)
   ~/.local/share/aider-desk/<session>/data
                            → /app/state            (persistent data, survives container removal)
   ~/.config/aider-desk/    → /root/.aider-desk/    (global hooks, skills, etc.)
@@ -97,11 +102,12 @@ Session restore:
   will create a new container that picks up the existing data.
 
 Examples:
-  brownie                          # auto-named from project dir
-  brownie -n my-project            # deterministic name, restorable
-  brownie -n my-project            # same command restores the session
+  brownie                                         # auto-named from project dir
+  brownie -n my-project                           # deterministic name, restorable
+  brownie -n my-project                           # same command restores the session
   brownie -p 8080
   brownie -d ~/code/my-app -n my-app
+  brownie -d ~/code/app -d ~/code/lib -n my-app  # mount multiple dirs
   brownie --pull -n docs -- --network host
 USAGE
 }
@@ -252,7 +258,7 @@ parse_args() {
       ;;
     -d | --dir)
       [ $# -ge 2 ] || die "--dir requires an argument"
-      PROJECT_DIR="$2"
+      PROJECT_DIRS+=("$2")
       shift 2
       ;;
     --pull)
@@ -277,6 +283,11 @@ parse_args() {
 
 parse_args "$@"
 
+# ---------- defaults for dirs ----------
+if [ ${#PROJECT_DIRS[@]} -eq 0 ]; then
+  PROJECT_DIRS=("$PWD")
+fi
+
 # ---------- preflight ----------
 have docker || die "docker not found in PATH."
 have git || die "git not found in PATH (needed to read host identity)."
@@ -287,8 +298,14 @@ have git || die "git not found in PATH (needed to read host identity)."
 [ -n "${GIT_USER_NAME:-}" ] || die "GIT_USER_NAME is not set and git config user.name is empty."
 [ -n "${GIT_USER_EMAIL:-}" ] || die "GIT_USER_EMAIL is not set and git config user.email is empty."
 
-PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
-[ -d "$PROJECT_DIR" ] || die "Project directory does not exist: $PROJECT_DIR"
+# Resolve and validate all project dirs; primary dir is first entry
+declare -a PROJECT_DIRS_ABS=()
+for _d in "${PROJECT_DIRS[@]}"; do
+  _abs="$(cd "$_d" 2>/dev/null && pwd)" || die "Project directory does not exist: $_d"
+  [ -d "$_abs" ] || die "Project directory does not exist: $_d"
+  PROJECT_DIRS_ABS+=("$_abs")
+done
+PROJECT_DIR="${PROJECT_DIRS_ABS[0]}"
 
 # ---------- paths ----------
 AIDER_DESK_GLOBAL="${HOME}/.config/aider-desk"
@@ -296,8 +313,16 @@ AIDER_DESK_DATA_ROOT="${HOME}/.local/share/aider-desk"
 AIDER_CONFIG="${HOME}/.config/aider/aider.conf.yml"
 SSH_AGENT_SOCK="${HOME}/.1password/agent.sock"
 
+# Build per-directory container paths
+declare -a PROJECT_CONTAINER_PATHS=()
+for _d in "${PROJECT_DIRS_ABS[@]}"; do
+  PROJECT_CONTAINER_PATHS+=("/projects/$(basename "$_d")")
+done
+# Colon-separated list for AIDER_DESK_PROJECTS env var
+PROJECT_CONTAINER_PATH_LIST="$(IFS=:; echo "${PROJECT_CONTAINER_PATHS[*]}")"
+# Primary (for display/legacy)
 PROJECT_BASENAME="$(basename "$PROJECT_DIR")"
-PROJECT_CONTAINER_PATH="/projects/${PROJECT_BASENAME}"
+PROJECT_CONTAINER_PATH="${PROJECT_CONTAINER_PATHS[0]}"
 
 mkdir -p \
   "${AIDER_DESK_GLOBAL}/hooks" \
@@ -395,7 +420,7 @@ run_new_container() {
   local -a docker_env=(
     -e "GIT_USER_NAME=${GIT_USER_NAME}"
     -e "GIT_USER_EMAIL=${GIT_USER_EMAIL}"
-    -e "AIDER_DESK_PROJECTS=${PROJECT_CONTAINER_PATH}"
+    -e "AIDER_DESK_PROJECTS=${PROJECT_CONTAINER_PATH_LIST}"
     -e "AIDER_DESK_DATA_DIR=/app/state"
   )
 
@@ -423,8 +448,11 @@ run_new_container() {
   fi
 
   # --- Volumes ---
-  local -a docker_volumes=(
-    -v "${PROJECT_DIR}:${PROJECT_CONTAINER_PATH}"
+  local -a docker_volumes=()
+  for _i in "${!PROJECT_DIRS_ABS[@]}"; do
+    docker_volumes+=(-v "${PROJECT_DIRS_ABS[$_i]}:${PROJECT_CONTAINER_PATHS[$_i]}")
+  done
+  docker_volumes+=(
     -v "${SESSION_DATA}:/app/state"
     -v "${AIDER_DESK_GLOBAL}:/root/.aider-desk"
   )
@@ -455,7 +483,9 @@ case "$SESSION_ACTION" in
 0)
   # New session
   echo "Creating new session: $SESSION_NAME"
-  echo "  Project:  ${PROJECT_DIR} → ${PROJECT_CONTAINER_PATH}"
+  for _i in "${!PROJECT_DIRS_ABS[@]}"; do
+    echo "  Project:  ${PROJECT_DIRS_ABS[$_i]} → ${PROJECT_CONTAINER_PATHS[$_i]}"
+  done
   echo "  Config:   ${AIDER_DESK_GLOBAL} → /root/.aider-desk"
   if [ -f "$AIDER_CONFIG" ]; then
     echo "  Aider:    ${AIDER_CONFIG} → /root/.aider.conf.yml (ro)"
@@ -496,7 +526,9 @@ case "$SESSION_ACTION" in
 2)
   # Data exists but container was removed — restore
   echo "Restoring session: $SESSION_NAME (container was removed, data preserved)"
-  echo "  Project:  ${PROJECT_DIR} → ${PROJECT_CONTAINER_PATH}"
+  for _i in "${!PROJECT_DIRS_ABS[@]}"; do
+    echo "  Project:  ${PROJECT_DIRS_ABS[$_i]} → ${PROJECT_CONTAINER_PATHS[$_i]}"
+  done
   echo "  Config:   ${AIDER_DESK_GLOBAL} → /root/.aider-desk"
   if [ -f "$AIDER_CONFIG" ]; then
     echo "  Aider:    ${AIDER_CONFIG} → /root/.aider.conf.yml (ro)"
