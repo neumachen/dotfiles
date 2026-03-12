@@ -66,8 +66,9 @@ Wrapper options (before --):
   -i, --image        Image to run (default: brownie:latest).
   -p, --port         Host port for AiderDesk UI (default: 24337).
   -d, --dir          Project directory to mount (default: $PWD).
-                     May be specified multiple times to mount several
-                     directories; all are registered as AiderDesk projects.
+                     Accepts one or more directory arguments after the flag,
+                     and may also be specified multiple times. All mounted
+                     directories are registered as AiderDesk projects.
                      The first directory is used for session naming.
       --pull         Pull the upstream base image and rebuild before running.
       --rebuild      (Re)build the local brownie image from the Dockerfile.
@@ -88,7 +89,7 @@ SSH agent forwarding (required for commit signing):
   automatically mounted when it exists.
 
 Mounts (automatic):
-  Project dir(s)           → /projects/<basename>  (one mount per -d dir)
+  Project dir(s)           → /projects/<subdir>  (one mount per supplied dir)
   ~/.local/share/aider-desk/<session>/data
                            → /app/state            (persistent data, survives container removal)
   ~/.config/aider-desk/    → /root/.aider-desk/    (global hooks, skills, etc.)
@@ -107,7 +108,8 @@ Examples:
   brownie -n my-project                           # same command restores the session
   brownie -p 8080
   brownie -d ~/code/my-app -n my-app
-  brownie -d ~/code/app -d ~/code/lib -n my-app  # mount multiple dirs
+  brownie -d ~/code/app ~/code/lib -n my-app     # one -d, multiple dirs
+  brownie -d ~/code/app -d ~/code/lib -n my-app  # repeated -d also works
   brownie --pull -n docs -- --network host
 USAGE
 }
@@ -257,9 +259,24 @@ parse_args() {
       shift 2
       ;;
     -d | --dir)
-      [ $# -ge 2 ] || die "--dir requires an argument"
-      PROJECT_DIRS+=("$2")
-      shift 2
+      shift
+      local added=0
+      while [ $# -gt 0 ]; do
+        case "$1" in
+        --)
+          break
+          ;;
+        -*)
+          break
+          ;;
+        *)
+          PROJECT_DIRS+=("$1")
+          added=1
+          shift
+          ;;
+        esac
+      done
+      [ "$added" -eq 1 ] || die "--dir requires at least one directory argument"
       ;;
     --pull)
       PULL_IMAGE=1
@@ -314,10 +331,26 @@ AIDER_CONFIG="${HOME}/.config/aider/aider.conf.yml"
 SSH_AGENT_SOCK="${HOME}/.1password/agent.sock"
 
 # Build per-directory container paths — each dir is mounted AS a named
-# subdirectory inside /projects (e.g. host /home/user/a-1 → /projects/a-1)
+# subdirectory inside /projects (e.g. host /home/user/a-1 → /projects/a-1).
+# If basenames collide, append a numeric suffix to keep targets unique.
 PROJECT_CONTAINER_PATHS=()
 for _d in "${PROJECT_DIRS_ABS[@]}"; do
-  PROJECT_CONTAINER_PATHS+=("/projects/$(basename -- "$_d")")
+  _base="$(basename -- "$_d")"
+  _name="$_base"
+  _suffix=2
+  while :; do
+    _exists=0
+    for _cp in "${PROJECT_CONTAINER_PATHS[@]}"; do
+      if [ "$_cp" = "/projects/$_name" ]; then
+        _exists=1
+        break
+      fi
+    done
+    [ "$_exists" -eq 0 ] && break
+    _name="${_base}-${_suffix}"
+    _suffix=$((_suffix + 1))
+  done
+  PROJECT_CONTAINER_PATHS+=("/projects/${_name}")
 done
 # Colon-separated list for AIDER_DESK_PROJECTS env var
 PROJECT_CONTAINER_PATH_LIST=""
@@ -462,7 +495,7 @@ run_new_container() {
   local _vi=0
   while [ "$_vi" -lt "${#PROJECT_DIRS_ABS[@]}" ]; do
     docker_volumes+=(-v "${PROJECT_DIRS_ABS[$_vi]}:${PROJECT_CONTAINER_PATHS[$_vi]}")
-    _vi=$(( _vi + 1 ))
+    _vi=$((_vi + 1))
   done
   docker_volumes+=(
     -v "${SESSION_DATA}:/app/state"
@@ -479,6 +512,10 @@ run_new_container() {
 
   # --- Port ---
   local -a docker_ports=(-p "${HOST_PORT}:24337")
+
+  echo "DEBUG: docker run volumes:" >&2
+  for _v in "${docker_volumes[@]}"; do echo "  $_v" >&2; done
+  echo "DEBUG: AIDER_DESK_PROJECTS=${PROJECT_CONTAINER_PATH_LIST}" >&2
 
   docker run \
     -d \
@@ -498,7 +535,7 @@ case "$SESSION_ACTION" in
   _pi=0
   while [ "$_pi" -lt "${#PROJECT_DIRS_ABS[@]}" ]; do
     echo "  Project:  ${PROJECT_DIRS_ABS[$_pi]} → ${PROJECT_CONTAINER_PATHS[$_pi]}"
-    _pi=$(( _pi + 1 ))
+    _pi=$((_pi + 1))
   done
   echo "  Config:   ${AIDER_DESK_GLOBAL} → /root/.aider-desk"
   if [ -f "$AIDER_CONFIG" ]; then
@@ -520,18 +557,24 @@ case "$SESSION_ACTION" in
 1)
   # Existing container (running or stopped)
   container_status="$(docker inspect --format '{{.State.Status}}' "$SESSION_NAME" 2>/dev/null || echo "unknown")"
+  # Retrieve the host port the container was originally created with
+  bound_port="$(docker inspect --format '{{range $p, $b := .HostConfig.PortBindings}}{{range $b}}{{.HostPort}}{{end}}{{end}}' "$SESSION_NAME" 2>/dev/null || echo "$HOST_PORT")"
+  [ -n "$bound_port" ] || bound_port="$HOST_PORT"
 
   if [ "$container_status" = "running" ]; then
     echo "Session '$SESSION_NAME' is already running."
-    echo "  UI:   http://localhost:${HOST_PORT}"
+    echo "  UI:   http://localhost:${bound_port}"
     echo "  Logs: docker logs -f $SESSION_NAME"
     echo "  Stop: docker stop $SESSION_NAME"
   else
     echo "Resuming session: $SESSION_NAME"
+    if [ "$bound_port" != "$HOST_PORT" ]; then
+      echo "  NOTE: Container was created with port ${bound_port}, ignoring -p ${HOST_PORT}."
+    fi
     docker start "$SESSION_NAME"
     echo ""
     echo "Session '$SESSION_NAME' resumed."
-    echo "  UI:   http://localhost:${HOST_PORT}"
+    echo "  UI:   http://localhost:${bound_port}"
     echo "  Logs: docker logs -f $SESSION_NAME"
     echo "  Stop: docker stop $SESSION_NAME"
   fi
@@ -543,7 +586,7 @@ case "$SESSION_ACTION" in
   _pi=0
   while [ "$_pi" -lt "${#PROJECT_DIRS_ABS[@]}" ]; do
     echo "  Project:  ${PROJECT_DIRS_ABS[$_pi]} → ${PROJECT_CONTAINER_PATHS[$_pi]}"
-    _pi=$(( _pi + 1 ))
+    _pi=$((_pi + 1))
   done
   echo "  Config:   ${AIDER_DESK_GLOBAL} → /root/.aider-desk"
   if [ -f "$AIDER_CONFIG" ]; then
