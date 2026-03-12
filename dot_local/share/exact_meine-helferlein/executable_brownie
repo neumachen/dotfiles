@@ -313,10 +313,11 @@ AIDER_DESK_DATA_ROOT="${HOME}/.local/share/aider-desk"
 AIDER_CONFIG="${HOME}/.config/aider/aider.conf.yml"
 SSH_AGENT_SOCK="${HOME}/.1password/agent.sock"
 
-# Build per-directory container paths
+# Build per-directory container paths — each dir is mounted AS a named
+# subdirectory inside /projects (e.g. host /home/user/a-1 → /projects/a-1)
 PROJECT_CONTAINER_PATHS=()
 for _d in "${PROJECT_DIRS_ABS[@]}"; do
-  PROJECT_CONTAINER_PATHS+=("/projects/$(basename "$_d")")
+  PROJECT_CONTAINER_PATHS+=("/projects/$(basename -- "$_d")")
 done
 # Colon-separated list for AIDER_DESK_PROJECTS env var
 PROJECT_CONTAINER_PATH_LIST=""
@@ -455,6 +456,8 @@ run_new_container() {
   fi
 
   # --- Volumes ---
+  # Each project dir is mounted as /projects/<basename>, so the named directory
+  # appears inside /projects rather than its contents being merged into /projects.
   local -a docker_volumes=()
   local _vi=0
   while [ "$_vi" -lt "${#PROJECT_DIRS_ABS[@]}" ]; do
