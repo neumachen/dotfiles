@@ -299,7 +299,7 @@ have git || die "git not found in PATH (needed to read host identity)."
 [ -n "${GIT_USER_EMAIL:-}" ] || die "GIT_USER_EMAIL is not set and git config user.email is empty."
 
 # Resolve and validate all project dirs; primary dir is first entry
-declare -a PROJECT_DIRS_ABS=()
+PROJECT_DIRS_ABS=()
 for _d in "${PROJECT_DIRS[@]}"; do
   _abs="$(cd "$_d" 2>/dev/null && pwd)" || die "Project directory does not exist: $_d"
   [ -d "$_abs" ] || die "Project directory does not exist: $_d"
@@ -314,12 +314,19 @@ AIDER_CONFIG="${HOME}/.config/aider/aider.conf.yml"
 SSH_AGENT_SOCK="${HOME}/.1password/agent.sock"
 
 # Build per-directory container paths
-declare -a PROJECT_CONTAINER_PATHS=()
+PROJECT_CONTAINER_PATHS=()
 for _d in "${PROJECT_DIRS_ABS[@]}"; do
   PROJECT_CONTAINER_PATHS+=("/projects/$(basename "$_d")")
 done
 # Colon-separated list for AIDER_DESK_PROJECTS env var
-PROJECT_CONTAINER_PATH_LIST="$(IFS=:; echo "${PROJECT_CONTAINER_PATHS[*]}")"
+PROJECT_CONTAINER_PATH_LIST=""
+for _cp in "${PROJECT_CONTAINER_PATHS[@]}"; do
+  if [ -z "$PROJECT_CONTAINER_PATH_LIST" ]; then
+    PROJECT_CONTAINER_PATH_LIST="$_cp"
+  else
+    PROJECT_CONTAINER_PATH_LIST="${PROJECT_CONTAINER_PATH_LIST}:${_cp}"
+  fi
+done
 # Primary (for display/legacy)
 PROJECT_BASENAME="$(basename "$PROJECT_DIR")"
 PROJECT_CONTAINER_PATH="${PROJECT_CONTAINER_PATHS[0]}"
@@ -449,8 +456,10 @@ run_new_container() {
 
   # --- Volumes ---
   local -a docker_volumes=()
-  for _i in "${!PROJECT_DIRS_ABS[@]}"; do
-    docker_volumes+=(-v "${PROJECT_DIRS_ABS[$_i]}:${PROJECT_CONTAINER_PATHS[$_i]}")
+  local _vi=0
+  while [ "$_vi" -lt "${#PROJECT_DIRS_ABS[@]}" ]; do
+    docker_volumes+=(-v "${PROJECT_DIRS_ABS[$_vi]}:${PROJECT_CONTAINER_PATHS[$_vi]}")
+    _vi=$(( _vi + 1 ))
   done
   docker_volumes+=(
     -v "${SESSION_DATA}:/app/state"
@@ -483,8 +492,10 @@ case "$SESSION_ACTION" in
 0)
   # New session
   echo "Creating new session: $SESSION_NAME"
-  for _i in "${!PROJECT_DIRS_ABS[@]}"; do
-    echo "  Project:  ${PROJECT_DIRS_ABS[$_i]} → ${PROJECT_CONTAINER_PATHS[$_i]}"
+  _pi=0
+  while [ "$_pi" -lt "${#PROJECT_DIRS_ABS[@]}" ]; do
+    echo "  Project:  ${PROJECT_DIRS_ABS[$_pi]} → ${PROJECT_CONTAINER_PATHS[$_pi]}"
+    _pi=$(( _pi + 1 ))
   done
   echo "  Config:   ${AIDER_DESK_GLOBAL} → /root/.aider-desk"
   if [ -f "$AIDER_CONFIG" ]; then
@@ -526,8 +537,10 @@ case "$SESSION_ACTION" in
 2)
   # Data exists but container was removed — restore
   echo "Restoring session: $SESSION_NAME (container was removed, data preserved)"
-  for _i in "${!PROJECT_DIRS_ABS[@]}"; do
-    echo "  Project:  ${PROJECT_DIRS_ABS[$_i]} → ${PROJECT_CONTAINER_PATHS[$_i]}"
+  _pi=0
+  while [ "$_pi" -lt "${#PROJECT_DIRS_ABS[@]}" ]; do
+    echo "  Project:  ${PROJECT_DIRS_ABS[$_pi]} → ${PROJECT_CONTAINER_PATHS[$_pi]}"
+    _pi=$(( _pi + 1 ))
   done
   echo "  Config:   ${AIDER_DESK_GLOBAL} → /root/.aider-desk"
   if [ -f "$AIDER_CONFIG" ]; then
