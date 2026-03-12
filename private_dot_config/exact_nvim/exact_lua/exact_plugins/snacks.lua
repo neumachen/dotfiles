@@ -127,11 +127,6 @@ return {
       desc = 'Autocmds',
     },
     {
-      '<leader>sb',
-      function() Snacks.picker.lines() end,
-      desc = 'Buffer Lines',
-    },
-    {
       '<leader>sc',
       function() Snacks.picker.command_history() end,
       desc = 'Command History',
@@ -191,13 +186,13 @@ return {
     -- LSP
     {
       'gd',
-      function() snacks.picker.lsp_definitions() end,
-      desc = 'goto definition',
+      function() Snacks.picker.lsp_definitions() end,
+      desc = 'Goto Definition',
     },
     {
-      'gd',
-      function() snacks.picker.lsp_declarations() end,
-      desc = 'goto declaration',
+      'gD',
+      function() Snacks.picker.lsp_declarations() end,
+      desc = 'Goto Declaration',
     },
     {
       'gr',
