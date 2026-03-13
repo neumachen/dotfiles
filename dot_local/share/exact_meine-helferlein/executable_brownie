@@ -381,17 +381,15 @@ mkdir -p \
 SESSION_ACTION=0
 
 if [ -z "$SESSION_NAME" ]; then
-  # Check if the default session name for this directory already exists
+  # Default session name is based on the current working directory basename
   default_name="$(make_default_session_name)"
+  SESSION_NAME="$default_name"
   if docker ps -a --format '{{.Names}}' | grep -qx "$default_name"; then
-    SESSION_NAME="$default_name"
     SESSION_ACTION=1 # container exists
   elif [ -d "${AIDER_DESK_DATA_ROOT}/${default_name}/data" ]; then
-    SESSION_NAME="$default_name"
     SESSION_ACTION=2 # data exists, no container
   else
-    prompt_session_choice
-    SESSION_ACTION=$?
+    SESSION_ACTION=0 # fresh new session
   fi
 else
   # Name was provided explicitly
