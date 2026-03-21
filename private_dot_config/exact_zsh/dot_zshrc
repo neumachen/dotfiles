@@ -8,6 +8,7 @@ source "${HOME}/.shtils"
 
 # ZSH only and most performant way to check existence of an executable
 # https://www.topbug.net/blog/2016/10/11/speed-test-check-the-existence-of-a-command-in-bash-and-zsh/
+# Override the POSIX version from .shtils with the faster zsh-specific version
 command_exists() { (( $+commands[$1] )); }
 
 #############################
@@ -278,12 +279,12 @@ if command_exists chezmoi; then
 fi
 
 # op (1Password CLI)
-if command_exists chezmoi; then
+if command_exists op; then
   znap fpath _op 'op completion zsh'
 fi
 
 # mole
-if command_exists chezmoi; then
+if command_exists mole; then
   znap fpath _mo 'mo completion zsh'
   znap fpath _mole 'mole completion zsh'
 fi

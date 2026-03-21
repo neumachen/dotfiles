@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# Guard against multiple sourcing
+[ -n "$_SHTILS_LOADED" ] && return 0
+_SHTILS_LOADED=1
+
 command_exists() {
     command -v "$1" > /dev/null 2>&1;
 }
@@ -64,53 +68,7 @@ if [ -d "$meine_helferlein_dir" ]; then
   export MEINE_HELFERLEIN="$meine_helferlein_dir"
 fi
 
-# 1Password
-if command_exists op; then
-	op_signin() {
-		if ! op get account >/dev/null 2>&1; then
-			# shellcheck disable=SC2016
-			echo_eval 'eval "$(op signin)"'
-			# Verify we are signed in now
-			op get account >/dev/null 2>&1
-		fi
-	}
-fi
-
-bootstrap() {
-	if ! command_exists op; then
-		echo-err "1Password CLI needs to be installed to run bootstrap scripts."
-		return 1
-	fi
-	op_signin || return "$?"
-	command bootstrap "$@"
-}
-
-if command_exists brew; then
-	if [ -d "$PYENV_ROOT" ]; then
-		brew() {
-			if [ "$VIRTUAL_ENV" != "" ]; then
-				echo-warn "Don't run brew from inside a venv. https://docs.brew.sh/Homebrew-and-Python"
-				return 1
-			fi
-			env "PATH=$(remove_from_path "$PYENV_ROOT")" command brew "$@" || return $?
-		}
-	fi
-	alias brew-upgrade='echo_run brew upgrade --ignore-pinned --display-times'
-fi
-
-remove_from_path() {
-	REPLY="$PATH"
-	while true; do
-		case ":$REPLY" in
-		*:"$1"/*:*) REPLY="${REPLY%%${1}*}${REPLY#*${1}*:}" ;;
-		*"$1"/*) REPLY="${REPLY%%${1}*}" ;;
-		*)
-			echo "${REPLY%:}"
-			break
-			;;
-		esac
-	done
-}
+alias brew-upgrade='echo_run brew upgrade --ignore-pinned --display-times'
 
 autoload_script() {
 	# usage: autoload_script func_name /path/to/func_name
@@ -139,8 +97,6 @@ take() {
 	mkdir -p "$1" && cd "$1"
 }
 
-alias rc="restart_sh" # Reload Config
-alias resh="restart_sh"
 restart_sh() {
 	# Sometimes the shell will be started with a dash in front of the name of the
 	# shell to indicate that it's a login shell. This breaks the restart because
@@ -167,12 +123,6 @@ restart_sh() {
 	echo_run exec "$1" -li
 }
 
-new_or_switch_tab() {
-	echo_run cd "$2"
-	tab "$1"
-	echo_run cd -
-}
-
 new_or_switch_tmux() {
 	if ! tmux has-session -t "$1" >/dev/null 2>&1; then
 		echo_run tmux new-session -d -s "$1" -c "$2"
@@ -189,29 +139,6 @@ new_or_switch_tmux() {
 		# shellcheck disable=SC2164
 		echo_run cd "$2"
 	fi
-}
-
-_tmux_exit() {
-	# NOTE: The exit calls are prefixed with a \ so that they ignore alias
-	# expansion and prevent infinite loops
-	if [ "$TMUX" = "" ]; then
-		# echo 'Exit if we are not in a tmux session'
-		\exit
-	fi
-
-	if [ "$(tmux list-windows 2>/dev/null | wc -l | tr -d ' ')" -ge 2 ]; then
-		# echo 'Exit if there are other windows in the same session'
-		\exit
-	fi
-
-	if ! tmux list-sessions 2>/dev/null | grep --invert-match caffeinate | grep --invert-match --quiet "$(tmux display-message -p '#{session_name}')"; then
-		# echo 'Exit if there are no other (useful) sessions to switch to'
-		\exit
-	fi
-
-	# echo 'Switch to another session'
-	tmux switch-client -t "$(tmux list-sessions 2>/dev/null | grep --invert-match caffeinate | grep --invert-match "$(tmux display-message -p '#{session_name}')" | head -n 1 | cut -d ':' -f 1)"
-	\exit
 }
 
 novenv() {
@@ -324,19 +251,6 @@ venv() {
 	echo_run . "${2}/${1}/bin/activate"
 }
 
-presentation_setup() {
-	new_home="$(mktemp -d)"
-	echo_info "Copying .terminfo to new HOME"
-	cp -r ~/.terminfo "${new_home}/.terminfo"
-	echo_info "Copying .vim to new HOME"
-	cp -r ~/.vim "${new_home}/.vim"
-	echo_info "Adding empty .zshrc"
-	touch "${new_home}/.zshrc"
-	cd "$new_home" || return
-	clear
-	HOME="$new_home" exec zsh -li
-}
-
 remove_from_front_of_path() {
 	while true; do
 		case ":$PATH" in
@@ -350,17 +264,3 @@ remove_from_front_of_path() {
 	done
 }
 
-if [ "$VIRTUAL_ENV" != "" ]; then
-	# Allows you to `rc` (reload config, see aliases below) from inside a virtual
-	# environment without losing the virtual environment. Normally `exec` keeps
-	# all environment variables, but certain ones get overwritten during zsh
-	# initialization. This reinitializes them. Keep this after anything else that
-	# sets the path.
-
-	# Clean the front of $PATH. This is really only used when starting a subshell
-	# while in a virtual environment
-	remove_from_front_of_path "$VIRTUAL_ENV"
-
-	# shellcheck disable=SC1090
-	echo_run . "$VIRTUAL_ENV/bin/activate"
-fi
