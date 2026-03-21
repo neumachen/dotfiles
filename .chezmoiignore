@@ -26,6 +26,25 @@
 .tmux/plugins
 .vim/pack
 .vim/plugged
+# Compiled files
+**/*.zwc
+**/*.pyc
+**/__pycache__
+**/*.class
+**/*.o
+**/*.a
+**/*.so
+**/*.dylib
+**/*.dll
+**/*.exe
+**/*.out
+**/*.beam
+**/*.elc
+**/*.rbc
+**/*.luac
+**/*.fasl
+**/*.hi
+**/*.dvi
 README.md
 bin/chezmoi
 docs/
