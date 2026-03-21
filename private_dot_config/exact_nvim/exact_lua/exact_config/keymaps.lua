@@ -159,8 +159,26 @@ map('i', ',', ',<c-g>u')
 map('i', '.', '.<c-g>u')
 map('i', ';', ';<c-g>u')
 
--- save file
-map({ 'i', 'x', 'n', 's' }, '<F4>', '<cmd>w<cr><esc>', { desc = 'Save File' })
+-- Save file with notification (Ctrl-S in all relevant modes)
+map({ 'n', 'i', 'v', 'x', 's' }, '<C-s>', function()
+  -- Guard: terminal buffers cannot be written
+  if vim.bo.buftype == 'terminal' then return end
+
+  -- Guard: read-only buffers
+  if vim.bo.readonly then
+    vim.notify('  Buffer is read-only', vim.log.levels.WARN)
+    return
+  end
+
+  -- Guard: special non-file buffers (nofile, prompt, help, etc.)
+  if vim.bo.buftype ~= '' then return end
+
+  -- Only write (and notify) when there are actual unsaved changes
+  if vim.bo.modified then
+    vim.cmd.write()
+    vim.notify('  File saved', vim.log.levels.INFO)
+  end
+end, { desc = 'Save File' })
 
 -- keywordprg
 map('n', '<leader>K', '<cmd>norm! K<cr>', { desc = 'Keywordprg' })
