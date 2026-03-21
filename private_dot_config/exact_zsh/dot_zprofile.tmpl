@@ -1,3 +1,123 @@
-# vim:ft=zsh
+# -*- mode: sh; sh-set-shell: zsh -*-
+# vim: ft=zsh
 
-source "${HOME}/.zprofile"
+source "${HOME}/.shtils"
+
+# Override the POSIX command_exists from .shtils with the faster zsh-native version
+command_exists() { (( $+commands[$1] )); }
+
+# Deduplicate PATH entries - catches anything path_helper or other tools add
+typeset -U PATH path
+
+{{ if eq .chezmoi.os "darwin" -}}
+# Set BREW_PREFIX once, authoritatively
+if [[ -z "${BREW_PREFIX}" ]]; then
+  export BREW_PREFIX=$([[ "$(arch)" == "arm64" ]] && echo "/opt/homebrew" || echo "/usr/local")
+fi
+
+# Homebrew bin/sbin - prepend so they beat /usr/bin after path_helper has run
+pathmunge "${BREW_PREFIX}/bin" before
+pathmunge "${BREW_PREFIX}/sbin" before
+
+# Homebrew MANPATH and INFOPATH
+manual_pathmunge "${BREW_PREFIX}/share/man"
+info_pathmunge "${BREW_PREFIX}/share/info"
+
+# GNU coreutils
+pathmunge "${BREW_PREFIX}/opt/coreutils/libexec/gnubin" before
+manual_pathmunge "${BREW_PREFIX}/opt/coreutils/libexec/gnuman"
+
+# GNU make
+pathmunge "${BREW_PREFIX}/opt/make/libexec/gnubin" before
+manual_pathmunge "${BREW_PREFIX}/opt/make/libexec/gnuman"
+
+# GNU m4
+pathmunge "${BREW_PREFIX}/opt/m4/bin" before
+
+# file-formula
+pathmunge "${BREW_PREFIX}/opt/file-formula/bin" before
+
+# unzip
+pathmunge "${BREW_PREFIX}/opt/unzip/bin" before
+
+# flex
+pathmunge "${BREW_PREFIX}/opt/flex/bin" before
+
+# bison
+pathmunge "${BREW_PREFIX}/opt/bison/bin" before
+
+# libressl
+pathmunge "${BREW_PREFIX}/opt/libressl/bin" before
+
+# GNU ed
+pathmunge "${BREW_PREFIX}/opt/ed/libexec/gnubin" before
+
+# GNU findutils
+pathmunge "${BREW_PREFIX}/opt/findutils/libexec/gnubin" before
+
+# gcc
+pathmunge "${BREW_PREFIX}/opt/gcc/bin" before
+
+# GNU awk
+pathmunge "${BREW_PREFIX}/opt/gawk/libexec/gnubin" before
+
+# GNU indent
+pathmunge "${BREW_PREFIX}/opt/gnu-indent/libexec/gnubin" before
+
+# GNU sed
+pathmunge "${BREW_PREFIX}/opt/gnu-sed/libexec/gnubin" before
+
+# GNU tar
+pathmunge "${BREW_PREFIX}/opt/gnu-tar/libexec/gnubin" before
+
+# GNU which
+pathmunge "${BREW_PREFIX}/opt/gnu-which/libexec/gnubin" before
+
+# GNU grep
+pathmunge "${BREW_PREFIX}/opt/grep/libexec/gnubin" before
+
+{{ if eq .chezmoi.arch "arm64" -}}
+# ncurses (arm64 only)
+pathmunge "${BREW_PREFIX}/opt/ncurses/bin" before
+{{ end -}}
+{{ end -}}
+
+if [[ -z "${CHEZMOI_CONFIG_DIR}" ]]; then
+  if command_exists chezmoi; then
+    export CHEZMOI_CONFIG_DIR="${HOME}/.config/chezmoi"
+    [[ -z "${DOTFILES_DIR}" ]] && export DOTFILES_DIR="$(chezmoi source-path)"
+  fi
+fi
+
+# GPG TTY for signing (required when gpg installed via brew)
+[[ -z "${GPG_TTY}" ]] && export GPG_TTY=$(command tty 2>/dev/null)
+
+# Local bin directories - create silently if missing
+_local_bin="${HOME}/.local/bin"
+[[ ! -d "${_local_bin}" ]] && mkdir -p "${_local_bin}"
+export LOCAL_BIN="${_local_bin}"
+
+_local_sbin="${HOME}/.local/sbin"
+[[ ! -d "${_local_sbin}" ]] && mkdir -p "${_local_sbin}"
+export LOCAL_SBIN="${_local_sbin}"
+
+# fzf bin
+_fzf_bin="${HOME}/.local/share/fzf/bin"
+if [[ -d "${_fzf_bin}" ]]; then
+  pathmunge "${_fzf_bin}" after
+fi
+
+# Local bins go after system and Homebrew paths
+pathmunge "${LOCAL_BIN}" after
+pathmunge "${LOCAL_SBIN}" after
+
+# Taskwarrior config
+if [[ ! -d "${XDG_CONFIG_HOME}/taskwarrior" ]] && command_exists task; then
+  export TASKWARRIOR_CONFIG="${XDG_CONFIG_HOME}/taskwarrior"
+fi
+
+{{- if (hasKey . "envvars") }}
+{{ range .envvars }}
+export {{ . }}
+{{- end -}}
+{{ end }}
