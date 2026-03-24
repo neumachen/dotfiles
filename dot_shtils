@@ -42,6 +42,18 @@ pathmunge() {
 	fi
 }
 
+# Usage: path_force_front <directory>
+# Unconditionally moves <directory> to the front of PATH, whether or not it is
+# already present. Unlike pathmunge, this re-orders existing entries, making it
+# immune to path_helper or parent-process PATH ordering surprises.
+path_force_front() {
+	local _p=":${PATH}:"
+	_p="${_p//:${1}:/:}"
+	_p="${_p#:}"
+	_p="${_p%:}"
+	PATH="${1}${_p:+:${_p}}"
+}
+
 manual_pathmunge() {
 	if ! echo "$MANPATH" | grep -Eq "(^|:)$1($|:)"; then
 		if [ "${2}" = "after" ]; then

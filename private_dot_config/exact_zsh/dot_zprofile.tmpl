@@ -15,71 +15,87 @@ if [[ -z "${BREW_PREFIX}" ]]; then
   export BREW_PREFIX=$([[ "$(arch)" == "arm64" ]] && echo "/opt/homebrew" || echo "/usr/local")
 fi
 
-# Homebrew bin/sbin - prepend so they beat /usr/bin after path_helper has run
-pathmunge "${BREW_PREFIX}/bin" before
-pathmunge "${BREW_PREFIX}/sbin" before
-
 # Homebrew MANPATH and INFOPATH
 manual_pathmunge "${BREW_PREFIX}/share/man"
 info_pathmunge "${BREW_PREFIX}/share/info"
-
-# GNU coreutils
-pathmunge "${BREW_PREFIX}/opt/coreutils/libexec/gnubin" before
 manual_pathmunge "${BREW_PREFIX}/opt/coreutils/libexec/gnuman"
-
-# GNU make
-pathmunge "${BREW_PREFIX}/opt/make/libexec/gnubin" before
 manual_pathmunge "${BREW_PREFIX}/opt/make/libexec/gnuman"
 
-# GNU m4
-pathmunge "${BREW_PREFIX}/opt/m4/bin" before
+# Force-front all Homebrew and GNU override paths.
+# path_force_front unconditionally moves an entry to the front of PATH even if
+# path_helper or a parent process already injected it at the wrong position.
+#
+# Calls are in ASCENDING priority order (first call = ends up deepest).
+# The LAST call wins position 1 in the final PATH.
+#
+# Desired final order (left = highest priority / position 1):
+#   coreutils → make → m4 → file-formula → unzip → flex → bison → libressl
+#   → ed → findutils → gcc → gawk → gnu-indent → gnu-sed → gnu-tar → gnu-which
+#   → grep → [ncurses arm64] → /opt/homebrew/bin → /opt/homebrew/sbin → (system)
+#
+# ~/.local/bin and ~/.local/sbin are handled below with pathmunge after
+# and must always appear after all of the above.
 
-# file-formula
-pathmunge "${BREW_PREFIX}/opt/file-formula/bin" before
-
-# unzip
-pathmunge "${BREW_PREFIX}/opt/unzip/bin" before
-
-# flex
-pathmunge "${BREW_PREFIX}/opt/flex/bin" before
-
-# bison
-pathmunge "${BREW_PREFIX}/opt/bison/bin" before
-
-# libressl
-pathmunge "${BREW_PREFIX}/opt/libressl/bin" before
-
-# GNU ed
-pathmunge "${BREW_PREFIX}/opt/ed/libexec/gnubin" before
-
-# GNU findutils
-pathmunge "${BREW_PREFIX}/opt/findutils/libexec/gnubin" before
-
-# gcc
-pathmunge "${BREW_PREFIX}/opt/gcc/bin" before
-
-# GNU awk
-pathmunge "${BREW_PREFIX}/opt/gawk/libexec/gnubin" before
-
-# GNU indent
-pathmunge "${BREW_PREFIX}/opt/gnu-indent/libexec/gnubin" before
-
-# GNU sed
-pathmunge "${BREW_PREFIX}/opt/gnu-sed/libexec/gnubin" before
-
-# GNU tar
-pathmunge "${BREW_PREFIX}/opt/gnu-tar/libexec/gnubin" before
-
-# GNU which
-pathmunge "${BREW_PREFIX}/opt/gnu-which/libexec/gnubin" before
-
-# GNU grep
-pathmunge "${BREW_PREFIX}/opt/grep/libexec/gnubin" before
+# Homebrew bin/sbin first (lowest priority among forced entries — called first)
+path_force_front "${BREW_PREFIX}/sbin"
+path_force_front "${BREW_PREFIX}/bin"
 
 {{ if eq .chezmoi.arch "arm64" -}}
 # ncurses (arm64 only)
-pathmunge "${BREW_PREFIX}/opt/ncurses/bin" before
+[[ -d "${BREW_PREFIX}/opt/ncurses/bin" ]] && path_force_front "${BREW_PREFIX}/opt/ncurses/bin"
 {{ end -}}
+
+# GNU grep
+[[ -d "${BREW_PREFIX}/opt/grep/libexec/gnubin" ]]       && path_force_front "${BREW_PREFIX}/opt/grep/libexec/gnubin"
+
+# GNU which
+[[ -d "${BREW_PREFIX}/opt/gnu-which/libexec/gnubin" ]]  && path_force_front "${BREW_PREFIX}/opt/gnu-which/libexec/gnubin"
+
+# GNU tar
+[[ -d "${BREW_PREFIX}/opt/gnu-tar/libexec/gnubin" ]]    && path_force_front "${BREW_PREFIX}/opt/gnu-tar/libexec/gnubin"
+
+# GNU sed
+[[ -d "${BREW_PREFIX}/opt/gnu-sed/libexec/gnubin" ]]    && path_force_front "${BREW_PREFIX}/opt/gnu-sed/libexec/gnubin"
+
+# GNU indent
+[[ -d "${BREW_PREFIX}/opt/gnu-indent/libexec/gnubin" ]] && path_force_front "${BREW_PREFIX}/opt/gnu-indent/libexec/gnubin"
+
+# GNU awk
+[[ -d "${BREW_PREFIX}/opt/gawk/libexec/gnubin" ]]       && path_force_front "${BREW_PREFIX}/opt/gawk/libexec/gnubin"
+
+# gcc
+[[ -d "${BREW_PREFIX}/opt/gcc/bin" ]]                   && path_force_front "${BREW_PREFIX}/opt/gcc/bin"
+
+# GNU findutils
+[[ -d "${BREW_PREFIX}/opt/findutils/libexec/gnubin" ]]  && path_force_front "${BREW_PREFIX}/opt/findutils/libexec/gnubin"
+
+# GNU ed
+[[ -d "${BREW_PREFIX}/opt/ed/libexec/gnubin" ]]         && path_force_front "${BREW_PREFIX}/opt/ed/libexec/gnubin"
+
+# libressl
+[[ -d "${BREW_PREFIX}/opt/libressl/bin" ]]              && path_force_front "${BREW_PREFIX}/opt/libressl/bin"
+
+# bison
+[[ -d "${BREW_PREFIX}/opt/bison/bin" ]]                 && path_force_front "${BREW_PREFIX}/opt/bison/bin"
+
+# flex
+[[ -d "${BREW_PREFIX}/opt/flex/bin" ]]                  && path_force_front "${BREW_PREFIX}/opt/flex/bin"
+
+# unzip
+[[ -d "${BREW_PREFIX}/opt/unzip/bin" ]]                 && path_force_front "${BREW_PREFIX}/opt/unzip/bin"
+
+# file-formula
+[[ -d "${BREW_PREFIX}/opt/file-formula/bin" ]]          && path_force_front "${BREW_PREFIX}/opt/file-formula/bin"
+
+# GNU m4
+[[ -d "${BREW_PREFIX}/opt/m4/bin" ]]                    && path_force_front "${BREW_PREFIX}/opt/m4/bin"
+
+# GNU make
+[[ -d "${BREW_PREFIX}/opt/make/libexec/gnubin" ]]       && path_force_front "${BREW_PREFIX}/opt/make/libexec/gnubin"
+
+# GNU coreutils — highest priority, called last so it lands at position 1
+[[ -d "${BREW_PREFIX}/opt/coreutils/libexec/gnubin" ]]  && path_force_front "${BREW_PREFIX}/opt/coreutils/libexec/gnubin"
+
 {{ end -}}
 
 if [[ -z "${CHEZMOI_CONFIG_DIR}" ]]; then
