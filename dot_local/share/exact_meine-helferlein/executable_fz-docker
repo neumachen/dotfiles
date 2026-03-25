@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+#
+# fz-docker - fzf-powered Docker helpers
+#
+# Consolidates: fzd-attach, fzd-rm, fzd-image-rm, fzd-stop-container
+
+set -o pipefail
+if [[ -n "$DEBUG" ]]; then
+  set -x
+fi
+
+fail() {
+  printf '%s\n' "$1" >&2
+  exit "${2-1}"
+}
+
+has() {
+  which "$@" > /dev/null 2>&1
+}
+
+if ! has docker; then
+  fail "Cannot find docker in $PATH"
+fi
+
+usage() {
+  cat <<USAGE
+Usage: fz-docker <command>
+
+Commands:
+  attach      Select a stopped container to start and attach to
+  rm          Select one or more containers to remove
+  image-rm    Select one or more images to remove
+  stop        Select a running container to stop
+USAGE
+}
+
+cmd_attach() {
+  local cid
+  cid=$(docker ps -a | sed 1d | fzf -1 -q "$1" | awk '{print $1}')
+  [ -n "$cid" ] && docker start "$cid" && docker attach "$cid"
+}
+
+cmd_rm() {
+  docker ps -a | sed 1d | fzf -q "$1" --no-sort -m --tac | awk '{ print $1 }' | xargs -r docker rm
+}
+
+cmd_image_rm() {
+  docker images | sed 1d | fzf -q "$1" --no-sort -m --tac | awk '{ print $3 }' | xargs -r docker rmi
+}
+
+cmd_stop() {
+  local cid
+  cid=$(docker ps | sed 1d | fzf -q "$1" | awk '{print $1}')
+  [ -n "$cid" ] && docker stop "$cid"
+}
+
+case "${1:-}" in
+  attach)    shift; cmd_attach "$@" ;;
+  rm)        shift; cmd_rm "$@" ;;
+  image-rm)  shift; cmd_image_rm "$@" ;;
+  stop)      shift; cmd_stop "$@" ;;
+  -h|--help) usage ;;
+  *)         usage; exit 1 ;;
+esac
