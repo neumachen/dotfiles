@@ -34,6 +34,12 @@ fi
 
 _log_ok "Setup complete. Restarting terminal..."
 
+# Skip restart logic if already running inside WezTerm
+if [ "${TERM_PROGRAM}" = "WezTerm" ]; then
+  _log_info "Already inside WezTerm. Skipping terminal restart — please reload your shell manually."
+  exit 0
+fi
+
 # Restart WezTerm so the new shell picks up all PATH changes
 if wezterm cli spawn --new-window &>/dev/null; then
   # WezTerm server was already running; spawned a new window, close this session
