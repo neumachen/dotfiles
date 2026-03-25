@@ -22,8 +22,12 @@ _log_err()   { if command -v echo-err   &>/dev/null; then echo-err   "$@"; else 
 
 if command -v mise &>/dev/null; then
   _log_info "Installing mise-managed tools..."
-  mise install --yes
-  _log_ok "mise tools installed successfully."
+  if mise install --yes; then
+    _log_ok "mise tools installed successfully."
+  else
+    _log_warn "mise install encountered errors (exit code: $?)."
+    _log_warn "Some tools may not be installed. Run 'mise install' manually to retry."
+  fi
 else
   _log_warn "mise not found, skipping mise install."
 fi
