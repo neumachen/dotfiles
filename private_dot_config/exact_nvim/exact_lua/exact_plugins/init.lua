@@ -4,6 +4,13 @@ return {
   'echasnovski/mini.icons',
   'neovim/nvim-lspconfig',
   {
+    'willothy/flatten.nvim',
+    config = true,
+    -- Ensure that it runs first to minimize delay when opening file from terminal
+    lazy = false,
+    priority = 1001,
+  },
+  {
     'folke/lazydev.nvim',
     ft = 'lua', -- only load on lua files
     dependencies = {
