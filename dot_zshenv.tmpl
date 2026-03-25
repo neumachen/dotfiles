@@ -17,7 +17,7 @@ export LC_MONETARY=en_FI.UTF-8
 export LC_TIME=en_FI.UTF-8
 
 export CLICOLOR=1
-export VISUAL="nvim --cmd 'let g:flatten_wait=1'"
+export VISUAL="nvim"
 export EDITOR="nvim"
 
 # MeinCodex directories (no command dependencies)
@@ -27,8 +27,7 @@ if [[ -d "$meincodex_dir" ]]; then
   for dir_info in \
     "NOTIZEN_DIR:${MEINCODEX_DIR}/Notizen" \
     "CODEBASIS_DIR:${MEINCODEX_DIR}/Codebasis" \
-    "CODESCHNIPSEL_DIR:${MEINCODEX_DIR}/Codeschnipsel"
-  do
+    "CODESCHNIPSEL_DIR:${MEINCODEX_DIR}/Codeschnipsel"; do
     var_name="${dir_info%:*}"
     dir_path="${dir_info#*:}"
     [[ -d "$dir_path" ]] && export "$var_name"="$dir_path"
