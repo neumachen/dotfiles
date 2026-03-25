@@ -11,6 +11,7 @@ github.com/jesseduffield/lazygit
 github.com/mgechev/revive
 github.com/mikefarah/yq/v4
 github.com/nametake/golangci-lint-langserver
+github.com/neur0map/glazepkg/cmd/gpk
 github.com/noahgorstein/jqp
 github.com/reteps/dockerfmt
 github.com/segmentio/golines
