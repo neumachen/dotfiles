@@ -1,5 +1,6 @@
 @fsouza/prettierd
 @mermaid-js/mermaid-cli
+@prsense/cli
 @tailwindcss/language-server
 @vtsls/language-server
 awk-language-server
