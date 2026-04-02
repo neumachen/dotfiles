@@ -6,6 +6,7 @@ github.com/google/go-jsonnet/cmd/jsonnet-deps
 github.com/google/go-jsonnet/cmd/jsonnet-lint
 github.com/google/go-jsonnet/cmd/jsonnetfmt
 github.com/grafana/jsonnet-language-server
+github.com/hjr265/gittop
 github.com/jesseduffield/lazydocker
 github.com/jesseduffield/lazygit
 github.com/mgechev/revive
