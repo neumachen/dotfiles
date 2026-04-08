@@ -16,6 +16,7 @@ github.com/neur0map/glazepkg/cmd/gpk
 github.com/noahgorstein/jqp
 github.com/reteps/dockerfmt
 github.com/segmentio/golines
+github.com/unkn0wn-root/resterm/cmd/resterm
 github.com/wader/jq-lsp
 github.com/xo/usql
 golang.org/x/tools/cmd/godoc
