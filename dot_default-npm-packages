@@ -1,5 +1,6 @@
 @fsouza/prettierd
 @mermaid-js/mermaid-cli
+@openai/codex
 @prsense/cli
 @tailwindcss/language-server
 @vtsls/language-server
