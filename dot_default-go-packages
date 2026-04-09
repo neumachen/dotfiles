@@ -1,3 +1,4 @@
+github.com/ankitpokhrel/jira-cli/cmd/jira
 github.com/charmbracelet/glow
 github.com/go-delve/delve/cmd/dlv
 github.com/golangci/golangci-lint/cmd/golangci-lint
