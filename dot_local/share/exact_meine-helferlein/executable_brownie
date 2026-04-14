@@ -85,8 +85,11 @@ Optional environment variables:
   GIT_SIGN_COMMITS   "true" (default when GIT_SIGNING_KEY is set) or "false".
 
 SSH agent forwarding (required for commit signing):
-  The 1Password SSH agent socket at ~/.1password/agent.sock is
-  automatically mounted when it exists.
+  Brownie auto-detects a usable SSH agent socket for the container.
+  Preference order:
+    1. /run/host-services/ssh-auth.sock (when available from the container runtime)
+    2. $SSH_AUTH_SOCK from the host environment
+    3. ~/.1password/agent.sock as a fallback
 
 Mounts (automatic):
   Project dir(s)           → /projects/<subdir>  (one mount per supplied dir)
@@ -95,7 +98,7 @@ Mounts (automatic):
   ~/.config/aider-desk/    → /root/.aider-desk/    (global hooks, skills, etc.)
   ~/.config/aider/aider.conf.yml
                            → /root/.aider.conf.yml (aider config, read-only)
-  ~/.1password/agent.sock  → /run/1password/agent.sock  (SSH agent, if exists)
+  SSH agent socket         → auto-detected container path (when available)
 
 Session restore:
   Data is stored on the host at ~/.local/share/aider-desk/<session>/data.
@@ -125,95 +128,6 @@ sanitize_docker_name() {
   [ -n "$out" ] || out="session"
   out="${out:0:128}"
   printf '%s\n' "$out"
-}
-
-list_existing_sessions() {
-  docker ps -a --filter "name=${DEFAULT_PREFIX}-" \
-    --format "table {{.Names}}\t{{.Status}}\t{{.CreatedAt}}" 2>/dev/null || true
-}
-
-get_existing_session_names() {
-  docker ps -a --filter "name=${DEFAULT_PREFIX}-" \
-    --format "{{.Names}}" 2>/dev/null | sort || true
-}
-
-# List sessions that have data on disk (including those without containers)
-get_data_sessions() {
-  local data_root="${HOME}/.local/share/aider-desk"
-  if [ -d "$data_root" ]; then
-    find "$data_root" -maxdepth 1 -mindepth 1 -type d -exec basename {} \; 2>/dev/null | sort || true
-  fi
-}
-
-prompt_session_choice() {
-  local -a container_sessions=() data_only_sessions=() all_sessions=()
-
-  # Sessions with live containers
-  while IFS= read -r s; do
-    [ -n "$s" ] && container_sessions+=("$s")
-  done < <(get_existing_session_names)
-
-  # Sessions with data on disk but no container
-  while IFS= read -r s; do
-    [ -n "$s" ] || continue
-    local found=0
-    for cs in "${container_sessions[@]+"${container_sessions[@]}"}"; do
-      [ "$cs" = "$s" ] && {
-        found=1
-        break
-      }
-    done
-    [ "$found" -eq 0 ] && data_only_sessions+=("$s")
-  done < <(get_data_sessions)
-
-  all_sessions=("${container_sessions[@]+"${container_sessions[@]}"}" "${data_only_sessions[@]+"${data_only_sessions[@]}"}")
-
-  if [ ${#all_sessions[@]} -eq 0 ]; then
-    SESSION_NAME="$(make_default_session_name)"
-    return 0 # new session
-  fi
-
-  echo "Found existing sessions:"
-  echo ""
-  local i=1
-  for s in "${container_sessions[@]+"${container_sessions[@]}"}"; do
-    local status
-    status="$(docker inspect --format '{{.State.Status}}' "$s" 2>/dev/null || echo "unknown")"
-    echo "  $i) $s  [container: ${status}]"
-    ((i++))
-  done
-  for s in "${data_only_sessions[@]+"${data_only_sessions[@]}"}"; do
-    echo "  $i) $s  [data only — container removed]"
-    ((i++))
-  done
-  echo ""
-  echo "Options:"
-  echo "  Enter a number to resume a session"
-  echo "  Or press Enter to create a new session"
-  echo ""
-
-  local choice
-  read -r -p "Choice: " choice
-
-  if [ -z "$choice" ]; then
-    SESSION_NAME="$(make_default_session_name)"
-    return 0 # new session
-  fi
-
-  if [[ "$choice" =~ ^[0-9]+$ ]] &&
-    [ "$choice" -ge 1 ] &&
-    [ "$choice" -le ${#all_sessions[@]} ]; then
-    SESSION_NAME="${all_sessions[$((choice - 1))]}"
-
-    # Check if this is a container session or data-only
-    if docker ps -a --format '{{.Names}}' | grep -qx "$SESSION_NAME"; then
-      return 1 # resume existing container
-    else
-      return 2 # restore from data (no container)
-    fi
-  fi
-
-  die "Invalid choice."
 }
 
 make_default_session_name() {
@@ -328,7 +242,28 @@ PROJECT_DIR="${PROJECT_DIRS_ABS[0]}"
 AIDER_DESK_GLOBAL="${HOME}/.config/aider-desk"
 AIDER_DESK_DATA_ROOT="${HOME}/.local/share/aider-desk"
 AIDER_CONFIG="${HOME}/.config/aider/aider.conf.yml"
-SSH_AGENT_SOCK="${HOME}/.1password/agent.sock"
+
+# SSH agent socket setup
+# Preference order:
+#   1. Container runtime host-services socket, when available
+#   2. Active host SSH_AUTH_SOCK
+#   3. ~/.1password/agent.sock fallback
+DEFAULT_1PASSWORD_SOCK="${HOME}/.1password/agent.sock"
+HOST_SERVICES_SSH_AUTH_SOCK="/run/host-services/ssh-auth.sock"
+HOST_SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-$DEFAULT_1PASSWORD_SOCK}"
+CONTAINER_SSH_AUTH_SOCK="/run/host-ssh-agent.sock"
+
+if docker run --rm -v "${HOST_SERVICES_SSH_AUTH_SOCK}:${HOST_SERVICES_SSH_AUTH_SOCK}" alpine sh -c 'test -S "$1"' -- "$HOST_SERVICES_SSH_AUTH_SOCK" >/dev/null 2>&1; then
+  HOST_SSH_AUTH_SOCK="$HOST_SERVICES_SSH_AUTH_SOCK"
+  CONTAINER_SSH_AUTH_SOCK="$HOST_SERVICES_SSH_AUTH_SOCK"
+elif [ -n "${HOST_SSH_AUTH_SOCK:-}" ]; then
+  # Resolve symlinks so Docker mounts the real socket path, not a symlink.
+  if command -v realpath >/dev/null 2>&1; then
+    HOST_SSH_AUTH_SOCK="$(realpath "$HOST_SSH_AUTH_SOCK" 2>/dev/null || printf '%s' "$HOST_SSH_AUTH_SOCK")"
+  elif command -v readlink >/dev/null 2>&1; then
+    HOST_SSH_AUTH_SOCK="$(readlink -f "$HOST_SSH_AUTH_SOCK" 2>/dev/null || printf '%s' "$HOST_SSH_AUTH_SOCK")"
+  fi
+fi
 
 # Build per-directory container paths — each dir is mounted AS a named
 # subdirectory inside /projects (e.g. host /home/user/a-1 → /projects/a-1).
@@ -361,10 +296,6 @@ for _cp in "${PROJECT_CONTAINER_PATHS[@]}"; do
     PROJECT_CONTAINER_PATH_LIST="${PROJECT_CONTAINER_PATH_LIST}:${_cp}"
   fi
 done
-# Primary (for display/legacy)
-PROJECT_BASENAME="$(basename "$PROJECT_DIR")"
-PROJECT_CONTAINER_PATH="${PROJECT_CONTAINER_PATHS[0]}"
-
 mkdir -p \
   "${AIDER_DESK_GLOBAL}/hooks" \
   "${AIDER_DESK_GLOBAL}/skills" \
@@ -479,11 +410,12 @@ run_new_container() {
   fi
 
   # SSH agent
-  if [ -S "$SSH_AGENT_SOCK" ]; then
-    docker_env+=(-e "SSH_AUTH_SOCK=/run/1password/agent.sock")
+  if [ -S "${HOST_SSH_AUTH_SOCK:-}" ]; then
+    docker_env+=(-e "SSH_AUTH_SOCK=${CONTAINER_SSH_AUTH_SOCK}")
   elif [ -n "${GIT_SIGNING_KEY:-}" ]; then
-    echo "WARNING: GIT_SIGNING_KEY is set but ${SSH_AGENT_SOCK} not found." >&2
-    echo "         Commit signing will fail without the SSH agent socket." >&2
+    echo "WARNING: GIT_SIGNING_KEY is set but no usable SSH agent socket was found." >&2
+    echo "         Checked: ${HOST_SSH_AUTH_SOCK:-<unset>}" >&2
+    echo "         Commit signing will fail without agent forwarding." >&2
   fi
 
   # --- Volumes ---
@@ -504,8 +436,8 @@ run_new_container() {
     docker_volumes+=(-v "${AIDER_CONFIG}:/root/.aider.conf.yml:ro")
   fi
 
-  if [ -S "$SSH_AGENT_SOCK" ]; then
-    docker_volumes+=(-v "${SSH_AGENT_SOCK}:/run/1password/agent.sock")
+  if [ -S "${HOST_SSH_AUTH_SOCK:-}" ]; then
+    docker_volumes+=(-v "${HOST_SSH_AUTH_SOCK}:${CONTAINER_SSH_AUTH_SOCK}")
   fi
 
   # --- Port ---
@@ -514,6 +446,7 @@ run_new_container() {
   echo "DEBUG: docker run volumes:" >&2
   for _v in "${docker_volumes[@]}"; do echo "  $_v" >&2; done
   echo "DEBUG: AIDER_DESK_PROJECTS=${PROJECT_CONTAINER_PATH_LIST}" >&2
+  echo "DEBUG: host SSH_AUTH_SOCK source: ${HOST_SSH_AUTH_SOCK:-<unset>}" >&2
 
   docker run \
     -d \
