@@ -252,8 +252,10 @@ DEFAULT_1PASSWORD_SOCK="${HOME}/.1password/agent.sock"
 HOST_SERVICES_SSH_AUTH_SOCK="/run/host-services/ssh-auth.sock"
 HOST_SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-$DEFAULT_1PASSWORD_SOCK}"
 CONTAINER_SSH_AUTH_SOCK="/run/host-ssh-agent.sock"
+USE_HOST_SERVICES_SSH_AUTH_SOCK=0
 
 if docker run --rm -v "${HOST_SERVICES_SSH_AUTH_SOCK}:${HOST_SERVICES_SSH_AUTH_SOCK}" alpine sh -c 'test -S "$1"' -- "$HOST_SERVICES_SSH_AUTH_SOCK" >/dev/null 2>&1; then
+  USE_HOST_SERVICES_SSH_AUTH_SOCK=1
   HOST_SSH_AUTH_SOCK="$HOST_SERVICES_SSH_AUTH_SOCK"
   CONTAINER_SSH_AUTH_SOCK="$HOST_SERVICES_SSH_AUTH_SOCK"
 elif [ -n "${HOST_SSH_AUTH_SOCK:-}" ]; then
@@ -264,6 +266,14 @@ elif [ -n "${HOST_SSH_AUTH_SOCK:-}" ]; then
     HOST_SSH_AUTH_SOCK="$(readlink -f "$HOST_SSH_AUTH_SOCK" 2>/dev/null || printf '%s' "$HOST_SSH_AUTH_SOCK")"
   fi
 fi
+
+have_container_ssh_auth_sock() {
+  if [ "${USE_HOST_SERVICES_SSH_AUTH_SOCK:-0}" -eq 1 ]; then
+    return 0
+  fi
+
+  [ -n "${HOST_SSH_AUTH_SOCK:-}" ] && [ -S "${HOST_SSH_AUTH_SOCK}" ]
+}
 
 # Build per-directory container paths — each dir is mounted AS a named
 # subdirectory inside /projects (e.g. host /home/user/a-1 → /projects/a-1).
@@ -410,7 +420,7 @@ run_new_container() {
   fi
 
   # SSH agent
-  if [ -S "${HOST_SSH_AUTH_SOCK:-}" ]; then
+  if have_container_ssh_auth_sock; then
     docker_env+=(-e "SSH_AUTH_SOCK=${CONTAINER_SSH_AUTH_SOCK}")
   elif [ -n "${GIT_SIGNING_KEY:-}" ]; then
     echo "WARNING: GIT_SIGNING_KEY is set but no usable SSH agent socket was found." >&2
@@ -436,7 +446,7 @@ run_new_container() {
     docker_volumes+=(-v "${AIDER_CONFIG}:/root/.aider.conf.yml:ro")
   fi
 
-  if [ -S "${HOST_SSH_AUTH_SOCK:-}" ]; then
+  if have_container_ssh_auth_sock; then
     docker_volumes+=(-v "${HOST_SSH_AUTH_SOCK}:${CONTAINER_SSH_AUTH_SOCK}")
   fi
 
@@ -447,6 +457,8 @@ run_new_container() {
   for _v in "${docker_volumes[@]}"; do echo "  $_v" >&2; done
   echo "DEBUG: AIDER_DESK_PROJECTS=${PROJECT_CONTAINER_PATH_LIST}" >&2
   echo "DEBUG: host SSH_AUTH_SOCK source: ${HOST_SSH_AUTH_SOCK:-<unset>}" >&2
+  echo "DEBUG: container SSH_AUTH_SOCK target: ${CONTAINER_SSH_AUTH_SOCK:-<unset>}" >&2
+  echo "DEBUG: using host-services SSH socket: ${USE_HOST_SERVICES_SSH_AUTH_SOCK}" >&2
 
   docker run \
     -d \
