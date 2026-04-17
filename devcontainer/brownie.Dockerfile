@@ -11,13 +11,34 @@ RUN git config --system --add safe.directory "*" \
     && rm -f /root/.gitconfig /root/.config/git/config \
     && mkdir -p /etc/xdg/git
 
-# ── 2) Install openssh-client ─────────────────────────────────────────
-#    Provides ssh-keygen (git SSH signing) and ssh-add (agent check).
+# ── 2) Use bash + pipefail for safer RUN steps ────────────────────────
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# ── 3) Install SSH client + mise bootstrap dependencies ───────────────
+#    openssh-client provides ssh-keygen (git SSH signing) and ssh-add
+#    (agent check). curl/ca-certificates/xz-utils/unzip are needed for
+#    the official mise installer and common tool archives.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends openssh-client \
+    && apt-get install -y --no-install-recommends \
+        openssh-client \
+        curl \
+        ca-certificates \
+        xz-utils \
+        unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# ── 3) Upstream env / volumes / port / healthcheck ────────────────────
+# ── 4) Install mise ───────────────────────────────────────────────────
+ENV MISE_INSTALL_PATH=/usr/local/bin/mise
+ENV MISE_CONFIG_DIR=/root/.config/mise
+ENV MISE_DATA_DIR=/root/.local/share/mise
+ENV MISE_CACHE_DIR=/root/.cache/mise
+ENV PATH=/usr/local/share/mise/shims:/root/.local/share/mise/shims:${PATH}
+
+RUN mkdir -p "${MISE_CONFIG_DIR}" "${MISE_DATA_DIR}" "${MISE_CACHE_DIR}" \
+    && curl -fsSL https://mise.run | sh \
+    && mise --version
+
+# ── 5) Upstream env / volumes / port / healthcheck ────────────────────
 #    Re-declared for clarity; inherited from upstream.
 ENV NODE_ENV=production
 ENV AIDER_DESK_HEADLESS=true
