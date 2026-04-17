@@ -7,8 +7,22 @@
 #############
 # Main model:
 
-model: openrouter/anthropic/claude-opus-4.5
-weak-model: openai/gpt-5-mini
+## Cost-conscious default for coding: keep the main model pinned to Sonnet.
+model: openrouter/anthropic/claude-sonnet-4.6
+
+## Use a cheaper model for commit messages and chat history summarization.
+weak-model: openrouter/openai/gpt-5.4-mini
+
+## In architect mode, keep editing quality high and predictable.
+editor-model: openrouter/anthropic/claude-sonnet-4.6
+editor-edit-format: editor-diff
+
+## Handy aliases for on-the-fly switching in aider/AiderDesk.
+alias:
+  - "cheap:openrouter/openai/gpt-5.4-mini"
+  - "normal:openrouter/anthropic/claude-sonnet-4.6"
+  - "codex:openai/gpt-5-codex"
+  - "deep:openrouter/anthropic/claude-opus-4.6"
 
 ## Use architect edit format for the main chat
 architect: true
