@@ -86,3 +86,7 @@ tagged
 .env
 *.env
 ^env$
+
+# Personal folder of ignored files/directoaries
+# ---------------------------------------------------------------------------------------------
+.git-ignored/
