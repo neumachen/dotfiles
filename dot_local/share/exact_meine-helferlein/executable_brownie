@@ -98,6 +98,7 @@ Mounts (automatic):
   ~/.config/aider-desk/    → /root/.aider-desk/    (global hooks, skills, etc.)
   ~/.config/aider/aider.conf.yml
                            → /root/.aider.conf.yml (aider config, read-only)
+  ~/.codex/                → /root/.codex/         (Codex auth, auto-created/mounted)
   SSH agent socket         → auto-detected container path (when available)
 
 Session restore:
@@ -242,6 +243,8 @@ PROJECT_DIR="${PROJECT_DIRS_ABS[0]}"
 AIDER_DESK_GLOBAL="${HOME}/.config/aider-desk"
 AIDER_DESK_DATA_ROOT="${HOME}/.local/share/aider-desk"
 AIDER_CONFIG="${HOME}/.config/aider/aider.conf.yml"
+CODEX_AUTH_HOST_PATH="${CODEX_AUTH_HOST_PATH:-${HOME}/.codex}"
+CODEX_AUTH_CONTAINER_PATH="${CODEX_AUTH_CONTAINER_PATH:-/root/.codex}"
 
 # SSH agent socket setup
 # Preference order:
@@ -312,7 +315,8 @@ mkdir -p \
   "${AIDER_DESK_GLOBAL}/agents" \
   "${AIDER_DESK_GLOBAL}/commands" \
   "${AIDER_DESK_GLOBAL}/prompts" \
-  "${AIDER_DESK_GLOBAL}/rules"
+  "${AIDER_DESK_GLOBAL}/rules" \
+  "${CODEX_AUTH_HOST_PATH}"
 
 # ---------- session resolution ----------
 # Returns:
@@ -440,6 +444,7 @@ run_new_container() {
   docker_volumes+=(
     -v "${SESSION_DATA}:/app/state"
     -v "${AIDER_DESK_GLOBAL}:/root/.aider-desk"
+    -v "${CODEX_AUTH_HOST_PATH}:${CODEX_AUTH_CONTAINER_PATH}"
   )
 
   if [ -f "$AIDER_CONFIG" ]; then
@@ -481,6 +486,7 @@ case "$SESSION_ACTION" in
     _pi=$((_pi + 1))
   done
   echo "  Config:   ${AIDER_DESK_GLOBAL} → /root/.aider-desk"
+  echo "  Codex:    ${CODEX_AUTH_HOST_PATH} → ${CODEX_AUTH_CONTAINER_PATH}"
   if [ -f "$AIDER_CONFIG" ]; then
     echo "  Aider:    ${AIDER_CONFIG} → /root/.aider.conf.yml (ro)"
   fi
@@ -532,6 +538,7 @@ case "$SESSION_ACTION" in
     _pi=$((_pi + 1))
   done
   echo "  Config:   ${AIDER_DESK_GLOBAL} → /root/.aider-desk"
+  echo "  Codex:    ${CODEX_AUTH_HOST_PATH} → ${CODEX_AUTH_CONTAINER_PATH}"
   if [ -f "$AIDER_CONFIG" ]; then
     echo "  Aider:    ${AIDER_CONFIG} → /root/.aider.conf.yml (ro)"
   fi
