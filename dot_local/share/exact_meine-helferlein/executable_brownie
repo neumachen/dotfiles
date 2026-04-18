@@ -529,7 +529,7 @@ recreate_extensions_volume() {
     --entrypoint sh \
     -v "${extensions_volume}:/extensions-volume" \
     "$IMAGE" \
-    -lc 'mkdir -p /extensions-volume && cp -a /root/.aider-desk/extensions/. /extensions-volume/'
+    -lc 'mkdir -p /extensions-volume && if [ -d /usr/local/share/aider-desk/extensions-seed ]; then cp -a /usr/local/share/aider-desk/extensions-seed/. /extensions-volume/; fi'
 }
 
 run_new_container() {

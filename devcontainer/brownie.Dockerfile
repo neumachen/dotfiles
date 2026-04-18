@@ -48,9 +48,10 @@ RUN mkdir -p "${MISE_CONFIG_DIR}" "${MISE_DATA_DIR}" "${MISE_CACHE_DIR}" \
 #    the defaults via AIDER_DESK_EXTENSIONS_OVERRIDE.
 #    Extensions are installed using AiderDesk's documented global mode,
 #    which targets ~/.aider-desk/extensions for the current user.
-#    At runtime, brownie mounts a named Docker volume at this path so the
-#    initial contents are copied from the image on first container start.
-RUN mkdir -p /root/.aider-desk/extensions \
+#    We also snapshot that directory into /usr/local/share/aider-desk/
+#    extensions-seed so maintenance operations can reseed volumes without
+#    invoking the container entrypoint or depending on runtime mounts.
+RUN mkdir -p /root/.aider-desk/extensions /usr/local/share/aider-desk/extensions-seed \
     && final_extensions="${AIDER_DESK_EXTENSIONS_DEFAULT}" \
     && if [ -n "${AIDER_DESK_EXTENSIONS_OVERRIDE}" ]; then \
         final_extensions="${AIDER_DESK_EXTENSIONS_OVERRIDE}"; \
@@ -68,7 +69,10 @@ RUN mkdir -p /root/.aider-desk/extensions \
          seen["${ext}"]=1; \
          echo "Installing AiderDesk extension globally: ${ext}"; \
          npx --yes @aiderdesk/extensions install "${ext}" --global; \
-       done
+       done \
+    && if [ -d /root/.aider-desk/extensions ]; then \
+         cp -a /root/.aider-desk/extensions/. /usr/local/share/aider-desk/extensions-seed/; \
+       fi
 
 # ── 6) Upstream env / volumes / port / healthcheck ────────────────────
 #    Re-declared for clarity; inherited from upstream.
