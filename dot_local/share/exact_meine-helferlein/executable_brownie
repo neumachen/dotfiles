@@ -84,8 +84,10 @@ Required environment variables:
 Optional environment variables:
   GIT_SIGNING_KEY    SSH public key for commit signing.
   GIT_SIGN_COMMITS   "true" (default when GIT_SIGNING_KEY is set) or "false".
-  AIDER_DESK_EXTENSIONS
-                     Comma-separated extension IDs/URLs to install at build time.
+  AIDER_DESK_EXTENSIONS_APPEND
+                     Comma-separated extension IDs/URLs to append to defaults at build time.
+  AIDER_DESK_EXTENSIONS_OVERRIDE
+                     Comma-separated extension IDs/URLs that fully replace defaults at build time.
 
 SSH agent forwarding (required for commit signing):
   Brownie auto-detects a usable SSH agent socket for the container.
@@ -381,12 +383,17 @@ build_image() {
   build_context="$(dirname "$BROWNIE_DOCKERFILE")"
   echo "Building image '${IMAGE}' from ${BROWNIE_DOCKERFILE} ..."
   echo "  (pulling latest upstream AiderDesk base image)"
-  if [ -n "${AIDER_DESK_EXTENSIONS:-}" ]; then
-    echo "  Installing extensions at build time: ${AIDER_DESK_EXTENSIONS}"
+  if [ -n "${AIDER_DESK_EXTENSIONS_OVERRIDE:-}" ]; then
+    echo "  Overriding default extensions at build time: ${AIDER_DESK_EXTENSIONS_OVERRIDE}"
+  elif [ -n "${AIDER_DESK_EXTENSIONS_APPEND:-}" ]; then
+    echo "  Appending extensions at build time: ${AIDER_DESK_EXTENSIONS_APPEND}"
+  else
+    echo "  Using default built-in extensions"
   fi
   docker build \
     --pull \
-    --build-arg "AIDER_DESK_EXTENSIONS=${AIDER_DESK_EXTENSIONS:-}" \
+    --build-arg "AIDER_DESK_EXTENSIONS_APPEND=${AIDER_DESK_EXTENSIONS_APPEND:-}" \
+    --build-arg "AIDER_DESK_EXTENSIONS_OVERRIDE=${AIDER_DESK_EXTENSIONS_OVERRIDE:-}" \
     --file "$BROWNIE_DOCKERFILE" \
     --tag "$IMAGE" \
     "$build_context"
