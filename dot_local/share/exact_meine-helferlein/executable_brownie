@@ -32,13 +32,17 @@ set -Eeuo pipefail
 
 # ---------- defaults ----------
 DEFAULT_IMAGE="brownie:latest"
+DEFAULT_UPSTREAM_IMAGE="ghcr.io/hotovo/aider-desk:latest"
 DEFAULT_PREFIX="brownie"
 DEFAULT_PORT=24337
 
 IMAGE="$DEFAULT_IMAGE"
+UPSTREAM_IMAGE="${UPSTREAM_IMAGE:-$DEFAULT_UPSTREAM_IMAGE}"
 PULL_IMAGE=0
 REBUILD_IMAGE=0
 UPDATE_EXTENSIONS=0
+BUILD_USE_CACHE=0
+BUILD_PULL=1
 SESSION_NAME=""
 HOST_PORT="$DEFAULT_PORT"
 PROJECT_DIRS=()
@@ -72,12 +76,16 @@ Wrapper options (before --):
                      and may also be specified multiple times. All mounted
                      directories are registered as AiderDesk projects.
                      The first directory is used for session naming.
-      --pull         Pull the upstream base image and rebuild before running.
-      --rebuild      (Re)build the local brownie image from the Dockerfile.
-                     Implies pulling the latest upstream AiderDesk image.
+      --pull         Pull the upstream AiderDesk base image,
+                     then exit without starting a container.
+      --rebuild[=mods]
+                     Rebuild the local brownie image from the Dockerfile,
+                     then exit without starting a container.
+                     Defaults to: pull,no-cache
+                     Supported modifiers: pull,no-pull,cache,no-cache
       --update-extensions
-                     Recreate the per-session extensions volume from the current image.
-                     Useful after rebuilding the image or changing extension lists.
+                     Recreate the per-session extensions volume from the current image,
+                     then exit without starting a container.
       --about        Explain why this tool is named "Brownie".
   -h, --help         Show this help and exit.
 
@@ -125,7 +133,14 @@ Examples:
   brownie -d ~/code/my-app -n my-app
   brownie -d ~/code/app ~/code/lib -n my-app     # one -d, multiple dirs
   brownie -d ~/code/app -d ~/code/lib -n my-app  # repeated -d also works
-  brownie --pull -n docs -- --network host
+  brownie --pull                                  # pull upstream base image only
+  brownie --rebuild                               # rebuild image only (pull + no-cache)
+  brownie --rebuild=cache                         # rebuild image only (pull + cache)
+  brownie --rebuild=no-pull                       # rebuild image only (no-pull + no-cache)
+  brownie --rebuild=cache,no-pull                 # rebuild image only (no-pull + cache)
+  brownie -n my-session --update-extensions       # refresh extensions volume only
+  brownie -n my-session --rebuild --update-extensions
+                                                   # rebuild image and refresh extensions only
 USAGE
 }
 
@@ -150,6 +165,37 @@ make_default_session_name() {
 }
 
 print_about() { printf '%s\n' "$BROWNIE_ABOUT"; }
+
+parse_rebuild_modifiers() {
+  local modifiers="${1:-}"
+  local modifier
+  local -a parts
+
+  [ -n "$modifiers" ] || return 0
+
+  IFS=',' read -ra parts <<< "$modifiers"
+  for modifier in "${parts[@]}"; do
+    modifier="$(printf '%s' "$modifier" | xargs)"
+    [ -n "$modifier" ] || continue
+    case "$modifier" in
+    pull)
+      BUILD_PULL=1
+      ;;
+    no-pull)
+      BUILD_PULL=0
+      ;;
+    cache)
+      BUILD_USE_CACHE=1
+      ;;
+    no-cache)
+      BUILD_USE_CACHE=0
+      ;;
+    *)
+      die "Unknown --rebuild modifier: $modifier (supported: pull,no-pull,cache,no-cache)"
+      ;;
+    esac
+  done
+}
 
 # ---------- parse args ----------
 parse_args() {
@@ -210,6 +256,16 @@ parse_args() {
       ;;
     --rebuild)
       REBUILD_IMAGE=1
+      if [ $# -ge 2 ] && [ "${2#-}" = "$2" ]; then
+        parse_rebuild_modifiers "$2"
+        shift 2
+      else
+        shift
+      fi
+      ;;
+    --rebuild=*)
+      REBUILD_IMAGE=1
+      parse_rebuild_modifiers "${1#--rebuild=}"
       shift
       ;;
     --update-extensions)
@@ -388,9 +444,27 @@ build_image() {
     die "Cannot find brownie.Dockerfile. Set BROWNIE_DOCKERFILE=/path/to/brownie.Dockerfile or ensure the chezmoi source tree is present."
   fi
   local build_context
+  local -a build_args
   build_context="$(dirname "$BROWNIE_DOCKERFILE")"
+  build_args=(
+    --build-arg "UPSTREAM_IMAGE=${UPSTREAM_IMAGE}"
+    --build-arg "AIDER_DESK_EXTENSIONS_APPEND=${AIDER_DESK_EXTENSIONS_APPEND:-}"
+    --build-arg "AIDER_DESK_EXTENSIONS_OVERRIDE=${AIDER_DESK_EXTENSIONS_OVERRIDE:-}"
+  )
+
   echo "Building image '${IMAGE}' from ${BROWNIE_DOCKERFILE} ..."
-  echo "  (pulling latest upstream AiderDesk base image)"
+  if [ "$BUILD_PULL" -eq 1 ]; then
+    echo "  Pulling latest upstream AiderDesk base image: ${UPSTREAM_IMAGE}"
+    build_args+=(--pull)
+  else
+    echo "  Using local upstream AiderDesk base image: ${UPSTREAM_IMAGE}"
+  fi
+  if [ "$BUILD_USE_CACHE" -eq 1 ]; then
+    echo "  Docker build cache: enabled"
+  else
+    echo "  Docker build cache: disabled"
+    build_args+=(--no-cache)
+  fi
   if [ -n "${AIDER_DESK_EXTENSIONS_OVERRIDE:-}" ]; then
     echo "  Overriding default extensions at build time: ${AIDER_DESK_EXTENSIONS_OVERRIDE}"
   elif [ -n "${AIDER_DESK_EXTENSIONS_APPEND:-}" ]; then
@@ -399,9 +473,7 @@ build_image() {
     echo "  Using default built-in extensions"
   fi
   docker build \
-    --pull \
-    --build-arg "AIDER_DESK_EXTENSIONS_APPEND=${AIDER_DESK_EXTENSIONS_APPEND:-}" \
-    --build-arg "AIDER_DESK_EXTENSIONS_OVERRIDE=${AIDER_DESK_EXTENSIONS_OVERRIDE:-}" \
+    "${build_args[@]}" \
     --file "$BROWNIE_DOCKERFILE" \
     --tag "$IMAGE" \
     "$build_context"
@@ -409,8 +481,19 @@ build_image() {
   echo ""
 }
 
+pull_upstream_image() {
+  echo "Pulling upstream AiderDesk base image: ${UPSTREAM_IMAGE}"
+  docker pull "${UPSTREAM_IMAGE}"
+  echo "Upstream base image pulled successfully."
+  echo ""
+}
+
 # ---------- image pull / build ----------
-if [ "$REBUILD_IMAGE" -eq 1 ] || [ "$PULL_IMAGE" -eq 1 ]; then
+if [ "$PULL_IMAGE" -eq 1 ] && { [ "$REBUILD_IMAGE" -eq 0 ] || [ "$BUILD_PULL" -eq 0 ]; }; then
+  pull_upstream_image
+fi
+
+if [ "$REBUILD_IMAGE" -eq 1 ]; then
   build_image
 else
   docker image inspect "$IMAGE" >/dev/null 2>&1 || {
@@ -535,6 +618,23 @@ run_new_container() {
 
 if [ "$UPDATE_EXTENSIONS" -eq 1 ]; then
   recreate_extensions_volume
+fi
+
+if [ "$REBUILD_IMAGE" -eq 1 ] || [ "$UPDATE_EXTENSIONS" -eq 1 ] || [ "$PULL_IMAGE" -eq 1 ]; then
+  if [ "$PULL_IMAGE" -eq 1 ] && [ "$REBUILD_IMAGE" -eq 1 ] && [ "$UPDATE_EXTENSIONS" -eq 1 ]; then
+    echo "Maintenance complete: upstream image pulled, local image rebuilt, and extensions refreshed."
+  elif [ "$PULL_IMAGE" -eq 1 ] && [ "$REBUILD_IMAGE" -eq 1 ]; then
+    echo "Maintenance complete: upstream image pulled and local image rebuilt."
+  elif [ "$REBUILD_IMAGE" -eq 1 ] && [ "$UPDATE_EXTENSIONS" -eq 1 ]; then
+    echo "Maintenance complete: image rebuilt and extensions refreshed."
+  elif [ "$REBUILD_IMAGE" -eq 1 ]; then
+    echo "Maintenance complete: image rebuilt."
+  elif [ "$UPDATE_EXTENSIONS" -eq 1 ]; then
+    echo "Maintenance complete: extensions refreshed."
+  else
+    echo "Maintenance complete: upstream image pulled."
+  fi
+  exit 0
 fi
 
 # ---------- run ----------
