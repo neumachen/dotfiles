@@ -1,7 +1,28 @@
 ARG UPSTREAM_IMAGE=ghcr.io/hotovo/aider-desk:latest
 FROM ${UPSTREAM_IMAGE}
 
-ARG AIDER_DESK_EXTENSIONS_DEFAULT="bmad,questions,wakatime.ts,protected-paths.ts,permission-gate.ts,ultrathink.ts,external-rules.ts,sound-notification.ts,sandbox,rtk,redact-secrets,chunkhound-search,fff,seek,tree-sitter-repo-map,tps-counter,programmatic-tool-calls,lsp,context-autocompletion-words,plannotator,multi-model-run,https://github.com/wladimiiir/aider-desk-codex-auth-extension"
+ARG AIDER_DESK_EXTENSIONS_DEFAULT="bmad,
+questions,
+wakatime.ts,
+protected-paths.ts,
+permission-gate.ts,
+ultrathink.ts,
+external-rules.ts,
+sound-notification.ts,
+sandbox,
+rtk,
+redact-secrets,
+chunkhound-search,
+fff,
+seek,
+tree-sitter-repo-map,
+tps-counter,
+programmatic-tool-calls,
+lsp,
+context-autocompletion-words,
+plannotator,
+multi-model-run,
+https://github.com/wladimiiir/aider-desk-codex-auth-extension"
 ARG AIDER_DESK_EXTENSIONS_APPEND=""
 ARG AIDER_DESK_EXTENSIONS_OVERRIDE=""
 
@@ -46,33 +67,16 @@ RUN mkdir -p "${MISE_CONFIG_DIR}" "${MISE_DATA_DIR}" "${MISE_CACHE_DIR}" \
 #    Default extensions are baked into the image. At build time you can
 #    either append more via AIDER_DESK_EXTENSIONS_APPEND or fully replace
 #    the defaults via AIDER_DESK_EXTENSIONS_OVERRIDE.
-#    Extensions are installed using AiderDesk's documented global mode,
-#    which targets ~/.aider-desk/extensions for the current user.
-#    We also snapshot that directory into /usr/local/share/aider-desk/
-#    extensions-seed so maintenance operations can reseed volumes without
-#    invoking the container entrypoint or depending on runtime mounts.
-RUN mkdir -p /root/.aider-desk/extensions /usr/local/share/aider-desk/extensions-seed \
-    && final_extensions="${AIDER_DESK_EXTENSIONS_DEFAULT}" \
-    && if [ -n "${AIDER_DESK_EXTENSIONS_OVERRIDE}" ]; then \
-        final_extensions="${AIDER_DESK_EXTENSIONS_OVERRIDE}"; \
-      elif [ -n "${AIDER_DESK_EXTENSIONS_APPEND}" ]; then \
-        final_extensions="${AIDER_DESK_EXTENSIONS_DEFAULT},${AIDER_DESK_EXTENSIONS_APPEND}"; \
-      fi \
-    && declare -A seen=() \
-    && IFS=',' read -ra exts <<< "${final_extensions}" \
-    && for ext in "${exts[@]}"; do \
-         ext="$(echo "${ext}" | xargs)"; \
-         [ -n "${ext}" ] || continue; \
-         if [ -n "${seen["${ext}"]+x}" ]; then \
-           continue; \
-         fi; \
-         seen["${ext}"]=1; \
-         echo "Installing AiderDesk extension globally: ${ext}"; \
-         npx --yes @aiderdesk/extensions install "${ext}" --global; \
-       done \
-    && if [ -d /root/.aider-desk/extensions ]; then \
-         cp -a /root/.aider-desk/extensions/. /usr/local/share/aider-desk/extensions-seed/; \
-       fi
+#    Extensions are installed into the runtime global directory and also
+#    copied into an image-owned seed directory for maintenance refreshes.
+COPY install-aiderdesk-extensions.sh /usr/local/bin/install-aiderdesk-extensions.sh
+RUN chmod +x /usr/local/bin/install-aiderdesk-extensions.sh \
+    && /usr/local/bin/install-aiderdesk-extensions.sh \
+         /root/.aider-desk/extensions \
+         /usr/local/share/aider-desk/extensions-seed \
+         "${AIDER_DESK_EXTENSIONS_DEFAULT}" \
+         "${AIDER_DESK_EXTENSIONS_APPEND}" \
+         "${AIDER_DESK_EXTENSIONS_OVERRIDE}"
 
 # ── 6) Upstream env / volumes / port / healthcheck ────────────────────
 #    Re-declared for clarity; inherited from upstream.
