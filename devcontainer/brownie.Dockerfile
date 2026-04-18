@@ -1,28 +1,30 @@
 ARG UPSTREAM_IMAGE=ghcr.io/hotovo/aider-desk:latest
 FROM ${UPSTREAM_IMAGE}
 
-ARG AIDER_DESK_EXTENSIONS_DEFAULT="bmad,
-questions,
-wakatime.ts,
-protected-paths.ts,
-permission-gate.ts,
-ultrathink.ts,
-external-rules.ts,
-sound-notification.ts,
-sandbox,
-rtk,
-redact-secrets,
-chunkhound-search,
-fff,
-seek,
-tree-sitter-repo-map,
-tps-counter,
-programmatic-tool-calls,
-lsp,
-context-autocompletion-words,
-plannotator,
-multi-model-run,
-https://github.com/wladimiiir/aider-desk-codex-auth-extension"
+ARG AIDER_DESK_EXTENSIONS_DEFAULT="bmad,\
+    chunkhound-search,\
+    context-autocompletion-words,\
+    fff,\
+    generate-tests,\
+    lsp,\
+    multi-model-run,\
+    permission-gate,\
+    plannotator,\
+    programmatic-tool-calls,\
+    protected-paths,\
+    plan-mode,\
+    questions,\
+    redact-secrets,\
+    rtk,\
+    sandbox,\
+    seek,\
+    sound-notification,\
+    theme,\
+    tps-counter,\
+    tree-sitter-repo-map,\
+    ultrathink,\
+    wakatime,\
+    https://github.com/wladimiiir/aider-desk-codex-auth-extension"
 ARG AIDER_DESK_EXTENSIONS_APPEND=""
 ARG AIDER_DESK_EXTENSIONS_OVERRIDE=""
 
@@ -72,11 +74,11 @@ RUN mkdir -p "${MISE_CONFIG_DIR}" "${MISE_DATA_DIR}" "${MISE_CACHE_DIR}" \
 COPY install-aiderdesk-extensions.sh /usr/local/bin/install-aiderdesk-extensions.sh
 RUN chmod +x /usr/local/bin/install-aiderdesk-extensions.sh \
     && /usr/local/bin/install-aiderdesk-extensions.sh \
-         /root/.aider-desk/extensions \
-         /usr/local/share/aider-desk/extensions-seed \
-         "${AIDER_DESK_EXTENSIONS_DEFAULT}" \
-         "${AIDER_DESK_EXTENSIONS_APPEND}" \
-         "${AIDER_DESK_EXTENSIONS_OVERRIDE}"
+        /root/.aider-desk/extensions \
+        /usr/local/share/aider-desk/extensions-seed \
+        "${AIDER_DESK_EXTENSIONS_DEFAULT}" \
+        "${AIDER_DESK_EXTENSIONS_APPEND}" \
+        "${AIDER_DESK_EXTENSIONS_OVERRIDE}"
 
 # ── 6) Upstream env / volumes / port / healthcheck ────────────────────
 #    Re-declared for clarity; inherited from upstream.
