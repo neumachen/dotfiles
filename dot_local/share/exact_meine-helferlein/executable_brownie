@@ -42,6 +42,7 @@ SESSION_NAME=""
 HOST_PORT="$DEFAULT_PORT"
 PROJECT_DIRS=()
 DOCKER_EXTRAS=()
+EXTENSIONS_VOLUME_SUFFIX="extensions"
 
 BROWNIE_ABOUT=$'Brownie — a friendly nod to the Scottish/English household spirit.\n\
 In folklore, a Brownie is a quiet helper who keeps things tidy if treated well.\n\
@@ -83,6 +84,8 @@ Required environment variables:
 Optional environment variables:
   GIT_SIGNING_KEY    SSH public key for commit signing.
   GIT_SIGN_COMMITS   "true" (default when GIT_SIGNING_KEY is set) or "false".
+  AIDER_DESK_EXTENSIONS
+                     Comma-separated extension IDs/URLs to install at build time.
 
 SSH agent forwarding (required for commit signing):
   Brownie auto-detects a usable SSH agent socket for the container.
@@ -95,6 +98,8 @@ Mounts (automatic):
   Project dir(s)           → /projects/<subdir>  (one mount per supplied dir)
   ~/.local/share/aider-desk/<session>/data
                            → /app/state            (persistent data, survives container removal)
+  Docker volume            → /root/.aider-desk/extensions
+                           (extensions cache seeded from image on first run)
   ~/.config/aider-desk/    → /root/.aider-desk/    (global hooks, skills, etc.)
   ~/.config/aider/aider.conf.yml
                            → /root/.aider.conf.yml (aider config, read-only)
@@ -376,8 +381,12 @@ build_image() {
   build_context="$(dirname "$BROWNIE_DOCKERFILE")"
   echo "Building image '${IMAGE}' from ${BROWNIE_DOCKERFILE} ..."
   echo "  (pulling latest upstream AiderDesk base image)"
+  if [ -n "${AIDER_DESK_EXTENSIONS:-}" ]; then
+    echo "  Installing extensions at build time: ${AIDER_DESK_EXTENSIONS}"
+  fi
   docker build \
     --pull \
+    --build-arg "AIDER_DESK_EXTENSIONS=${AIDER_DESK_EXTENSIONS:-}" \
     --file "$BROWNIE_DOCKERFILE" \
     --tag "$IMAGE" \
     "$build_context"
@@ -396,6 +405,10 @@ else
 fi
 
 # ---------- helper: build docker run command ----------
+extensions_volume_name() {
+  printf '%s\n' "${SESSION_NAME}-${EXTENSIONS_VOLUME_SUFFIX}"
+}
+
 run_new_container() {
   # Ensure data directory exists
   mkdir -p "$SESSION_DATA"
@@ -436,6 +449,9 @@ run_new_container() {
   # Each project dir is mounted as /projects/<basename>, so the named directory
   # appears inside /projects rather than its contents being merged into /projects.
   local -a docker_volumes=()
+  local extensions_volume
+  extensions_volume="$(extensions_volume_name)"
+  docker volume inspect "${extensions_volume}" >/dev/null 2>&1 || docker volume create "${extensions_volume}" >/dev/null
   local _vi=0
   while [ "$_vi" -lt "${#PROJECT_DIRS_ABS[@]}" ]; do
     docker_volumes+=(-v "${PROJECT_DIRS_ABS[$_vi]}:${PROJECT_CONTAINER_PATHS[$_vi]}")
@@ -443,6 +459,7 @@ run_new_container() {
   done
   docker_volumes+=(
     -v "${SESSION_DATA}:/app/state"
+    -v "${extensions_volume}:/root/.aider-desk/extensions"
     -v "${AIDER_DESK_GLOBAL}:/root/.aider-desk"
     -v "${CODEX_AUTH_HOST_PATH}:${CODEX_AUTH_CONTAINER_PATH}"
   )
@@ -486,6 +503,7 @@ case "$SESSION_ACTION" in
     _pi=$((_pi + 1))
   done
   echo "  Config:   ${AIDER_DESK_GLOBAL} → /root/.aider-desk"
+  echo "  Exts:     volume $(extensions_volume_name) → /root/.aider-desk/extensions"
   echo "  Codex:    ${CODEX_AUTH_HOST_PATH} → ${CODEX_AUTH_CONTAINER_PATH}"
   if [ -f "$AIDER_CONFIG" ]; then
     echo "  Aider:    ${AIDER_CONFIG} → /root/.aider.conf.yml (ro)"
@@ -538,6 +556,7 @@ case "$SESSION_ACTION" in
     _pi=$((_pi + 1))
   done
   echo "  Config:   ${AIDER_DESK_GLOBAL} → /root/.aider-desk"
+  echo "  Exts:     volume $(extensions_volume_name) → /root/.aider-desk/extensions"
   echo "  Codex:    ${CODEX_AUTH_HOST_PATH} → ${CODEX_AUTH_CONTAINER_PATH}"
   if [ -f "$AIDER_CONFIG" ]; then
     echo "  Aider:    ${AIDER_CONFIG} → /root/.aider.conf.yml (ro)"
