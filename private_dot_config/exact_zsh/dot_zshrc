@@ -289,6 +289,11 @@ if command_exists mole; then
   znap fpath _mole 'mole completion zsh'
 fi
 
+# codex
+if command_exists codex; then
+  znap fpath _codex 'codex completion zsh'
+fi
+
 # wezterm
 if command_exists wezterm; then
   znap fpath _wezterm 'wezterm shell-completion --shell zsh'
