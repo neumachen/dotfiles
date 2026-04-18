@@ -1,6 +1,8 @@
 ARG UPSTREAM_IMAGE=ghcr.io/hotovo/aider-desk:latest
 FROM ${UPSTREAM_IMAGE}
 
+ARG AIDER_DESK_EXTENSIONS=""
+
 # ── 1) XDG_CONFIG_HOME wiring ──────────────────────────────────────────
 #    Entrypoint generates git config here from env vars at runtime.
 ENV XDG_CONFIG_HOME=/etc/xdg
@@ -38,7 +40,22 @@ RUN mkdir -p "${MISE_CONFIG_DIR}" "${MISE_DATA_DIR}" "${MISE_CACHE_DIR}" \
     && curl -fsSL https://mise.run | sh \
     && mise --version
 
-# ── 5) Upstream env / volumes / port / healthcheck ────────────────────
+# ── 5) Preinstall AiderDesk extensions into the image ─────────────────
+#    Use a comma-separated build arg containing extension IDs or URLs.
+#    At runtime, brownie mounts a named Docker volume at this path so the
+#    initial contents are copied from the image on first container start.
+RUN mkdir -p /root/.aider-desk/extensions \
+    && if [ -n "${AIDER_DESK_EXTENSIONS}" ]; then \
+        IFS=',' read -ra exts <<< "${AIDER_DESK_EXTENSIONS}"; \
+        for ext in "${exts[@]}"; do \
+          ext="$(echo "${ext}" | xargs)"; \
+          [ -n "${ext}" ] || continue; \
+          echo "Installing AiderDesk extension: ${ext}"; \
+          npx --yes @aiderdesk/extensions install "${ext}" --directory /root/.aider-desk/extensions; \
+        done; \
+      fi
+
+# ── 6) Upstream env / volumes / port / healthcheck ────────────────────
 #    Re-declared for clarity; inherited from upstream.
 ENV NODE_ENV=production
 ENV AIDER_DESK_HEADLESS=true
@@ -56,7 +73,7 @@ EXPOSE ${AIDER_DESK_PORT}
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD node -e "require('http').get('http://localhost:${AIDER_DESK_PORT}/', (r) => {process.exit(r.statusCode === 200 || r.statusCode === 404 ? 0 : 1)}).on('error', () => process.exit(1))"
 
-# ── 4) Entrypoint ────────────────────────────────────────────────────
+# ── 7) Entrypoint ────────────────────────────────────────────────────
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
