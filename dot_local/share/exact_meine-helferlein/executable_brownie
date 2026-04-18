@@ -38,6 +38,7 @@ DEFAULT_PORT=24337
 IMAGE="$DEFAULT_IMAGE"
 PULL_IMAGE=0
 REBUILD_IMAGE=0
+UPDATE_EXTENSIONS=0
 SESSION_NAME=""
 HOST_PORT="$DEFAULT_PORT"
 PROJECT_DIRS=()
@@ -74,6 +75,9 @@ Wrapper options (before --):
       --pull         Pull the upstream base image and rebuild before running.
       --rebuild      (Re)build the local brownie image from the Dockerfile.
                      Implies pulling the latest upstream AiderDesk image.
+      --update-extensions
+                     Recreate the per-session extensions volume from the current image.
+                     Useful after rebuilding the image or changing extension lists.
       --about        Explain why this tool is named "Brownie".
   -h, --help         Show this help and exit.
 
@@ -206,6 +210,10 @@ parse_args() {
       ;;
     --rebuild)
       REBUILD_IMAGE=1
+      shift
+      ;;
+    --update-extensions)
+      UPDATE_EXTENSIONS=1
       shift
       ;;
     *) die "Unknown option: $1 (use -- to pass extra flags to docker run)" ;;
@@ -416,6 +424,30 @@ extensions_volume_name() {
   printf '%s\n' "${SESSION_NAME}-${EXTENSIONS_VOLUME_SUFFIX}"
 }
 
+recreate_extensions_volume() {
+  local extensions_volume
+  extensions_volume="$(extensions_volume_name)"
+
+  if docker ps -a --format '{{.Names}}' | grep -qx "$SESSION_NAME"; then
+    echo "Removing existing container '$SESSION_NAME' so extensions can be refreshed."
+    docker rm -f "$SESSION_NAME" >/dev/null
+    if [ -d "${SESSION_DATA}" ]; then
+      SESSION_ACTION=2
+    else
+      SESSION_ACTION=0
+    fi
+  fi
+
+  echo "Refreshing extensions volume: ${extensions_volume}"
+  docker volume rm -f "${extensions_volume}" >/dev/null 2>&1 || true
+  docker volume create "${extensions_volume}" >/dev/null
+
+  docker run --rm \
+    -v "${extensions_volume}:/extensions-volume" \
+    "$IMAGE" \
+    sh -lc 'mkdir -p /extensions-volume && cp -a /root/.aider-desk/extensions/. /extensions-volume/'
+}
+
 run_new_container() {
   # Ensure data directory exists
   mkdir -p "$SESSION_DATA"
@@ -458,7 +490,9 @@ run_new_container() {
   local -a docker_volumes=()
   local extensions_volume
   extensions_volume="$(extensions_volume_name)"
-  docker volume inspect "${extensions_volume}" >/dev/null 2>&1 || docker volume create "${extensions_volume}" >/dev/null
+  if ! docker volume inspect "${extensions_volume}" >/dev/null 2>&1; then
+    docker volume create "${extensions_volume}" >/dev/null
+  fi
   local _vi=0
   while [ "$_vi" -lt "${#PROJECT_DIRS_ABS[@]}" ]; do
     docker_volumes+=(-v "${PROJECT_DIRS_ABS[$_vi]}:${PROJECT_CONTAINER_PATHS[$_vi]}")
@@ -498,6 +532,10 @@ run_new_container() {
     ${DOCKER_EXTRAS[@]+"${DOCKER_EXTRAS[@]}"} \
     "$IMAGE"
 }
+
+if [ "$UPDATE_EXTENSIONS" -eq 1 ]; then
+  recreate_extensions_volume
+fi
 
 # ---------- run ----------
 case "$SESSION_ACTION" in
