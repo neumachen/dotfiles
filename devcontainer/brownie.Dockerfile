@@ -1,7 +1,9 @@
 ARG UPSTREAM_IMAGE=ghcr.io/hotovo/aider-desk:latest
 FROM ${UPSTREAM_IMAGE}
 
-ARG AIDER_DESK_EXTENSIONS=""
+ARG AIDER_DESK_EXTENSIONS_DEFAULT="bmad,questions,wakatime.ts,protected-paths.ts,permission-gate.ts,ultrathink.ts,external-rules.ts,sound-notification.ts,sandbox,rtk,redact-secrets,chunkhound-search,fff,seek,tree-sitter-repo-map,tps-counter,programmatic-tool-calls,lsp,context-autocompletion-words,plannotator,multi-model-run,https://github.com/wladimiiir/aider-desk-codex-auth-extension"
+ARG AIDER_DESK_EXTENSIONS_APPEND=""
+ARG AIDER_DESK_EXTENSIONS_OVERRIDE=""
 
 # ── 1) XDG_CONFIG_HOME wiring ──────────────────────────────────────────
 #    Entrypoint generates git config here from env vars at runtime.
@@ -41,19 +43,30 @@ RUN mkdir -p "${MISE_CONFIG_DIR}" "${MISE_DATA_DIR}" "${MISE_CACHE_DIR}" \
     && mise --version
 
 # ── 5) Preinstall AiderDesk extensions into the image ─────────────────
-#    Use a comma-separated build arg containing extension IDs or URLs.
+#    Default extensions are baked into the image. At build time you can
+#    either append more via AIDER_DESK_EXTENSIONS_APPEND or fully replace
+#    the defaults via AIDER_DESK_EXTENSIONS_OVERRIDE.
 #    At runtime, brownie mounts a named Docker volume at this path so the
 #    initial contents are copied from the image on first container start.
 RUN mkdir -p /root/.aider-desk/extensions \
-    && if [ -n "${AIDER_DESK_EXTENSIONS}" ]; then \
-        IFS=',' read -ra exts <<< "${AIDER_DESK_EXTENSIONS}"; \
-        for ext in "${exts[@]}"; do \
-          ext="$(echo "${ext}" | xargs)"; \
-          [ -n "${ext}" ] || continue; \
-          echo "Installing AiderDesk extension: ${ext}"; \
-          npx --yes @aiderdesk/extensions install "${ext}" --directory /root/.aider-desk/extensions; \
-        done; \
-      fi
+    && final_extensions="${AIDER_DESK_EXTENSIONS_DEFAULT}" \
+    && if [ -n "${AIDER_DESK_EXTENSIONS_OVERRIDE}" ]; then \
+        final_extensions="${AIDER_DESK_EXTENSIONS_OVERRIDE}"; \
+      elif [ -n "${AIDER_DESK_EXTENSIONS_APPEND}" ]; then \
+        final_extensions="${AIDER_DESK_EXTENSIONS_DEFAULT},${AIDER_DESK_EXTENSIONS_APPEND}"; \
+      fi \
+    && declare -A seen=() \
+    && IFS=',' read -ra exts <<< "${final_extensions}" \
+    && for ext in "${exts[@]}"; do \
+         ext="$(echo "${ext}" | xargs)"; \
+         [ -n "${ext}" ] || continue; \
+         if [ -n "${seen["${ext}"]+x}" ]; then \
+           continue; \
+         fi; \
+         seen["${ext}"]=1; \
+         echo "Installing AiderDesk extension: ${ext}"; \
+         npx --yes @aiderdesk/extensions install "${ext}" --directory /root/.aider-desk/extensions; \
+       done
 
 # ── 6) Upstream env / volumes / port / healthcheck ────────────────────
 #    Re-declared for clarity; inherited from upstream.
