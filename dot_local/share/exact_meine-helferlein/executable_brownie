@@ -526,9 +526,10 @@ recreate_extensions_volume() {
   docker volume create "${extensions_volume}" >/dev/null
 
   docker run --rm \
+    --entrypoint sh \
     -v "${extensions_volume}:/extensions-volume" \
     "$IMAGE" \
-    sh -lc 'mkdir -p /extensions-volume && cp -a /root/.aider-desk/extensions/. /extensions-volume/'
+    -lc 'mkdir -p /extensions-volume && cp -a /root/.aider-desk/extensions/. /extensions-volume/'
 }
 
 run_new_container() {
