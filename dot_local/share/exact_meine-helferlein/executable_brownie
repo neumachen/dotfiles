@@ -422,17 +422,39 @@ fi
 SESSION_DATA="${AIDER_DESK_DATA_ROOT}/${SESSION_NAME}/data"
 
 # ---------- locate Dockerfile (for --rebuild / --pull on local image) ----------
+has_complete_devcontainer() {
+  local dockerfile="${1:-}"
+  local devcontainer_dir
+
+  [ -n "$dockerfile" ] || return 1
+  [ -f "$dockerfile" ] || return 1
+
+  devcontainer_dir="$(dirname "$dockerfile")"
+  [ -f "$devcontainer_dir/entrypoint.sh" ] || return 1
+  [ -f "$devcontainer_dir/install-aiderdesk-extensions.sh" ] || return 1
+}
+
 BROWNIE_SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
-# Walk up from script dir to find the repo root (contains devcontainer/)
 BROWNIE_DOCKERFILE="${BROWNIE_DOCKERFILE:-}"
 if [ -z "$BROWNIE_DOCKERFILE" ]; then
-  # Try common relative paths from the script location
+  local_search_dir="$PWD"
+  while [ "$local_search_dir" != "/" ]; do
+    candidate="${local_search_dir}/devcontainer/brownie.Dockerfile"
+    candidate="$(realpath -m "$candidate")"
+    if has_complete_devcontainer "$candidate"; then
+      BROWNIE_DOCKERFILE="$candidate"
+      break
+    fi
+    local_search_dir="$(dirname "$local_search_dir")"
+  done
+fi
+if [ -z "$BROWNIE_DOCKERFILE" ]; then
   for candidate in \
     "${BROWNIE_SCRIPT_DIR}/../../devcontainer/brownie.Dockerfile" \
     "${BROWNIE_SCRIPT_DIR}/../../../devcontainer/brownie.Dockerfile" \
     "${HOME}/.local/share/chezmoi/devcontainer/brownie.Dockerfile"; do
     candidate="$(realpath -m "$candidate")"
-    if [ -f "$candidate" ]; then
+    if has_complete_devcontainer "$candidate"; then
       BROWNIE_DOCKERFILE="$candidate"
       break
     fi
@@ -440,8 +462,8 @@ if [ -z "$BROWNIE_DOCKERFILE" ]; then
 fi
 
 build_image() {
-  if [ -z "$BROWNIE_DOCKERFILE" ] || [ ! -f "$BROWNIE_DOCKERFILE" ]; then
-    die "Cannot find brownie.Dockerfile. Set BROWNIE_DOCKERFILE=/path/to/brownie.Dockerfile or ensure the chezmoi source tree is present."
+  if ! has_complete_devcontainer "$BROWNIE_DOCKERFILE"; then
+    die "Cannot find a complete brownie devcontainer (brownie.Dockerfile, entrypoint.sh, install-aiderdesk-extensions.sh). Set BROWNIE_DOCKERFILE=/path/to/brownie.Dockerfile or sync your dotfiles source tree."
   fi
   local build_context
   local -a build_args
