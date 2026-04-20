@@ -34,19 +34,7 @@
                         "product_id": 394,
                         "vendor_id": 1390
                     },
-                    "ignore": false,
-                    "ignore_vendor_events": true,
-                    "mouse_flip_vertical_wheel": true,
-                    "simple_modifications": [
-                        {
-                            "from": { "pointing_button": "button7" },
-                            "to": [{ "apple_vendor_keyboard_key_code": "mission_control" }]
-                        },
-                        {
-                            "from": { "pointing_button": "button8" },
-                            "to": [{ "key_code": "right_command" }]
-                        }
-                    ]
+                    "ignore_vendor_events": true
                 },
                 {
                     "identifiers": {
