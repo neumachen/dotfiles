@@ -1,0 +1,15 @@
+{
+  "trashOption": "local",
+  "foldIndent": false,
+  "autoPairMarkdown": false,
+  "tabSize": 4,
+  "alwaysUpdateLinks": true,
+  "showInlineTitle": false,
+  "showLineNumber": false,
+  "showIndentGuide": true,
+  "attachmentFolderPath": "assets",
+  "newFileLocation": "folder",
+  "newFileFolderPath": "zakki",
+  "readableLineLength": true,
+  "vimMode": true
+}
