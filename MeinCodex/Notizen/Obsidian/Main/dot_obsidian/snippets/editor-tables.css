@@ -1,0 +1,67 @@
+/*
+Style tables.
+*/
+
+:root {
+  --table-border-color: var(--text-faint);
+}
+
+/* Border color */
+.cm-s-obsidian .cm-table-widget th,
+.cm-s-obsidian .cm-table-widget td {
+  border-color: var(--table-border-color);
+}
+
+/* Bold header row */
+.cm-s-obsidian .cm-table-widget th {
+  font-weight: bold;
+}
+
+/* lighten alternate row background */
+.markdown-rendered tbody tr:nth-child(even) {
+  background-color: var(--background-primary-alt);
+}
+
+div.table-wrapper {
+  max-width: 100%;
+  margin: 0 auto;
+  outline: 2px solid black;
+  border-radius: 0.15rem;
+  border: none;
+}
+
+div.cm-embed-block.cm-table-widget.markdown-rendered div.table-wrapper table.table-editor thead tr th,
+div.cm-embed-block.cm-table-widget.markdown-rendered
+  div.table-wrapper
+  table.table-editor
+  tbody
+  tr
+  td
+  div.table-cell-wrapper {
+  padding: 0.4em;
+  /* font-size: 1.2em; */
+}
+
+/* From previous version of Anodyne */
+table thead {
+  background-color: var(--background-secondary);
+  font-weight: bold;
+}
+
+table tr:nth-child(2n),
+thead {
+  background-color: var(--background-secondary);
+}
+
+.cm-active.cm-line {
+  background: var(--cus-highlight-cursor-line);
+}
+
+.nav-file-title.is-active::before {
+  border-left: 2px solid hsl(var(--interactive-accent-hsl));
+  content: "";
+  position: absolute;
+  left: 0px;
+  top: 0;
+  height: 100%;
+}

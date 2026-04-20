@@ -1,0 +1,12 @@
+/*
+Remove external link anchor.
+*/
+
+.internal-link {
+  text-decoration: none;
+}
+
+.external-link {
+  background: none;
+  padding-right: 0;
+}
