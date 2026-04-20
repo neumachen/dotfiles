@@ -1,0 +1,45 @@
+{
+  "command_timeout": 5,
+  "templates_folder": "templates",
+  "auto_jump_to_cursor": true,
+  "trigger_on_new_file_creation": false,
+  "syntax_highlighting_enabled": true,
+  "syntax_highlighting_mobile_enabled": false,
+  "auto_pair_syntax": true,
+  "enabled_templates_hotkeys": [
+    {
+      "template": "templates/add-tag",
+      "hotkeys": [
+        {
+          "modifiers": ["Mod", "Alt"],
+          "key": "T"
+        }
+      ]
+    },
+    {
+      "template": "templates/new-akten-note",
+      "hotkeys": [
+        {
+          "modifiers": ["Mod", "Shift"],
+          "key": "N"
+        }
+      ]
+    },
+    {
+      "template": "templates/new-task-note",
+      "hotkeys": [
+        {
+          "modifiers": ["Mod", "Alt"],
+          "key": "N"
+        }
+      ]
+    }
+  ],
+  "startup_templates": [],
+  "enable_system_commands": false,
+  "shell_path": "",
+  "user_scripts_folder": "",
+  "enable_folder_templates": false,
+  "folder_templates": [],
+  "default_new_note_template": "templates/new-note"
+}

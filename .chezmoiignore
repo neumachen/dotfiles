@@ -54,3 +54,12 @@ tab.yml
 tags
 stylua.toml
 codebook.toml
+
+# Obsidian vault content — managed at runtime, not by Chezmoi
+MeinCodex/Notizen/Obsidian/Main/akten/**
+MeinCodex/Notizen/Obsidian/Main/zakki/**
+MeinCodex/Notizen/Obsidian/Main/assets/**
+
+# Obsidian plugin compiled files — installed by Obsidian, not tracked
+MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/**/main.js
+MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/**/styles.css

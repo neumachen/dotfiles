@@ -1,0 +1,14 @@
+{
+  "accentColor": "#872ac6",
+  "cssTheme": "Minimal",
+  "theme": "obsidian",
+  "enabledCssSnippets": [
+    "editor-frontmatter",
+    "editor-tables",
+    "plugin-mysnippets",
+    "ui-compact-tab-header",
+    "ui-default-style-settings",
+    "ui-statusbar-tweaks"
+  ],
+  "baseFontSize": 16
+}
