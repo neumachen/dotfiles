@@ -6,10 +6,10 @@
   "syntax_highlighting": true,
   "syntax_highlighting_mobile": false,
   "enabled_templates_hotkeys": [
-    "templates/add-tag",
-    "templates/new-akten",
-    "templates/new-zakki",
-    "templates/meeting"
+    "templates/add-tag.md",
+    "templates/new-akten.md",
+    "templates/new-zakki.md",
+    "templates/meeting.md"
   ],
   "startup_templates": [],
   "enable_system_commands": false,

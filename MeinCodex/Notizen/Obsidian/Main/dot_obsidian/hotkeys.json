@@ -35,7 +35,7 @@
     }
   ],
   "workspace:new-file": [],
-  "templater-obsidian:create-templates/new-zakki": [
+  "templater-obsidian:create-templates/new-zakki.md": [
     {
       "modifiers": [
         "Mod"
@@ -43,7 +43,7 @@
       "key": "N"
     }
   ],
-  "templater-obsidian:create-templates/new-akten": [
+  "templater-obsidian:create-new-note-from-template": [
     {
       "modifiers": [
         "Mod",
@@ -61,7 +61,7 @@
       "key": "I"
     }
   ],
-  "templater-obsidian:create-templates/meeting": [
+  "templater-obsidian:create-templates/meeting.md": [
     {
       "modifiers": [
         "Mod",
