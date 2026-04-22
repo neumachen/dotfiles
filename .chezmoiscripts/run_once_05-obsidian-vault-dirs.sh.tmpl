@@ -1,0 +1,28 @@
+#!/bin/bash
+# Creates required Obsidian vault reference directories that are NOT managed by Chezmoi.
+#
+# These directories are part of the vault structure expected by the configured plugins
+# and hotkey-driven note creation templates, but their contents are runtime-generated
+# (notes, attachments) and must never be tracked by Chezmoi.
+#
+# Directories created:
+#   akten/    — project/case notes (Templater new-akten-note template, Cmd+Shift+N)
+#   zakki/    — general notes, daily journal (default new-note location, Cmd+N)
+#   assets/   — attachments (images, PDFs); Obsidian writes here on first drag-drop
+
+set -e
+
+VAULT_DIR="${HOME}/MeinCodex/Notizen/Obsidian/Main"
+
+_log_info()  { echo "[INFO] --- $*"; }
+_log_ok()    { echo "[OK] --- $*"; }
+
+for dir in akten zakki assets; do
+  target="${VAULT_DIR}/${dir}"
+  if [ ! -d "${target}" ]; then
+    mkdir -p "${target}"
+    _log_ok "Created vault directory: ${target}"
+  else
+    _log_info "Vault directory already exists: ${target}"
+  fi
+done
