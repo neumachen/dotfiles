@@ -14,5 +14,6 @@
   "homepage",
   "calendar",
   "templater-obsidian",
-  "obsidian-tasks-plugin"
+  "obsidian-tasks-plugin",
+  "mononote"
 ]
