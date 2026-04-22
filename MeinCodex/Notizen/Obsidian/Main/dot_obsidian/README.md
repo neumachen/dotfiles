@@ -50,7 +50,7 @@ Located at `<vault-root>/templates/`. All templates use Templater syntax.
 
 | File | Hotkey | Purpose |
 |---|---|---|
-| `new-note.md` | `Cmd+N` | General Zakki note — prompts for title, generates ID, lands in `zakki/` |
+| `new-note.md` | `Cmd+N` | Opens Templater template picker — select a template to create a new note |
 | `new-akten-note.md` | `Cmd+Shift+N` | Project note — prompts for title, lands in `akten/` with `akten` tag |
 | `new-task-note.md` | `Cmd+Alt+N` | Task note — asks note/inline, prompts for title, inserts link at cursor |
 | `daily-journal.md` | via Calendar | Daily journal — uses core Templates syntax, lands in `zakki/` |
