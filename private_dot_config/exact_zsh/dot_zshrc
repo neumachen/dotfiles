@@ -294,6 +294,16 @@ if command_exists codex; then
   znap fpath _codex 'codex completion zsh'
 fi
 
+# jira-cli - https://github.com/ankitpokhrel/jira-cli
+if command_exists jira; then
+  znap fpath _jira 'jira completion zsh'
+fi
+
+# jiraatui - https://github.com/whyisdifficult/jiratui
+if command_exists jira; then
+  znap fpath _jiratui 'jiratui completions zsh'
+fi
+
 # wezterm
 if command_exists wezterm; then
   znap fpath _wezterm 'wezterm shell-completion --shell zsh'
