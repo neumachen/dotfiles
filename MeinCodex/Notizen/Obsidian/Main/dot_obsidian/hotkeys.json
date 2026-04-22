@@ -1,17 +1,13 @@
 {
   "editor:swap-line-down": [
     {
-      "modifiers": [
-        "Alt"
-      ],
+      "modifiers": ["Alt"],
       "key": "ArrowDown"
     }
   ],
   "editor:swap-line-up": [
     {
-      "modifiers": [
-        "Alt"
-      ],
+      "modifiers": ["Alt"],
       "key": "ArrowUp"
     }
   ],
@@ -19,61 +15,62 @@
   "editor:open-search": [],
   "omnisearch:show-modal": [
     {
-      "modifiers": [
-        "Mod",
-        "Shift"
-      ],
+      "modifiers": ["Mod", "Shift"],
       "key": "F"
     }
   ],
   "omnisearch:show-modal-infile": [
     {
-      "modifiers": [
-        "Mod"
-      ],
+      "modifiers": ["Mod"],
       "key": "F"
     }
   ],
   "workspace:new-file": [],
+  "templater-obsidian:template-templates/new-akten": [
+    {
+      "modifiers": ["Mod"],
+      "key": "N"
+    }
+  ],
   "templater-obsidian:create_new_note_from_template": [
     {
-      "modifiers": [
-        "Mod"
-      ],
+      "modifiers": ["Mod", "Shift"],
       "key": "N"
     }
   ],
   "templater-obsidian:insert_template": [
     {
-      "modifiers": [
-        "Mod",
-        "Shift"
-      ],
+      "modifiers": ["Mod", "Shift"],
       "key": "I"
+    }
+  ],
+  "templater-obsidian:template-templates/new-zakki": [
+    {
+      "modifiers": ["Mod", "Alt"],
+      "key": "Z"
+    }
+  ],
+  "templater-obsidian:template-templates/meeting": [
+    {
+      "modifiers": ["Mod", "Alt"],
+      "key": "M"
     }
   ],
   "obsidian-linter:lint-file": [
     {
-      "modifiers": [
-        "Mod"
-      ],
+      "modifiers": ["Mod"],
       "key": "S"
     }
   ],
   "obsidian-tasks-plugin:toggle-done": [
     {
-      "modifiers": [
-        "Mod"
-      ],
+      "modifiers": ["Mod"],
       "key": "Enter"
     }
   ],
   "obsidian-tasks-plugin:create-or-edit-task": [
     {
-      "modifiers": [
-        "Mod",
-        "Shift"
-      ],
+      "modifiers": ["Mod", "Shift"],
       "key": "T"
     }
   ]
