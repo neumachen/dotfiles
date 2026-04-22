@@ -62,7 +62,8 @@ MeinCodex/Notizen/Obsidian/Main/akten/*
 MeinCodex/Notizen/Obsidian/Main/zakki/*
 MeinCodex/Notizen/Obsidian/Main/assets/**
 
-# Obsidian plugin compiled/bundled files — downloaded by Obsidian plugin installer, not tracked
+# Obsidian plugin compiled/bundled files — downloaded by Obsidian on first launch, not tracked.
+# manifest.json (tracked) is sufficient for Obsidian to detect and download missing plugins.
 MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/**/main.js
 MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/**/styles.css
 

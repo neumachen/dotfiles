@@ -5,7 +5,7 @@ MeinCodex/Notizen/Obsidian/Main/akten/
 MeinCodex/Notizen/Obsidian/Main/zakki/
 MeinCodex/Notizen/Obsidian/Main/assets/
 
-# Obsidian plugin compiled files — installed by Obsidian plugin installer, not tracked in git
+# Obsidian plugin compiled files — downloaded by Obsidian on first launch, not tracked in git
 MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/**/main.js
 MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/**/styles.css
 
