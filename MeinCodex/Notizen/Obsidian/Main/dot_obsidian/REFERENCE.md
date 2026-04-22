@@ -6,7 +6,7 @@
 
 | Shortcut | Action |
 |---|---|
-| `Cmd+N` | New Zakki note (template picker → lands in `zakki/`) |
+| `Cmd+N` | Templater template picker — choose any template to create a new note |
 | `Cmd+Shift+N` | New Akten note (direct → lands in `akten/`) |
 | `Cmd+Alt+N` | New task note (asks note/inline → inserts link at cursor) |
 

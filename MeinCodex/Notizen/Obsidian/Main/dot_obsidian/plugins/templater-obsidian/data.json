@@ -2,38 +2,14 @@
   "command_timeout": 5,
   "templates_folder": "templates",
   "auto_jump_to_cursor": true,
-  "trigger_on_new_file_creation": false,
-  "syntax_highlighting_enabled": true,
-  "syntax_highlighting_mobile_enabled": false,
-  "auto_pair_syntax": true,
+  "trigger_on_file_creation": false,
+  "syntax_highlighting": true,
+  "syntax_highlighting_mobile": false,
   "enabled_templates_hotkeys": [
-    {
-      "template": "templates/add-tag",
-      "hotkeys": [
-        {
-          "modifiers": ["Mod", "Alt"],
-          "key": "T"
-        }
-      ]
-    },
-    {
-      "template": "templates/new-akten-note",
-      "hotkeys": [
-        {
-          "modifiers": ["Mod", "Shift"],
-          "key": "N"
-        }
-      ]
-    },
-    {
-      "template": "templates/new-task-note",
-      "hotkeys": [
-        {
-          "modifiers": ["Mod", "Alt"],
-          "key": "N"
-        }
-      ]
-    }
+    "templates/add-tag",
+    "templates/new-akten",
+    "templates/new-zakki",
+    "templates/meeting"
   ],
   "startup_templates": [],
   "enable_system_commands": false,
@@ -41,5 +17,7 @@
   "user_scripts_folder": "",
   "enable_folder_templates": false,
   "folder_templates": [],
-  "default_new_note_template": "templates/new-note"
+  "enable_file_templates": false,
+  "file_templates": [],
+  "default_new_note_template": ""
 }
