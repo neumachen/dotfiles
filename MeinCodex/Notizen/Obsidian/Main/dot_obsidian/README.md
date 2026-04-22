@@ -50,20 +50,14 @@ Located at `<vault-root>/templates/`. All templates use Templater syntax.
 
 | File | Hotkey | Purpose |
 |---|---|---|
-| `new-note.md` | `Cmd+N` | Opens Templater template picker — select a template to create a new note |
-| `new-akten-note.md` | `Cmd+Shift+N` | Project note — prompts for title, lands in `akten/` with `akten` tag |
-| `new-task-note.md` | `Cmd+Alt+N` | Task note — asks note/inline, prompts for title, inserts link at cursor |
-| `daily-journal.md` | via Calendar | Daily journal — uses core Templates syntax, lands in `zakki/` |
-| `add-tag.md` | `Cmd+Alt+T` | Adds a tag to current note's frontmatter via prompt |
+| `new-zakki.md` | `Cmd+N` | General note — prompts for title, lands in `zakki/<id>` with `zakki` tag |
+| `new-akten.md` | — | Project note — prompts for title, lands in `akten/` with `akten` tag |
+| `meeting.md` | `Cmd+Alt+M` | Meeting note |
+| `add-tag.md` | `Cmd+Alt+T` | Adds a tag to the current note's frontmatter via prompt |
 
-### Task Note Frontmatter
-
-```yaml
-task:
-  status: open       # open | in-progress | blocked | done | cancelled
-  due:               # YYYY-MM-DD HH:mm:ss
-  priority:          # low | medium | high | urgent
-```
+To pick any template interactively (including `new-akten`), use `Cmd+Shift+N`
+(Templater → *Create new note from template*). To insert a template into the
+current note, use `Cmd+Shift+I`.
 
 ---
 
