@@ -6,9 +6,9 @@
 
 | Shortcut | Action |
 |---|---|
-| `Cmd+N` | Templater template picker — choose any template to create a new note |
-| `Cmd+Shift+N` | New Akten note (direct → lands in `akten/`) |
-| `Cmd+Alt+N` | New task note (asks note/inline → inserts link at cursor) |
+| `Cmd+N` | New **Zakki** note — prompts for title, lands in `zakki/<id>` |
+| `Cmd+Shift+N` | Templater template picker — choose any template to create a new note |
+| `Cmd+Alt+M` | New **meeting** note |
 
 ### Editing
 
@@ -16,7 +16,7 @@
 |---|---|
 | `Cmd+S` | Lint and save (formats + saves current note) |
 | `Cmd+Shift+I` | Insert template into current note |
-| `Cmd+Alt+T` | Add tag to current note (prompts for tag name) |
+| `Cmd+Alt+T` | **Add tag** to current note (prompts for tag name) |
 | `Alt+↓` | Move current line down |
 | `Alt+↑` | Move current line up |
 
@@ -39,12 +39,9 @@
 
 ## Task Workflow
 
-1. Position cursor where you want the task reference
-2. Press `Cmd+Alt+N`
-3. Choose **Yes** (dedicated note) or **No** (inline only)
-4. Type the task title
-5. If Yes: a task note is created in `zakki/` and `[[id|Title]]` is inserted at cursor
-6. Open the task note to add due date, priority, description, acceptance criteria
+Tasks are managed inline via the `obsidian-tasks-plugin`. Use `Cmd+Shift+T`
+on any markdown checkbox to open the Tasks modal (set due date, priority,
+recurrence, etc.) and `Cmd+Enter` to toggle a task between open and done.
 
 ### Task Frontmatter Values
 
