@@ -70,6 +70,15 @@
       "key": "M"
     }
   ],
+  "templater-obsidian:templates/add-tag.md": [
+    {
+      "modifiers": [
+        "Mod",
+        "Alt"
+      ],
+      "key": "T"
+    }
+  ],
   "obsidian-linter:lint-file": [
     {
       "modifiers": [
