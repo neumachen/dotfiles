@@ -17,9 +17,13 @@ snippets, and templates.
 ├── akten/          project notes
 ├── assets/         attachments (images, PDFs, files)
 ├── templates/      Templater templates (also tracked by Chezmoi)
-├── zakki/          all general notes — organized by tags, not folders
+├── zakki/          general notes — filed by creation date under YYYY/MM/DD/, categorized by tags
+│   └── YYYY/MM/DD/ created on demand by the new-zakki template
 └── .obsidian/      ← this directory (dot_obsidian in Chezmoi)
 ```
+
+Zakki organization is **date-based on disk** and **tag-based by category**. When a Zakki is
+later consolidated into an Akten (record), its tag becomes the Akten's record category.
 
 ---
 
@@ -29,7 +33,8 @@ Every note carries a standard frontmatter block:
 
 ```yaml
 ---
-id:       8-character hex short ID (e.g. a3f9b2c1) — stable, never changes
+id:       YYYYMMDDHHMMSS-<ulid>  (e.g. 20260427143012-01jspxyzfhq8mw7s3a4b5c6d7e)
+                                  — lex-sortable, time-ordered; never changes after creation
 title:    human-readable title
 aliases:
 tags:
@@ -39,7 +44,9 @@ updated:  YYYY-MM-DD HH:mm:ss  ← auto-maintained by Linter on every save
 ---
 ```
 
-Filenames are the bare ID (`a3f9b2c1.md`). Titles live in frontmatter, not filenames.
+Filenames are the bare ID (`20260427143012-01jspxyzfhq8mw7s3a4b5c6d7e.md`). Titles live in
+frontmatter, not filenames. The `YYYYMMDDHHMMSS-` prefix makes filenames lex-sort by creation
+time; the lowercase Crockford-base32 ULID suffix provides per-second uniqueness.
 Task notes additionally carry a nested `task:` block (see Templates section below).
 
 ---
@@ -50,7 +57,7 @@ Located at `<vault-root>/templates/`. All templates use Templater syntax.
 
 | File | Hotkey | Purpose |
 |---|---|---|
-| `new-zakki.md` | `Cmd+N` | General note — prompts for title, lands in `zakki/<id>` with `zakki` tag |
+| `new-zakki.md` | `Cmd+N` | General note — prompts for title, lands in `zakki/YYYY/MM/DD/<id>` with `zakki` tag |
 | `new-akten.md` | — | Project note — prompts for title, lands in `akten/` with `akten` tag |
 | `meeting.md` | `Cmd+Alt+M` | Meeting note |
 | `add-tag.md` | `Cmd+Alt+T` | Adds a tag to the current note's frontmatter via prompt |
@@ -71,8 +78,8 @@ current note, use `Cmd+Shift+I`.
 | Backlinks | ✅ |
 | Tag Pane | ✅ |
 | Page Preview | ✅ |
-| Daily Notes | ✅ |
-| Templates | ✅ (core — used for daily journal only) |
+| Daily Notes | ❌ (deferred — see *Daily Journal* note below) |
+| Templates | ✅ (core) |
 | Command Palette | ✅ |
 | Editor Status | ✅ |
 | Bookmarks | ✅ |
@@ -148,7 +155,20 @@ All snippet files follow `category-name.css` naming (lowercase, hyphenated).
 | Always update links | ✅ enabled |
 | Trash | Local (`.trash/` inside vault) |
 | Attachments folder | `assets/` |
-| New note folder | `zakki/` |
+| New note folder | `zakki/` (fallback for non-Templater "New note"; Templater `Cmd+N` writes to `zakki/YYYY/MM/DD/`) |
+
+---
+
+## Daily Journal (deferred)
+
+There is no dedicated daily journal yet. For now, daily entries are effectively
+derived from Zakki — filtering by date folder or by `created` frontmatter is the
+intended way to read "the journal for a given day". The Daily Notes core plugin
+is therefore disabled.
+
+Eventually a dedicated daily journal directory will be added, following the same
+date-folder + sortable-ID convention as Zakki. Its directory name will be German
+(TBD), to match the naming style of `Notizen`/`Akten`/`Zakki`.
 
 ---
 
