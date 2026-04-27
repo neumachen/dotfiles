@@ -59,7 +59,7 @@ codebook.toml
 # Note: akten/ and zakki/ dirs are created by a chezmoi run-once script; content is never tracked.
 # assets/ is created by Obsidian on first attachment drop; never tracked.
 MeinCodex/Notizen/Obsidian/Main/akten/*
-MeinCodex/Notizen/Obsidian/Main/zakki/*
+MeinCodex/Notizen/Obsidian/Main/zakki/**
 MeinCodex/Notizen/Obsidian/Main/assets/**
 
 # Obsidian plugin compiled/bundled files — downloaded by Obsidian on first launch, not tracked.
