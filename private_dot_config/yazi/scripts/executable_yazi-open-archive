@@ -1,0 +1,29 @@
+#!/bin/sh
+# Extract archives using Keka's bundled `unar` when the Keka cask is
+# installed; otherwise fall back to the default macOS opener.
+#
+# /opt/homebrew/bin/keka is a wrapper that prepends `--cli`, so the
+# invocation pattern is `keka <bundled-binary> <args>`.  `unar` (The
+# Unarchiver, bundled with Keka) covers every format the opener routes
+# here: zip, 7z, rar, tar, gz, tgz, bz2, xz, zst, ...
+#
+# unar uses single-dash long options:
+#   -q   quiet
+#   -r   force-rename on conflict (never overwrite existing files)
+#   -o   output directory (extract next to the archive)
+#
+# Note: Keka runs in the macOS App Sandbox.  File access outside the
+# locations granted under Keka -> Settings -> File Access (default
+# includes $HOME) will fail with a "no file access" error.
+set -eu
+
+[ "$#" -gt 0 ] || exit 0
+
+if command -v keka >/dev/null 2>&1; then
+  for f in "$@"; do
+    [ -e "$f" ] || continue
+    keka unar -q -r -o "$(dirname -- "$f")" "$f"
+  done
+  exit 0
+fi
+exec open -- "$@"

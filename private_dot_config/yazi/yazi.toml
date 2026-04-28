@@ -32,7 +32,7 @@ play = [
   { run = 'iina --no-stdin "$@"' },
   { run = '''mediainfo "$1"; echo "Press enter to exit"; read''', block = true, desc = "Show media info" },
 ]
-archive = [{ run = 'keka "$1"', desc = "Extract here" }]
+extract = [{ run = '''"${XDG_CONFIG_HOME:-$HOME/.config}/yazi/scripts/yazi-open-archive" "$@"''', desc = "Open archive (Keka CLI if available)" }]
 
 [open]
 rules = [
@@ -97,6 +97,14 @@ rules = [
     "extract",
     "reveal",
   ] },
+  { mime = "application/x-xz", use = [
+    "extract",
+    "reveal",
+  ] },
+  { mime = "application/zstd", use = [
+    "extract",
+    "reveal",
+  ] },
   { mime = "*", use = [
     "open",
     "reveal",
@@ -104,7 +112,18 @@ rules = [
 ]
 
 [plugin]
-prepend_previewers = [{ mime = "audio/*", run = "exifaudio" }]
+prepend_previewers = [
+  { mime = "audio/*", run = "exifaudio" },
+  { mime = "application/zip", run = "keka-preview" },
+  { mime = "application/gzip", run = "keka-preview" },
+  { mime = "application/x-tar", run = "keka-preview" },
+  { mime = "application/x-bzip", run = "keka-preview" },
+  { mime = "application/x-bzip2", run = "keka-preview" },
+  { mime = "application/x-7z-compressed", run = "keka-preview" },
+  { mime = "application/x-rar", run = "keka-preview" },
+  { mime = "application/x-xz", run = "keka-preview" },
+  { mime = "application/zstd", run = "keka-preview" },
+]
 
 [tasks]
 micro_workers = 10
