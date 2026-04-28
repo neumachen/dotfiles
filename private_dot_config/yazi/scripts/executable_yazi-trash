@@ -1,0 +1,41 @@
+#!/bin/sh
+# Send paths to the trash.  Prefers the `trash` CLI (Homebrew macos-trash);
+# falls back to platform-appropriate trash mechanisms so the user-visible
+# behavior matches Yazi's default `remove` (trash, not permanent delete).
+set -eu
+
+[ "$#" -gt 0 ] || exit 0
+
+# NOTE: do not pass `--` — Apple's bundled /usr/bin/trash treats it as a
+# missing-file argument and exits non-zero, which makes Yazi keep the
+# `shell` task pinned in its task manager even though the file did get
+# trashed.  Sindre's macos-trash is also `--`-unaware.  None of these CLIs
+# have flags that conflict with leading-dash filenames in practice.
+if command -v trash >/dev/null 2>&1; then
+  exec trash "$@"
+fi
+
+# Linux conveniences in case the dotfiles are applied there.
+if command -v gio >/dev/null 2>&1; then
+  exec gio trash "$@"
+fi
+if command -v trash-put >/dev/null 2>&1; then
+  exec trash-put "$@"
+fi
+
+# macOS final fallback: move into ~/.Trash.  Lacks "Put Back" metadata but
+# preserves the user-visible "files went to trash" outcome.
+case "$(uname)" in
+  Darwin)
+    trash_dir="${HOME}/.Trash"
+    mkdir -p "$trash_dir"
+    for f in "$@"; do
+      [ -e "$f" ] || [ -L "$f" ] || continue
+      mv -f -- "$f" "$trash_dir/"
+    done
+    ;;
+  *)
+    echo "yazi-trash: no trash mechanism available; refusing to delete" >&2
+    exit 1
+    ;;
+esac
