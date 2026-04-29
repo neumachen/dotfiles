@@ -102,19 +102,11 @@ else
   _log_warn "Chezmoi source directory not found at ${SOURCE_DIR}, skipping remote switch."
 fi
 
-# Re-apply chezmoi to regenerate templates now that 1Password is available.
-# This ensures git config picks up the SSH signing key and insteadOf rewrite,
-# and the git profile includes the gpg/commit signing configuration.
-CHEZMOI="${HOME}/.local/bin/chezmoi"
-if [ ! -x "${CHEZMOI}" ]; then
-  CHEZMOI="$(command -v chezmoi 2>/dev/null || true)"
-fi
-
-if [ -n "${CHEZMOI}" ] && [ -x "${CHEZMOI}" ]; then
-  _log_info "Re-applying chezmoi to regenerate templates with SSH/signing config..."
-  "${CHEZMOI}" apply --force
-  _log_ok "chezmoi re-apply complete."
-else
-  _log_warn "chezmoi not found, please run 'chezmoi apply' manually to update templates."
-fi
+# Templates that depend on 1Password (git insteadOf rewrite, SSH signing key,
+# gpg.format=ssh, commit.gpgsign) re-render on every `chezmoi apply` based on a
+# filesystem check for op-ssh-sign. We do NOT call `chezmoi apply` from here —
+# it deadlocks on the persistent state lock held by the outer apply. If this is
+# a fresh bootstrap where 1Password was just installed, run `chezmoi apply` once
+# more to regenerate git config with SSH/signing settings.
+_log_info "Run 'chezmoi apply' once more if this was a fresh bootstrap, to refresh git SSH/signing config."
 {{- end }}
