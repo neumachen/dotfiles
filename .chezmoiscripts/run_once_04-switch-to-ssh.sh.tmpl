@@ -103,10 +103,32 @@ else
 fi
 
 # Templates that depend on 1Password (git insteadOf rewrite, SSH signing key,
-# gpg.format=ssh, commit.gpgsign) re-render on every `chezmoi apply` based on a
-# filesystem check for op-ssh-sign. We do NOT call `chezmoi apply` from here —
-# it deadlocks on the persistent state lock held by the outer apply. If this is
-# a fresh bootstrap where 1Password was just installed, run `chezmoi apply` once
-# more to regenerate git config with SSH/signing settings.
-_log_info "Run 'chezmoi apply' once more if this was a fresh bootstrap, to refresh git SSH/signing config."
+# gpg.format=ssh, commit.gpgsign) need a second `chezmoi apply` to render with
+# the SSH/signing block when 1Password was installed during this same bootstrap
+# pass (after the templates first rendered). Calling `chezmoi apply` directly
+# from here deadlocks on the persistent state lock held by the outer apply, so
+# schedule a detached re-apply that fires after the outer process exits.
+CHEZMOI_BIN="${HOME}/.local/bin/chezmoi"
+if [ ! -x "${CHEZMOI_BIN}" ]; then
+  CHEZMOI_BIN="$(command -v chezmoi 2>/dev/null || true)"
+fi
+
+if [ -n "${CHEZMOI_BIN}" ] && [ -x "${CHEZMOI_BIN}" ]; then
+  DEFER_LOG="${HOME}/.cache/chezmoi/post-bootstrap.log"
+  mkdir -p "$(dirname "${DEFER_LOG}")"
+  (
+    nohup bash -c '
+      sleep 15
+      {
+        echo "--- $(date) deferred chezmoi apply (PID $$) ---"
+        "'"${CHEZMOI_BIN}"'" apply --force
+        rc=$?
+        echo "--- $(date) deferred chezmoi apply exited rc=${rc} ---"
+      } >> "'"${DEFER_LOG}"'" 2>&1
+    ' </dev/null >/dev/null 2>&1 &
+  )
+  _log_info "Scheduled deferred 'chezmoi apply' in ~15s (log: ${DEFER_LOG})."
+else
+  _log_warn "chezmoi binary not found; run 'chezmoi apply' manually to refresh templates."
+fi
 {{- end }}
