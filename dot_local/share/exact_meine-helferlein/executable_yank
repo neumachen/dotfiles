@@ -1,11 +1,21 @@
 #!/bin/sh
 #
-# Usage: yank [FILE...]
+# Usage:
+#   yank [FILE...]              copy file contents (or stdin) to clipboard
+#   yank --cwd [--up N]         copy current working directory
+#   yank --path PATH [--up N]   copy the given path (resolved)
+#   yank -h | --help            show this help
 #
-# Copies the contents of the given files (or stdin, if no files are given) to
-# the terminal that runs this program.  If this program is run inside tmux(1),
-# then it also copies the given contents into tmux's current clipboard buffer.
-# If this program is run inside X11, then it also copies to the X11 clipboard.
+# In path mode the clipboard receives the resolved path (no trailing newline)
+# and the same path is echoed to stdout.  --up N walks up N parent directories
+# from the chosen base; default 0; the walk naturally clamps at /.  Resolution
+# uses `cd && pwd` so no realpath/readlink dependency is required.
+#
+# Content mode (the original behavior) copies the contents of the given files
+# (or stdin, if no files are given) to the terminal that runs this program.
+# If this program is run inside tmux(1), then it also copies the given contents
+# into tmux's current clipboard buffer.  If this program is run inside X11,
+# then it also copies to the X11 clipboard.
 #
 # This is achieved by writing an OSC 52 escape sequence to the said terminal.
 # The maximum length of an OSC 52 escape sequence is 100_000 bytes, of which
@@ -23,8 +33,71 @@
 #
 # Written in 2014 by Suraj N. Kurapati <https://github.com/sunaku>
 # Also documented at https://sunaku.github.io/tmux-yank-osc52.html
+# Path-mode flags (--cwd, --path, --up) added later as a backward-compatible
+# extension; the OSC 52 copy pipeline below is unchanged.
 
-input=$( cat "$@" )
+print_usage() {
+    cat <<'EOF'
+Usage:
+  yank [FILE...]              copy file contents (or stdin) to clipboard
+  yank --cwd [--up N]         copy current working directory
+  yank --path PATH [--up N]   copy the given path (resolved)
+  yank -h | --help            show this help
+EOF
+}
+
+mode=content
+up=0
+up_set=
+target=
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --cwd)      mode=path; target=$(pwd);          shift ;;
+        --path)     mode=path; target=$2;              shift 2 ;;
+        --path=*)   mode=path; target=${1#--path=};    shift ;;
+        --up)       up=$2;     up_set=1;               shift 2 ;;
+        --up=*)     up=${1#--up=}; up_set=1;           shift ;;
+        -h|--help)  print_usage; exit 0 ;;
+        --)         shift; break ;;
+        -*)         printf 'yank: unknown option: %s\n' "$1" >&2; exit 2 ;;
+        *)          break ;;
+    esac
+done
+
+if [ "$mode" = path ]; then
+    [ $# -eq 0 ] || {
+        printf 'yank: unexpected arguments in path mode: %s\n' "$*" >&2
+        exit 2
+    }
+    case "$up" in
+        ''|*[!0-9]*)
+            printf 'yank: --up needs a non-negative integer (got %s)\n' "$up" >&2
+            exit 2
+            ;;
+    esac
+    [ -n "$target" ] || {
+        printf 'yank: --path requires a value\n' >&2
+        exit 2
+    }
+    i=0
+    while [ "$i" -lt "$up" ]; do
+        target="$target/.."
+        i=$((i + 1))
+    done
+    resolved=$(cd -- "$target" 2>/dev/null && pwd) || {
+        printf 'yank: cannot resolve: %s\n' "$target" >&2
+        exit 1
+    }
+    input=$resolved
+    printf '%s\n' "$resolved"
+elif [ -n "$up_set" ]; then
+    printf 'yank: --up requires --cwd or --path\n' >&2
+    exit 2
+else
+    input=$( cat "$@" )
+fi
+
 input() { printf %s "$input" ;}
 
 # copy to tmux
