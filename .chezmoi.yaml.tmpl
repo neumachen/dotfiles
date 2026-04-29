@@ -1,5 +1,17 @@
 # vim: ft=yaml
 ---
+{{- $onePasswordApp := "" -}}
+{{- if stat "/Applications/1Password.app" -}}
+  {{- $onePasswordApp = "/Applications/1Password.app" -}}
+{{- else if stat (joinPath .chezmoi.homeDir "Applications/1Password.app") -}}
+  {{- $onePasswordApp = joinPath .chezmoi.homeDir "Applications/1Password.app" -}}
+{{- end -}}
+{{- $vault := "" -}}
+{{- $sshKey := "" -}}
+{{- if ne $onePasswordApp "" -}}
+  {{- $vault = promptStringOnce . "onepassword.vault" "1Password vault name (e.g. Personal, Private)" -}}
+  {{- $sshKey = promptStringOnce . "onepassword.ssh_signing_key" "SSH signing key (e.g. ssh-ed25519 AAAA...)" -}}
+{{- end -}}
 sourceDir: ~/MeinCodex/Codebasis/github.com/neumachen/dotfiles
 diff:
   command: nvim
@@ -17,21 +29,20 @@ merge:
     - "{{`{{ .Target }}`}}"
 data:
   onepassword:
-    vault: {{ promptStringOnce . "onepassword.vault" "1Password vault name (e.g. Personal, Private)" | quote }}
-    ssh_signing_key: {{ promptStringOnce . "onepassword.ssh_signing_key" "SSH signing key (e.g. ssh-ed25519 AAAA...)" | quote }}
+    vault: {{ $vault | quote }}
+    ssh_signing_key: {{ $sshKey | quote }}
   git:
     profile: |
       [user]
         email = kareem@hepburn.info
         name = Kareem Hepburn
-{{- if stat "/Applications/1Password.app/Contents/MacOS/op-ssh-sign" }}
-        signingKey = {{ .onepassword.ssh_signing_key }}
+{{- if ne $onePasswordApp "" }}
+        signingKey = {{ $sshKey }}
       [gpg]
         format = ssh
       [gpg "ssh"]
-        program = "/Applications/1Password.app/Contents/MacOS/op-ssh-sign"
+        program = "{{ $onePasswordApp }}/Contents/MacOS/op-ssh-sign"
       [commit]
         gpgsign = true
 {{- end }}
-
   envvars: []
