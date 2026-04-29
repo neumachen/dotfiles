@@ -90,3 +90,5 @@ tagged
 # Personal folder of ignored files/directoaries
 # ---------------------------------------------------------------------------------------------
 .git-ignored/
+
+**/.claude/settings.local.json
