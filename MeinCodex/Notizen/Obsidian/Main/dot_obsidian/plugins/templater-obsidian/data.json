@@ -9,7 +9,8 @@
     "templates/add-tag.md",
     "templates/new-akten.md",
     "templates/new-zakki.md",
-    "templates/meeting.md"
+    "templates/meeting.md",
+    "templates/new-task.md"
   ],
   "startup_templates": [],
   "enable_system_commands": false,

@@ -16,6 +16,8 @@ snippets, and templates.
 <vault-root>/
 ├── akten/          project notes
 ├── assets/         attachments (images, PDFs, files)
+├── kadai/          task notes — file-per-task with `task:` frontmatter, filed by creation date
+│   └── YYYY/MM/DD/ created on demand by the new-task template
 ├── templates/      Templater templates (also tracked by Chezmoi)
 ├── zakki/          general notes — filed by creation date under YYYY/MM/DD/, categorized by tags
 │   └── YYYY/MM/DD/ created on demand by the new-zakki template
@@ -47,7 +49,14 @@ updated:  YYYY-MM-DD HH:mm:ss  ← auto-maintained by Linter on every save
 Filenames are the bare ID (`20260427143012-01jspxyzfhq8mw7s3a4b5c6d7e.md`). Titles live in
 frontmatter, not filenames. The `YYYYMMDDHHMMSS-` prefix makes filenames lex-sort by creation
 time; the lowercase Crockford-base32 ULID suffix provides per-second uniqueness.
-Task notes additionally carry a nested `task:` block (see Templates section below).
+
+Task notes additionally carry flat dotted-key fields in the same frontmatter block —
+`task.task_id`, `task.start-date`, `task.due-date`, `task.priority`, `task.status`,
+`task.icon`, `task.meta.attr`. The dotted names are deliberate: Obsidian's Properties UI
+flattens any truly nested YAML object into a JSON-string field, so we use literal
+`task.<field>` keys instead. Each one then renders as its own row in Properties (Number for
+priority, Date & time for the dates, Text for the rest), and Bases reads them as ordinary
+string-keyed fields. See REFERENCE.md for the full task schema.
 
 ---
 
@@ -59,6 +68,7 @@ Located at `<vault-root>/templates/`. All templates use Templater syntax.
 |---|---|---|
 | `new-zakki.md` | `Cmd+N` | General note — prompts for title, lands in `zakki/YYYY/MM/DD/<id>` with `zakki` tag |
 | `new-akten.md` | — | Project note — prompts for title, lands in `akten/` with `akten` tag |
+| `new-task.md` | `Cmd+Shift+T` | Task note — fast (title only) or full (title, priority, due, description) prompt; lands in `kadai/YYYY/MM/DD/<id>` with `task` tag and flat `task.*` frontmatter fields (`task_id`, `start-date`, `due-date`, `priority`, `status`, `icon`, `meta.attr`). The note's H1 prefixes the title with the status icon. |
 | `meeting.md` | `Cmd+Alt+M` | Meeting note |
 | `add-tag.md` | `Cmd+Alt+T` | Adds a tag to the current note's frontmatter via prompt |
 

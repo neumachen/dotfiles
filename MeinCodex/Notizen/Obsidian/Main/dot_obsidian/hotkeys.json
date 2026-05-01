@@ -99,6 +99,15 @@
     {
       "modifiers": [
         "Mod",
+        "Alt"
+      ],
+      "key": "K"
+    }
+  ],
+  "templater-obsidian:create-templates/new-task.md": [
+    {
+      "modifiers": [
+        "Mod",
         "Shift"
       ],
       "key": "T"
