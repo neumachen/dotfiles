@@ -25,7 +25,7 @@ crypto.getRandomValues(uidBytes);
 let uid = "";
 for (let i = 0; i < 8; i++) uid += ENCODING.charAt(uidBytes[i] % 32);
 
-const documentId = `akten:${uid}`;
+const documentId = uid;
 
 let slug = title
   .normalize("NFD")

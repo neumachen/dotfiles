@@ -70,7 +70,7 @@ let randPart = "";
 for (let i = 0; i < 16; i++) randPart += ENCODING.charAt(rand[i] % 32);
 const ulid = timePart + randPart;
 const ulidId = `${stamp}-${ulid}`;
-const documentId = `kadai:${ulidId}`;
+const documentId = ulidId;
 
 const taskId = (typeof crypto !== "undefined" && crypto.randomUUID)
   ? crypto.randomUUID()

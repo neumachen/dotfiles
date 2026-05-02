@@ -78,7 +78,7 @@ let vermerkUid = "";
 for (let i = 0; i < 8; i++) vermerkUid += ENCODING.charAt(vermerkUidBytes[i] % 32);
 
 const akteUid = aktePath.split("/").pop().split("-")[0];
-const documentId = `vermerk:${vermerkUid}`;
+const documentId = vermerkUid;
 const path = `${aktePath}/${ulidId}.md`;
 
 await tp.file.move(`${aktePath}/${ulidId}`);

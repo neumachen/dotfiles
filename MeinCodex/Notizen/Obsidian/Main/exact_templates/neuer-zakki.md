@@ -33,7 +33,7 @@ for (let i = 0; i < 16; i++) randPart += ENCODING.charAt(rand[i] % 32);
 const ulid = timePart + randPart;
 
 const ulidId = `${stamp}-${ulid}`;
-const documentId = `zakki:${ulidId}`;
+const documentId = ulidId;
 const folder = `zakki/${YYYY}/${MM}/${DD}`;
 const path = `${folder}/${ulidId}.md`;
 if (!(await app.vault.adapter.exists(folder))) {
