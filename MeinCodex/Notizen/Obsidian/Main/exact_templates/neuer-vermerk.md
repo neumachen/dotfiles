@@ -70,7 +70,7 @@ const rand = new Uint8Array(16);
 crypto.getRandomValues(rand);
 let randPart = "";
 for (let i = 0; i < 16; i++) randPart += ENCODING.charAt(rand[i] % 32);
-const id = `${stamp}-${timePart}${randPart}`;
+const ulidId = `${stamp}-${timePart}${randPart}`;
 
 const vermerkUidBytes = new Uint8Array(8);
 crypto.getRandomValues(vermerkUidBytes);
@@ -78,11 +78,15 @@ let vermerkUid = "";
 for (let i = 0; i < 8; i++) vermerkUid += ENCODING.charAt(vermerkUidBytes[i] % 32);
 
 const akteUid = aktePath.split("/").pop().split("-")[0];
+const documentId = `vermerk:${vermerkUid}`;
+const path = `${aktePath}/${ulidId}.md`;
 
-await tp.file.move(`${aktePath}/${id}`);
+await tp.file.move(`${aktePath}/${ulidId}`);
 
 tR += `---
-id: ${id}
+id: ${documentId}
+path: ${path}
+filename: ${ulidId}
 title: ${title}
 type: vermerk
 aliases:
@@ -91,7 +95,7 @@ tags:
   - ${vermerkUid}
   - ${akteUid}
 vermerk.id: ${vermerkUid}
-akten.id: ${akteUid}
+reference.akten.id: ${akteUid}
 created_at.utc: "${utcIso}"
 created_at.local: "${localIso}"
 modified_at.utc: "${utcIso}"
