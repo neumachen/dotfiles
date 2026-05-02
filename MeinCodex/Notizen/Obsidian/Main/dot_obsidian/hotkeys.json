@@ -35,7 +35,7 @@
     }
   ],
   "workspace:new-file": [],
-  "templater-obsidian:create-templates/new-zakki.md": [
+  "templater-obsidian:create-templates/neuer-zakki.md": [
     {
       "modifiers": [
         "Mod"
@@ -104,7 +104,7 @@
       "key": "K"
     }
   ],
-  "templater-obsidian:create-templates/new-task.md": [
+  "templater-obsidian:create-templates/shinki-kadai.md": [
     {
       "modifiers": [
         "Mod",

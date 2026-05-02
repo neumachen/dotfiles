@@ -7,10 +7,10 @@
   "syntax_highlighting_mobile": false,
   "enabled_templates_hotkeys": [
     "templates/add-tag.md",
-    "templates/new-akten.md",
-    "templates/new-zakki.md",
-    "templates/meeting.md",
-    "templates/new-task.md"
+    "templates/neuer-akten.md",
+    "templates/neuer-vermerk.md",
+    "templates/neuer-zakki.md",
+    "templates/shinki-kadai.md"
   ],
   "startup_templates": [],
   "enable_system_commands": false,

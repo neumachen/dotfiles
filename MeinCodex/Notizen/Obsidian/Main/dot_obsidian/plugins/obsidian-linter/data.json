@@ -41,14 +41,14 @@
     },
     "yaml-timestamp": {
       "enabled": true,
-      "date-created": true,
-      "date-created-key": "created",
+      "date-created": false,
+      "date-created-key": "created_at.utc",
       "date-modified": true,
-      "date-modified-key": "updated",
-      "format": "YYYY-MM-DD HH:mm:ss",
+      "date-modified-key": "modified_at.utc",
+      "format": "YYYY-MM-DDTHH:mm:ss[Z]",
       "date-created-source-of-truth": "file system",
       "date-modified-source-of-truth": "file system",
-      "convert-to-utc": false,
+      "convert-to-utc": true,
       "update-on-file-contents-updated": "never"
     },
     "yaml-title": {

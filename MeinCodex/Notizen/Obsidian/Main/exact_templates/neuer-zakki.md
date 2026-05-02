@@ -11,7 +11,13 @@ const hh = pad(now.getHours());
 const mm = pad(now.getMinutes());
 const ss = pad(now.getSeconds());
 const stamp = `${YYYY}${MM}${DD}${hh}${mm}${ss}`;
-const created = `${YYYY}-${MM}-${DD} ${hh}:${mm}:${ss}`;
+
+const tzMin = -now.getTimezoneOffset();
+const tzSign = tzMin >= 0 ? "+" : "-";
+const tzAbs = Math.abs(tzMin);
+const tzOff = `${tzSign}${pad(Math.floor(tzAbs / 60))}:${pad(tzAbs % 60)}`;
+const localIso = `${YYYY}-${MM}-${DD}T${hh}:${mm}:${ss}${tzOff}`;
+const utcIso = now.toISOString().replace(/\.\d{3}Z$/, "Z");
 
 const ENCODING = "0123456789abcdefghjkmnpqrstvwxyz";
 let t = now.getTime();
@@ -39,8 +45,10 @@ title: ${title}
 aliases:
 tags:
   - zakki
-created: ${created}
-updated: ${created}
+created_at.utc: "${utcIso}"
+created_at.local: "${localIso}"
+modified_at.utc: "${utcIso}"
+modified_at.local: "${localIso}"
 ---
 
 `;
