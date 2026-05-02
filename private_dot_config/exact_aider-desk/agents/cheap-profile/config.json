@@ -1,0 +1,61 @@
+{
+  "id": "8b7b4fe1-6c43-4ab0-9696-2e0f3d807f21",
+  "name": "Cheap Profile",
+  "provider": "openrouter",
+  "model": "openai/gpt-5.4-mini",
+  "maxIterations": 150,
+  "minTimeBetweenToolCalls": 0,
+  "toolApprovals": {
+    "aider---get_context_files": "always",
+    "aider---add_context_files": "always",
+    "aider---drop_context_files": "always",
+    "aider---run_prompt": "ask",
+    "power---file_edit": "ask",
+    "power---file_read": "always",
+    "power---file_write": "ask",
+    "power---glob": "always",
+    "power---grep": "always",
+    "power---semantic_search": "always",
+    "power---bash": "ask",
+    "power---fetch": "always",
+    "subagents---run_task": "always",
+    "skills---activate_skill": "always",
+    "tasks---list_tasks": "always",
+    "tasks---get_task": "always",
+    "tasks---get_task_message": "always",
+    "tasks---create_task": "ask",
+    "tasks---delete_task": "ask",
+    "memory---store_memory": "always",
+    "memory---retrieve_memory": "always",
+    "memory---delete_memory": "always",
+    "memory---list_memories": "always",
+    "memory---update_memory": "always"
+  },
+  "toolSettings": {
+    "power---bash": {
+      "allowedPattern": "ls .*;cat .*;git status;git show;git log",
+      "deniedPattern": "rm .*;del .*;chown .*;chgrp .*;chmod .*"
+    }
+  },
+  "includeContextFiles": false,
+  "includeRepoMap": false,
+  "usePowerTools": true,
+  "useAiderTools": false,
+  "useTodoTools": true,
+  "useSubagents": true,
+  "useTaskTools": true,
+  "useMemoryTools": true,
+  "useSkillsTools": true,
+  "useExtensionTools": true,
+  "customInstructions": "Low-cost support profile: use this for triage, repo exploration, summarization, log reduction, and narrowing down candidate files before switching to the Normal Profile for real edits.",
+  "enabledServers": [],
+  "subagent": {
+    "enabled": false,
+    "systemPrompt": "",
+    "invocationMode": "on-demand",
+    "color": "#2e8b57",
+    "description": "",
+    "contextMemory": "off"
+  },
+  "projectDir": "/projects/Codebasis/github.com/neumachen/dotfiles"
+}
