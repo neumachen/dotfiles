@@ -37,7 +37,7 @@ Every note carries a standard frontmatter block:
 
 ```yaml
 ---
-id:               <type>:<short-id-or-ulid>     — see "Document ID" below
+id:               <short-id-or-ulid>            — see "Document ID" below
 path:             <vault-relative file path including .md>
 filename:         <bare filename stem, without .md>   — `index` for Akten, ULID for the rest
 title:            human-readable title
@@ -54,14 +54,18 @@ modified_at.local:"YYYY-MM-DDTHH:mm:ss±HH:MM"   — set at creation; not refres
 
 ### Document ID
 
-Every note's `id` is `<type>:<identifier>`. The identifier portion depends on type:
+Every note's `id` is the bare identifier — no type prefix. The shape depends on type:
 
 | Type | Identifier | Example |
 |---|---|---|
-| `akten` | 8-char Crockford-base32 short UUID (same as the folder name's first segment) | `akten:7k3qxh2v` |
-| `vermerk` | 8-char Crockford-base32 short UUID (same as the `vermerk.id` field) | `vermerk:9pmt4az2` |
-| `zakki` | full ULID (`YYYYMMDDHHMMSS-<26-char-base32>`, same as the filename) | `zakki:20260423135002-01kpxttywg6e00rgr5fpy57t8y` |
-| `kadai` | full ULID (same as the filename) | `kadai:20260502153045-01kqab...` |
+| `akten` | 8-char Crockford-base32 short UUID (same as the folder name's first segment) | `7k3qxh2v` |
+| `vermerk` | 8-char Crockford-base32 short UUID (same as the `vermerk.id` field) | `9pmt4az2` |
+| `zakki` | full ULID (`YYYYMMDDHHMMSS-<26-char-base32>`, same as the filename) | `20260423135002-01kpxttywg6e00rgr5fpy57t8y` |
+| `kadai` | full ULID (same as the filename) | `20260502153045-01kqab...` |
+
+The `type:` field is the source of truth for kind. Removing the prefix from
+`id` keeps the value identical to how it appears in the filename / folder
+name and avoids duplicating type information in two places.
 
 Filenames for `zakki`, `vermerk`, and `kadai` are the bare ULID (`<ulid>.md`). The
 `YYYYMMDDHHMMSS-` prefix makes filenames lex-sort by creation time; the
