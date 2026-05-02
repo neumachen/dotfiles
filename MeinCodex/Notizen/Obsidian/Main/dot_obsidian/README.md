@@ -230,6 +230,7 @@ Examples:
 | `plugin-mysnippets.css` | MySnippets status bar menu tweaks |
 | `ui-compact-tab-header.css` | Compact tab bar |
 | `ui-default-style-settings.css` | Default Style Settings overrides |
+| `ui-hide-system-frontmatter.css` | Hides `id`-adjacent system frontmatter (`filename`, `path`, `type`, `created_at.*`, `modified_at.*`) from the Properties view; data stays in the file |
 | `ui-statusbar-tweaks.css` | Status bar layout tweaks |
 
 All snippet files follow `category-name.css` naming (lowercase, hyphenated).

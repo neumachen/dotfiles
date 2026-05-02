@@ -1,0 +1,12 @@
+/* Hide template-managed frontmatter from the visible note view (inline
+   properties at top of editor + Properties sidebar). Data is preserved
+   in the file; this is purely a UI hide so the human-editable fields
+   (title, tags, aliases) aren't drowned by id/path/type/timestamps. */
+
+.metadata-property[data-property-key="filename"],
+.metadata-property[data-property-key="path"],
+.metadata-property[data-property-key="type"],
+.metadata-property[data-property-key^="created_at"],
+.metadata-property[data-property-key^="modified_at"] {
+  display: none;
+}

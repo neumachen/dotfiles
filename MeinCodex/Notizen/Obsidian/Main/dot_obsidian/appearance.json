@@ -8,6 +8,7 @@
     "plugin-mysnippets",
     "ui-compact-tab-header",
     "ui-default-style-settings",
+    "ui-hide-system-frontmatter",
     "ui-statusbar-tweaks"
   ],
   "baseFontSize": 16
