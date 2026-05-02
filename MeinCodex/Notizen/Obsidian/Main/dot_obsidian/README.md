@@ -14,7 +14,9 @@ snippets, and templates.
 
 ```
 <vault-root>/
-├── akten/          project notes
+├── akten/          project folders, filed by creation date under YYYY/MM/DD/
+│   └── YYYY/MM/DD/<short-uuid>-<slug>/index.md
+│                   (see "Akten Project Folders" below)
 ├── assets/         attachments (images, PDFs, files)
 ├── kadai/          task notes — file-per-task with `task:` frontmatter, filed by creation date
 │   └── YYYY/MM/DD/ created on demand by the new-task template
@@ -67,7 +69,7 @@ Located at `<vault-root>/templates/`. All templates use Templater syntax.
 | File | Hotkey | Purpose |
 |---|---|---|
 | `new-zakki.md` | `Cmd+N` | General note — prompts for title, lands in `zakki/YYYY/MM/DD/<id>` with `zakki` tag |
-| `new-akten.md` | — | Project note — prompts for title, lands in `akten/` with `akten` tag |
+| `new-akten.md` | — | Project folder — prompts for title, creates `akten/YYYY/MM/DD/<short-uuid>-<slug>/index.md` with `akten` tag |
 | `new-task.md` | `Cmd+Shift+T` | Task note — fast (title only) or full (title, priority, due, description) prompt; lands in `kadai/YYYY/MM/DD/<id>` with `task` tag and flat `task.*` frontmatter fields (`task_id`, `start-date`, `due-date`, `priority`, `status`, `icon`, `meta.attr`). The note's H1 prefixes the title with the status icon. |
 | `meeting.md` | `Cmd+Alt+M` | Meeting note |
 | `add-tag.md` | `Cmd+Alt+T` | Adds a tag to the current note's frontmatter via prompt |
@@ -75,6 +77,38 @@ Located at `<vault-root>/templates/`. All templates use Templater syntax.
 To pick any template interactively (including `new-akten`), use `Cmd+Shift+N`
 (Templater → *Create new note from template*). To insert a template into the
 current note, use `Cmd+Shift+I`.
+
+---
+
+## Akten Project Folders
+
+Each project under `akten/` is a folder containing `index.md`, never a flat note.
+Projects are filed by creation date under `YYYY/MM/DD/` (matching the `zakki/`
+and `kadai/` layout). Creation/update timestamps live only in the `index.md`
+frontmatter — not in the directory name.
+
+Path format:
+
+    akten/YYYY/MM/DD/<short-uuid>-<title-slug>/index.md
+
+- `YYYY/MM/DD` — local creation date, zero-padded.
+- `<short-uuid>` — 8 lowercase Crockford-base32 chars (`0-9 a-z` minus `i l o u`),
+  ~40 bits of entropy. Random, not sortable; ordering by creation time isn't
+  needed since the `YYYY/MM/DD/` path already groups by day and projects aren't
+  browsed chronologically.
+- `<title-slug>` — title NFD-folded to ASCII, lowercased, non-`[a-z0-9]` → `-`,
+  runs collapsed, trimmed, truncated to 60 chars on a `-` boundary; falls back
+  to `untitled` if empty.
+
+`index.md` carries the standard note frontmatter (`id`, `title`, `aliases`,
+`tags: [akten]`, `created`, `updated`). Add subfolders or sibling notes inside
+the project folder freely; the project's identity is the folder name and its
+canonical entry point is `index.md`.
+
+Examples:
+- `akten/2026/05/02/7k3qxh2v-q3-tax-review-fy26/index.md`
+- `akten/2026/05/02/9pmt4az2-migration-postgres-aurora/index.md`
+- `akten/2026/05/02/r4w8nx0j-arger-mit-dem-vermieter/index.md`
 
 ---
 
