@@ -32,15 +32,19 @@ let randPart = "";
 for (let i = 0; i < 16; i++) randPart += ENCODING.charAt(rand[i] % 32);
 const ulid = timePart + randPart;
 
-const id = `${stamp}-${ulid}`;
+const ulidId = `${stamp}-${ulid}`;
+const documentId = `zakki:${ulidId}`;
 const folder = `zakki/${YYYY}/${MM}/${DD}`;
+const path = `${folder}/${ulidId}.md`;
 if (!(await app.vault.adapter.exists(folder))) {
   await app.vault.createFolder(folder);
 }
-await tp.file.move(`${folder}/${id}`);
+await tp.file.move(`${folder}/${ulidId}`);
 
 tR += `---
-id: ${id}
+id: ${documentId}
+path: ${path}
+filename: ${ulidId}
 title: ${title}
 type: zakki
 aliases:
