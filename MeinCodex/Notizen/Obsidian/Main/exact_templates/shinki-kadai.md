@@ -69,7 +69,8 @@ crypto.getRandomValues(rand);
 let randPart = "";
 for (let i = 0; i < 16; i++) randPart += ENCODING.charAt(rand[i] % 32);
 const ulid = timePart + randPart;
-const id = `${stamp}-${ulid}`;
+const ulidId = `${stamp}-${ulid}`;
+const documentId = `kadai:${ulidId}`;
 
 const taskId = (typeof crypto !== "undefined" && crypto.randomUUID)
   ? crypto.randomUUID()
@@ -78,20 +79,35 @@ const taskId = (typeof crypto !== "undefined" && crypto.randomUUID)
 const status = "incipient";
 const icon = STATUS_ICONS[status] ?? "⏳";
 
+const active = app.workspace.getActiveFile();
+let refLine = "";
+if (active) {
+  const path = active.path;
+  const akteMatch = path.match(/^akten\/\d{4}\/\d{2}\/\d{2}\/([a-z0-9]+)-[a-z0-9-]+\//);
+  if (akteMatch) {
+    refLine = `reference.akten.id: ${akteMatch[1]}\n`;
+  } else if (path.startsWith("zakki/")) {
+    refLine = `reference.zakki.id: ${active.basename}\n`;
+  }
+}
+
 const folder = `kadai/${YYYY}/${MM}/${DD}`;
+const path = `${folder}/${ulidId}.md`;
 if (!(await app.vault.adapter.exists(folder))) {
   await app.vault.createFolder(folder);
 }
-await tp.file.move(`${folder}/${id}`);
+await tp.file.move(`${folder}/${ulidId}`);
 
 tR += `---
-id: ${id}
+id: ${documentId}
+path: ${path}
+filename: ${ulidId}
 title: ${title}
 type: kadai
 aliases:
 tags:
   - task
-created_at.utc: "${utcIso}"
+${refLine}created_at.utc: "${utcIso}"
 created_at.local: "${localIso}"
 modified_at.utc: "${utcIso}"
 modified_at.local: "${localIso}"

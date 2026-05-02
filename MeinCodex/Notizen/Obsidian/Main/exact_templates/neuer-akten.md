@@ -25,17 +25,7 @@ crypto.getRandomValues(uidBytes);
 let uid = "";
 for (let i = 0; i < 8; i++) uid += ENCODING.charAt(uidBytes[i] % 32);
 
-let t = now.getTime();
-let timePart = "";
-for (let i = 9; i >= 0; i--) {
-  timePart = ENCODING.charAt(t % 32) + timePart;
-  t = Math.floor(t / 32);
-}
-const ulidRand = new Uint8Array(16);
-crypto.getRandomValues(ulidRand);
-let randPart = "";
-for (let i = 0; i < 16; i++) randPart += ENCODING.charAt(ulidRand[i] % 32);
-const noteId = `${YYYY}${MM}${DD}${hh}${mm}${ss}-${timePart}${randPart}`;
+const documentId = `akten:${uid}`;
 
 let slug = title
   .normalize("NFD")
@@ -52,6 +42,7 @@ if (!slug) slug = "untitled";
 
 const dirName = `${uid}-${slug}`;
 const dirPath = `akten/${YYYY}/${MM}/${DD}/${dirName}`;
+const path = `${dirPath}/index.md`;
 
 if (!(await app.vault.adapter.exists(dirPath))) {
   await app.vault.createFolder(dirPath);
@@ -60,7 +51,9 @@ if (!(await app.vault.adapter.exists(dirPath))) {
 await tp.file.move(`${dirPath}/index`);
 
 tR += `---
-id: ${noteId}
+id: ${documentId}
+path: ${path}
+filename: index
 title: ${title}
 type: akten
 aliases:

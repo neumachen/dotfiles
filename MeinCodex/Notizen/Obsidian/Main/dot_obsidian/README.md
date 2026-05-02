@@ -37,8 +37,9 @@ Every note carries a standard frontmatter block:
 
 ```yaml
 ---
-id:               YYYYMMDDHHMMSS-<ulid>  (e.g. 20260427143012-01jspxyzfhq8mw7s3a4b5c6d7e)
-                                          — lex-sortable, time-ordered; never changes after creation
+id:               <type>:<short-id-or-ulid>     — see "Document ID" below
+path:             <vault-relative file path including .md>
+filename:         <bare filename stem, without .md>   — `index` for Akten, ULID for the rest
 title:            human-readable title
 type:             akten | vermerk | zakki | kadai   — document kind, set by template
 aliases:
@@ -51,9 +52,29 @@ modified_at.local:"YYYY-MM-DDTHH:mm:ss±HH:MM"   — set at creation; not refres
 ---
 ```
 
-Filenames are the bare ID (`20260427143012-01jspxyzfhq8mw7s3a4b5c6d7e.md`). Titles live in
-frontmatter, not filenames. The `YYYYMMDDHHMMSS-` prefix makes filenames lex-sort by creation
-time; the lowercase Crockford-base32 ULID suffix provides per-second uniqueness.
+### Document ID
+
+Every note's `id` is `<type>:<identifier>`. The identifier portion depends on type:
+
+| Type | Identifier | Example |
+|---|---|---|
+| `akten` | 8-char Crockford-base32 short UUID (same as the folder name's first segment) | `akten:7k3qxh2v` |
+| `vermerk` | 8-char Crockford-base32 short UUID (same as the `vermerk.id` field) | `vermerk:9pmt4az2` |
+| `zakki` | full ULID (`YYYYMMDDHHMMSS-<26-char-base32>`, same as the filename) | `zakki:20260423135002-01kpxttywg6e00rgr5fpy57t8y` |
+| `kadai` | full ULID (same as the filename) | `kadai:20260502153045-01kqab...` |
+
+Filenames for `zakki`, `vermerk`, and `kadai` are the bare ULID (`<ulid>.md`). The
+`YYYYMMDDHHMMSS-` prefix makes filenames lex-sort by creation time; the
+Crockford-base32 ULID suffix provides per-second uniqueness. Akten use the folder
+name `<short-uuid>-<slug>/` and an inner `index.md`.
+
+The `path` field carries the document's full vault-relative path (with `.md`),
+so a note's canonical location can be read straight from frontmatter without
+walking the filesystem. The `filename` field is the bare stem (no `.md`):
+`index` for Akten, the ULID for Zakki / Vermerk / Kadai. Both are
+creation-time records — Obsidian auto-updates wikilinks on rename, but
+doesn't update arbitrary frontmatter fields, so `path` and `filename` will
+go stale if a note is moved or renamed manually.
 
 Timestamp keys use flat dotted names (`created_at.utc`, `modified_at.local`, …) — same
 reason as the `task.*` fields: Obsidian's Properties UI flattens nested YAML objects into
@@ -79,8 +100,8 @@ Located at `<vault-root>/templates/`. All templates use Templater syntax.
 |---|---|---|---|
 | `neuer-zakki.md` | `Cmd+N` | — | General note — prompts for title, lands in `zakki/YYYY/MM/DD/<id>` with `zakki` tag |
 | `neuer-akten.md` | — | `Akten: Neue Akte` | Project folder — prompts for title, creates `akten/YYYY/MM/DD/<short-uuid>-<slug>/index.md` with tags `[akten, <short-uuid>]` |
-| `neuer-vermerk.md` | — | `Akten: Neuer Vermerk` | Memo inside an Akte — auto-detects the active Akte (from current note's enclosing folder); falls back to a suggester listing all Akten if none is active. Lands in `akten/YYYY/MM/DD/<akte-folder>/<id>.md` with tags `[vermerk, <vermerk-uuid>, <parent-akte-uuid>]` plus properties `vermerk.id: <vermerk-uuid>` and `akten.id: <parent-akte-uuid>`. Searching by the Akte's UUID returns the Akte's `index.md` and all its Vermerke; searching by a Vermerk's own UUID returns just that Vermerk. |
-| `shinki-kadai.md` | `Cmd+Shift+T` | `Kadai: Shinki Kadai (新規課題)` | Task note — fast (title only) or full (title, priority, due, description) prompt; lands in `kadai/YYYY/MM/DD/<id>` with `task` tag and flat `task.*` frontmatter fields (`task_id`, `start-date`, `due-date`, `priority`, `status`, `icon`, `meta.attr`). The note's H1 prefixes the title with the status icon. |
+| `neuer-vermerk.md` | — | `Akten: Neuer Vermerk` | Memo inside an Akte — auto-detects the active Akte (from current note's enclosing folder); falls back to a suggester listing all Akten if none is active. Lands in `akten/YYYY/MM/DD/<akte-folder>/<id>.md` with tags `[vermerk, <vermerk-uuid>, <parent-akte-uuid>]` plus properties `vermerk.id: <vermerk-uuid>` and `reference.akten.id: <parent-akte-uuid>`. Searching by the Akte's UUID returns the Akte's `index.md` and all its Vermerke; searching by a Vermerk's own UUID returns just that Vermerk. |
+| `shinki-kadai.md` | `Cmd+Shift+T` | `Kadai: Shinki Kadai (新規課題)` | Task note — fast (title only) or full (title, priority, due, description) prompt; lands in `kadai/YYYY/MM/DD/<id>` with `task` tag and flat `task.*` frontmatter fields (`task_id`, `start-date`, `due-date`, `priority`, `status`, `icon`, `meta.attr`). The note's H1 prefixes the title with the status icon. **Context-aware references:** if created while an Akte file (index.md or Vermerk) is active, adds `reference.akten.id: <parent-akte-uuid>`; if created while a Zakki note is active, adds `reference.zakki.id: <zakki-id>`; otherwise the task is standalone. |
 | `add-tag.md` | `Cmd+Alt+T` | — | Adds a tag to the current note's frontmatter via prompt |
 
 To pick any template interactively (including `neuer-akten`), use `Cmd+Shift+N`
