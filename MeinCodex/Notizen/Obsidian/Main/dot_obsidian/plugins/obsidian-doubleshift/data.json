@@ -4,7 +4,7 @@
   "shortcuts": [
     {
       "command": "switcher:open",
-      "key": "Shift",
+      "key": "ShiftLeft",
       "lastKeyUpTime": 0
     }
   ]
