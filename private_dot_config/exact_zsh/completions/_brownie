@@ -64,6 +64,8 @@ _brownie() {
     '(-i --image)'{-i,--image}'[container image to run]:image:_brownie_images' \
     '(-p --port)'{-p,--port}'[host port for AiderDesk UI (default: 24337)]:port:' \
     '*'{-d,--dir}'[project directory to mount (one or more may follow)]:directory:_directories' \
+    '--host-network[share the host network namespace so localhost inside brownie is the host]' \
+    '--bridge-network[use normal bridge networking (default)]' \
     '--pull[pull the upstream AiderDesk base image and exit]' \
     '--rebuild=-[rebuild the local brownie image and exit; modifiers: pull,no-pull,cache,no-cache]:modifiers:' \
     '--update-extensions[recreate the per-session extensions volume from the current image]' \

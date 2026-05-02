@@ -35,9 +35,15 @@ DEFAULT_IMAGE="brownie:latest"
 DEFAULT_UPSTREAM_IMAGE="ghcr.io/hotovo/aider-desk:latest"
 DEFAULT_PREFIX="brownie"
 DEFAULT_PORT=24337
+DEFAULT_NETWORK_MODE="bridge"
+DEFAULT_HOST_LOCALHOST_ALIAS="host.docker.internal"
+DEFAULT_HOST_GATEWAY_ALIAS="gateway.docker.internal"
 
 IMAGE="$DEFAULT_IMAGE"
 UPSTREAM_IMAGE="${UPSTREAM_IMAGE:-$DEFAULT_UPSTREAM_IMAGE}"
+NETWORK_MODE="${BROWNIE_NETWORK_MODE:-$DEFAULT_NETWORK_MODE}"
+HOST_LOCALHOST_ALIAS="${BROWNIE_HOST_LOCALHOST_ALIAS:-$DEFAULT_HOST_LOCALHOST_ALIAS}"
+HOST_GATEWAY_ALIAS="${BROWNIE_HOST_GATEWAY_ALIAS:-$DEFAULT_HOST_GATEWAY_ALIAS}"
 PULL_IMAGE=0
 REBUILD_IMAGE=0
 UPDATE_EXTENSIONS=0
@@ -76,6 +82,12 @@ Wrapper options (before --):
                      and may also be specified multiple times. All mounted
                      directories are registered as AiderDesk projects.
                      The first directory is used for session naming.
+      --host-network Share the host network namespace so localhost inside the
+                     container resolves to localhost on the host machine.
+                     In this mode, -p/--port changes the in-container listen
+                     port directly because Docker port publishing is skipped.
+      --bridge-network
+                     Use normal bridge networking (default).
       --pull         Pull the upstream AiderDesk base image,
                      then exit without starting a container.
       --rebuild[=mods]
@@ -100,6 +112,14 @@ Optional environment variables:
                      Comma-separated extension IDs/URLs to append to defaults at build time.
   AIDER_DESK_EXTENSIONS_OVERRIDE
                      Comma-separated extension IDs/URLs that fully replace defaults at build time.
+  BROWNIE_NETWORK_MODE
+                     Container network mode: bridge (default) or host.
+  BROWNIE_HOST_LOCALHOST_ALIAS
+                     Hostname inside the container that resolves to the host
+                     machine in bridge mode (default: host.docker.internal).
+  BROWNIE_HOST_GATEWAY_ALIAS
+                     Secondary hostname inside the container that resolves to
+                     the host machine in bridge mode (default: gateway.docker.internal).
 
 SSH agent forwarding (required for commit signing):
   Brownie auto-detects a usable SSH agent socket for the container.
@@ -120,6 +140,21 @@ Mounts (automatic):
   ~/.codex/                → /root/.codex/         (Codex auth, auto-created/mounted)
   SSH agent socket         → auto-detected container path (when available)
 
+Host localhost access:
+  Bridge mode (default):
+    New containers get host aliases so processes inside brownie can reach
+    services bound to localhost on the host machine.
+    Inside the container, use:
+      host.docker.internal:<port>
+    Brownie also adds gateway.docker.internal as a secondary alias when the
+    Docker engine supports host-gateway mappings.
+
+  Host network mode:
+    Run brownie with --host-network (or set BROWNIE_NETWORK_MODE=host).
+    In this mode, localhost inside the container is the host machine's
+    localhost, so services bound on the host are reachable directly via:
+      localhost:<port>
+
 Session restore:
   Data is stored on the host at ~/.local/share/aider-desk/<session>/data.
   If the container is removed, running brownie with the same -n <name>
@@ -133,6 +168,7 @@ Examples:
   brownie -d ~/code/my-app -n my-app
   brownie -d ~/code/app ~/code/lib -n my-app     # one -d, multiple dirs
   brownie -d ~/code/app -d ~/code/lib -n my-app  # repeated -d also works
+  brownie --host-network                          # localhost in container = host localhost
   brownie --pull                                  # pull upstream base image only
   brownie --rebuild                               # rebuild image only (pull + no-cache)
   brownie --rebuild=cache                         # rebuild image only (pull + cache)
@@ -250,6 +286,14 @@ parse_args() {
       done
       [ "$added" -eq 1 ] || die "--dir requires at least one directory argument"
       ;;
+    --host-network)
+      NETWORK_MODE="host"
+      shift
+      ;;
+    --bridge-network)
+      NETWORK_MODE="bridge"
+      shift
+      ;;
     --pull)
       PULL_IMAGE=1
       shift
@@ -301,6 +345,11 @@ have git || die "git not found in PATH (needed to read host identity)."
 [ -n "${GIT_USER_NAME:-}" ] || die "GIT_USER_NAME is not set and git config user.name is empty."
 [ -n "${GIT_USER_EMAIL:-}" ] || die "GIT_USER_EMAIL is not set and git config user.email is empty."
 
+case "$NETWORK_MODE" in
+bridge | host) ;;
+*) die "Invalid BROWNIE_NETWORK_MODE/--network mode: ${NETWORK_MODE} (expected: bridge or host)" ;;
+esac
+
 # Resolve and validate all project dirs; primary dir is first entry
 PROJECT_DIRS_ABS=()
 for _d in "${PROJECT_DIRS[@]}"; do
@@ -347,6 +396,47 @@ have_container_ssh_auth_sock() {
   fi
 
   [ -n "${HOST_SSH_AUTH_SOCK:-}" ] && [ -S "${HOST_SSH_AUTH_SOCK}" ]
+}
+
+docker_supports_host_gateway() {
+  local version major minor remainder
+
+  version="$(docker version --format '{{.Server.Version}}' 2>/dev/null || true)"
+  version="${version%%-*}"
+  major="${version%%.*}"
+  remainder="${version#*.}"
+  if [ "$remainder" = "$version" ]; then
+    minor=0
+  else
+    minor="${remainder%%.*}"
+  fi
+
+  case "$major" in
+  '' | *[!0-9]*)
+    return 1
+    ;;
+  esac
+
+  case "$minor" in
+  '' | *[!0-9]*)
+    minor=0
+    ;;
+  esac
+
+  [ "$major" -gt 20 ] || { [ "$major" -eq 20 ] && [ "$minor" -ge 10 ]; }
+}
+
+container_network_mode() {
+  docker inspect --format '{{.HostConfig.NetworkMode}}' "$1" 2>/dev/null || true
+}
+
+container_aider_desk_port() {
+  local env_line port
+
+  env_line="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$1" 2>/dev/null | grep '^AIDER_DESK_PORT=' | tail -n 1 || true)"
+  port="${env_line#AIDER_DESK_PORT=}"
+  [ -n "$port" ] || port="$DEFAULT_PORT"
+  printf '%s\n' "$port"
 }
 
 # Build per-directory container paths — each dir is mounted AS a named
@@ -559,11 +649,21 @@ run_new_container() {
   mkdir -p "$SESSION_DATA"
 
   # --- Environment ---
+  local container_host_localhost="${HOST_LOCALHOST_ALIAS}"
+  local container_host_gateway="${HOST_GATEWAY_ALIAS}"
+  if [ "$NETWORK_MODE" = "host" ]; then
+    container_host_localhost="localhost"
+    container_host_gateway="localhost"
+  fi
+
   local -a docker_env=(
     -e "GIT_USER_NAME=${GIT_USER_NAME}"
     -e "GIT_USER_EMAIL=${GIT_USER_EMAIL}"
     -e "AIDER_DESK_PROJECTS=${PROJECT_CONTAINER_PATH_LIST}"
     -e "AIDER_DESK_DATA_DIR=/app/state"
+    -e "BROWNIE_NETWORK_MODE=${NETWORK_MODE}"
+    -e "BROWNIE_HOST_LOCALHOST=${container_host_localhost}"
+    -e "BROWNIE_HOST_GATEWAY=${container_host_gateway}"
   )
 
   # Signing key (fall back to host git config)
@@ -619,8 +719,26 @@ run_new_container() {
     docker_volumes+=(-v "${HOST_SSH_AUTH_SOCK}:${CONTAINER_SSH_AUTH_SOCK}")
   fi
 
-  # --- Port ---
-  local -a docker_ports=(-p "${HOST_PORT}:24337")
+  # --- Networking ---
+  local -a docker_network_args=()
+  local -a docker_ports=()
+  if [ "$NETWORK_MODE" = "host" ]; then
+    docker_network_args+=(--network host)
+    docker_env+=(-e "AIDER_DESK_PORT=${HOST_PORT}")
+  else
+    if docker_supports_host_gateway; then
+      docker_network_args+=(--add-host "${HOST_LOCALHOST_ALIAS}:host-gateway")
+      if [ "${HOST_GATEWAY_ALIAS}" != "${HOST_LOCALHOST_ALIAS}" ]; then
+        docker_network_args+=(--add-host "${HOST_GATEWAY_ALIAS}:host-gateway")
+      fi
+    else
+      echo "WARNING: Docker server does not report host-gateway support; skipping explicit host localhost aliases." >&2
+      echo "         If host.docker.internal is unavailable inside the container, upgrade Docker or pass a manual --add-host after --." >&2
+    fi
+
+    # --- Port ---
+    docker_ports=(-p "${HOST_PORT}:24337")
+  fi
 
   echo "DEBUG: docker run volumes:" >&2
   for _v in "${docker_volumes[@]}"; do echo "  $_v" >&2; done
@@ -628,12 +746,16 @@ run_new_container() {
   echo "DEBUG: host SSH_AUTH_SOCK source: ${HOST_SSH_AUTH_SOCK:-<unset>}" >&2
   echo "DEBUG: container SSH_AUTH_SOCK target: ${CONTAINER_SSH_AUTH_SOCK:-<unset>}" >&2
   echo "DEBUG: using host-services SSH socket: ${USE_HOST_SERVICES_SSH_AUTH_SOCK}" >&2
+  echo "DEBUG: network mode: ${NETWORK_MODE}" >&2
+  echo "DEBUG: host localhost target: ${container_host_localhost}" >&2
+  echo "DEBUG: host gateway target: ${container_host_gateway}" >&2
 
   docker run \
     -d \
     --name "$SESSION_NAME" \
     "${docker_volumes[@]}" \
     "${docker_env[@]}" \
+    "${docker_network_args[@]}" \
     "${docker_ports[@]}" \
     ${DOCKER_EXTRAS[@]+"${DOCKER_EXTRAS[@]}"} \
     "$IMAGE"
@@ -678,6 +800,13 @@ case "$SESSION_ACTION" in
   fi
   echo "  Data:     ${SESSION_DATA} → /app/state"
   echo "  UI:       http://localhost:${HOST_PORT}"
+  if [ "$NETWORK_MODE" = "host" ]; then
+    echo "  Network:  host (localhost inside container = host localhost)"
+    echo "  Host:     localhost:<port> → host machine localhost"
+  else
+    echo "  Network:  bridge"
+    echo "  Host:     ${HOST_LOCALHOST_ALIAS}:<port> → host machine localhost"
+  fi
   echo ""
 
   run_new_container
@@ -692,24 +821,43 @@ case "$SESSION_ACTION" in
 1)
   # Existing container (running or stopped)
   container_status="$(docker inspect --format '{{.State.Status}}' "$SESSION_NAME" 2>/dev/null || echo "unknown")"
-  # Retrieve the host port the container was originally created with
-  bound_port="$(docker inspect --format '{{range $p, $b := .HostConfig.PortBindings}}{{range $b}}{{.HostPort}}{{end}}{{end}}' "$SESSION_NAME" 2>/dev/null || echo "$HOST_PORT")"
-  [ -n "$bound_port" ] || bound_port="$HOST_PORT"
+  container_network="$(container_network_mode "$SESSION_NAME")"
+  if [ "$container_network" = "host" ]; then
+    bound_port="$(container_aider_desk_port "$SESSION_NAME")"
+  else
+    # Retrieve the host port the container was originally created with
+    bound_port="$(docker inspect --format '{{range $p, $b := .HostConfig.PortBindings}}{{range $b}}{{.HostPort}}{{end}}{{end}}' "$SESSION_NAME" 2>/dev/null || echo "$HOST_PORT")"
+    [ -n "$bound_port" ] || bound_port="$HOST_PORT"
+  fi
 
   if [ "$container_status" = "running" ]; then
     echo "Session '$SESSION_NAME' is already running."
     echo "  UI:   http://localhost:${bound_port}"
+    if [ "$container_network" = "host" ]; then
+      echo "  Host: localhost:<port> → host machine localhost"
+    else
+      echo "  Host: ${HOST_LOCALHOST_ALIAS}:<port> → host machine localhost"
+    fi
     echo "  Logs: docker logs -f $SESSION_NAME"
     echo "  Stop: docker stop $SESSION_NAME"
   else
     echo "Resuming session: $SESSION_NAME"
-    if [ "$bound_port" != "$HOST_PORT" ]; then
+    if [ "$container_network" = "host" ]; then
+      if [ "$bound_port" != "$HOST_PORT" ]; then
+        echo "  NOTE: Container was created with host network port ${bound_port}, ignoring -p ${HOST_PORT}."
+      fi
+    elif [ "$bound_port" != "$HOST_PORT" ]; then
       echo "  NOTE: Container was created with port ${bound_port}, ignoring -p ${HOST_PORT}."
     fi
     docker start "$SESSION_NAME"
     echo ""
     echo "Session '$SESSION_NAME' resumed."
     echo "  UI:   http://localhost:${bound_port}"
+    if [ "$container_network" = "host" ]; then
+      echo "  Host: localhost:<port> → host machine localhost"
+    else
+      echo "  Host: ${HOST_LOCALHOST_ALIAS}:<port> → host machine localhost"
+    fi
     echo "  Logs: docker logs -f $SESSION_NAME"
     echo "  Stop: docker stop $SESSION_NAME"
   fi
@@ -731,6 +879,13 @@ case "$SESSION_ACTION" in
   fi
   echo "  Data:     ${SESSION_DATA} → /app/state (existing)"
   echo "  UI:       http://localhost:${HOST_PORT}"
+  if [ "$NETWORK_MODE" = "host" ]; then
+    echo "  Network:  host (localhost inside container = host localhost)"
+    echo "  Host:     localhost:<port> → host machine localhost"
+  else
+    echo "  Network:  bridge"
+    echo "  Host:     ${HOST_LOCALHOST_ALIAS}:<port> → host machine localhost"
+  fi
   echo ""
 
   run_new_container
