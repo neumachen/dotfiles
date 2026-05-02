@@ -72,14 +72,26 @@ let randPart = "";
 for (let i = 0; i < 16; i++) randPart += ENCODING.charAt(rand[i] % 32);
 const id = `${stamp}-${timePart}${randPart}`;
 
+const vermerkUidBytes = new Uint8Array(8);
+crypto.getRandomValues(vermerkUidBytes);
+let vermerkUid = "";
+for (let i = 0; i < 8; i++) vermerkUid += ENCODING.charAt(vermerkUidBytes[i] % 32);
+
+const akteUid = aktePath.split("/").pop().split("-")[0];
+
 await tp.file.move(`${aktePath}/${id}`);
 
 tR += `---
 id: ${id}
 title: ${title}
+type: vermerk
 aliases:
 tags:
   - vermerk
+  - ${vermerkUid}
+  - ${akteUid}
+vermerk.id: ${vermerkUid}
+akten.id: ${akteUid}
 created_at.utc: "${utcIso}"
 created_at.local: "${localIso}"
 modified_at.utc: "${utcIso}"
