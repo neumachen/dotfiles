@@ -87,6 +87,7 @@ await tp.file.move(`${folder}/${id}`);
 tR += `---
 id: ${id}
 title: ${title}
+type: kadai
 aliases:
 tags:
   - task

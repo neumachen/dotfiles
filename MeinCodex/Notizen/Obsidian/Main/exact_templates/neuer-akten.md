@@ -62,9 +62,11 @@ await tp.file.move(`${dirPath}/index`);
 tR += `---
 id: ${noteId}
 title: ${title}
+type: akten
 aliases:
 tags:
   - akten
+  - ${uid}
 created_at.utc: "${utcIso}"
 created_at.local: "${localIso}"
 modified_at.utc: "${utcIso}"

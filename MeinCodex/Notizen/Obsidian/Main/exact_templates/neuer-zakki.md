@@ -42,6 +42,7 @@ await tp.file.move(`${folder}/${id}`);
 tR += `---
 id: ${id}
 title: ${title}
+type: zakki
 aliases:
 tags:
   - zakki
