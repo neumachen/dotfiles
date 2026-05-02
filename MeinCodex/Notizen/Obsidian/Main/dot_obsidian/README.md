@@ -37,14 +37,16 @@ Every note carries a standard frontmatter block:
 
 ```yaml
 ---
-id:       YYYYMMDDHHMMSS-<ulid>  (e.g. 20260427143012-01jspxyzfhq8mw7s3a4b5c6d7e)
-                                  — lex-sortable, time-ordered; never changes after creation
-title:    human-readable title
+id:               YYYYMMDDHHMMSS-<ulid>  (e.g. 20260427143012-01jspxyzfhq8mw7s3a4b5c6d7e)
+                                          — lex-sortable, time-ordered; never changes after creation
+title:            human-readable title
 aliases:
 tags:
   - example
-created:  YYYY-MM-DD HH:mm:ss
-updated:  YYYY-MM-DD HH:mm:ss  ← auto-maintained by Linter on every save
+created_at.utc:   "YYYY-MM-DDTHH:mm:ssZ"        — set at creation, never updated
+created_at.local: "YYYY-MM-DDTHH:mm:ss±HH:MM"   — local wall-clock + offset at creation
+modified_at.utc:  "YYYY-MM-DDTHH:mm:ssZ"        — auto-maintained by Linter on every save
+modified_at.local:"YYYY-MM-DDTHH:mm:ss±HH:MM"   — set at creation; not refreshed on save (see below)
 ---
 ```
 
@@ -52,11 +54,17 @@ Filenames are the bare ID (`20260427143012-01jspxyzfhq8mw7s3a4b5c6d7e.md`). Titl
 frontmatter, not filenames. The `YYYYMMDDHHMMSS-` prefix makes filenames lex-sort by creation
 time; the lowercase Crockford-base32 ULID suffix provides per-second uniqueness.
 
+Timestamp keys use flat dotted names (`created_at.utc`, `modified_at.local`, …) — same
+reason as the `task.*` fields: Obsidian's Properties UI flattens nested YAML objects into
+JSON strings, so dotted keys render as separate rows. **Linter only refreshes
+`modified_at.utc`** on save (it natively supports a single key per concept). `*.local`
+fields stay at their creation-time value; treat them as a "born-at" record, not a "last
+edited" indicator. If you need fresh local-time tracking on save, that requires a custom
+plugin — out of scope here.
+
 Task notes additionally carry flat dotted-key fields in the same frontmatter block —
 `task.task_id`, `task.start-date`, `task.due-date`, `task.priority`, `task.status`,
-`task.icon`, `task.meta.attr`. The dotted names are deliberate: Obsidian's Properties UI
-flattens any truly nested YAML object into a JSON-string field, so we use literal
-`task.<field>` keys instead. Each one then renders as its own row in Properties (Number for
+`task.icon`, `task.meta.attr`. Each one renders as its own row in Properties (Number for
 priority, Date & time for the dates, Text for the rest), and Bases reads them as ordinary
 string-keyed fields. See REFERENCE.md for the full task schema.
 
@@ -66,17 +74,32 @@ string-keyed fields. See REFERENCE.md for the full task schema.
 
 Located at `<vault-root>/templates/`. All templates use Templater syntax.
 
-| File | Hotkey | Purpose |
-|---|---|---|
-| `new-zakki.md` | `Cmd+N` | General note — prompts for title, lands in `zakki/YYYY/MM/DD/<id>` with `zakki` tag |
-| `new-akten.md` | — | Project folder — prompts for title, creates `akten/YYYY/MM/DD/<short-uuid>-<slug>/index.md` with `akten` tag |
-| `new-task.md` | `Cmd+Shift+T` | Task note — fast (title only) or full (title, priority, due, description) prompt; lands in `kadai/YYYY/MM/DD/<id>` with `task` tag and flat `task.*` frontmatter fields (`task_id`, `start-date`, `due-date`, `priority`, `status`, `icon`, `meta.attr`). The note's H1 prefixes the title with the status icon. |
-| `meeting.md` | `Cmd+Alt+M` | Meeting note |
-| `add-tag.md` | `Cmd+Alt+T` | Adds a tag to the current note's frontmatter via prompt |
+| File | Hotkey | Command label (via Commander) | Purpose |
+|---|---|---|---|
+| `neuer-zakki.md` | `Cmd+N` | — | General note — prompts for title, lands in `zakki/YYYY/MM/DD/<id>` with `zakki` tag |
+| `neuer-akten.md` | — | `Akten: Neue Akte` | Project folder — prompts for title, creates `akten/YYYY/MM/DD/<short-uuid>-<slug>/index.md` with `akten` tag |
+| `neuer-vermerk.md` | — | `Akten: Neuer Vermerk` | Memo inside an Akte — auto-detects the active Akte (from current note's enclosing folder); falls back to a suggester listing all Akten if none is active. Lands in `akten/YYYY/MM/DD/<akte-folder>/<id>.md` with `vermerk` tag. |
+| `shinki-kadai.md` | `Cmd+Shift+T` | `Kadai: Shinki Kadai (新規課題)` | Task note — fast (title only) or full (title, priority, due, description) prompt; lands in `kadai/YYYY/MM/DD/<id>` with `task` tag and flat `task.*` frontmatter fields (`task_id`, `start-date`, `due-date`, `priority`, `status`, `icon`, `meta.attr`). The note's H1 prefixes the title with the status icon. |
+| `add-tag.md` | `Cmd+Alt+T` | — | Adds a tag to the current note's frontmatter via prompt |
 
-To pick any template interactively (including `new-akten`), use `Cmd+Shift+N`
+To pick any template interactively (including `neuer-akten`), use `Cmd+Shift+N`
 (Templater → *Create new note from template*). To insert a template into the
 current note, use `Cmd+Shift+I`.
+
+### Custom command labels (Commander plugin)
+
+The "Command label" column above lists names exposed via the **Commander** plugin
+(community plugin, install via Settings → Community plugins → search "Commander").
+Templater natively only exposes commands as `Templater: templates/<filename>.md`;
+Commander rewrites these to grouped `Akten: …` / `Kadai: …` labels. Mapping (set
+manually in Commander's UI on first install — Commander stores its own
+`data.json`, which gets tracked by chezmoi after `chezmoi re-add`):
+
+| Source command | Display label |
+|---|---|
+| `Templater: templates/neuer-akten.md` | `Akten: Neue Akte` |
+| `Templater: templates/neuer-vermerk.md` | `Akten: Neuer Vermerk` |
+| `Templater: templates/shinki-kadai.md` | `Kadai: Shinki Kadai (新規課題)` |
 
 ---
 
@@ -101,9 +124,11 @@ Path format:
   to `untitled` if empty.
 
 `index.md` carries the standard note frontmatter (`id`, `title`, `aliases`,
-`tags: [akten]`, `created`, `updated`). Add subfolders or sibling notes inside
-the project folder freely; the project's identity is the folder name and its
-canonical entry point is `index.md`.
+`tags: [akten]`, `created_at.{utc,local}`, `modified_at.{utc,local}`). Add
+subfolders or sibling notes (Vermerke, attachments) inside the project folder
+freely; the project's identity is the folder name and its canonical entry point
+is `index.md`. Vermerke created via `Akten: Neuer Vermerk` land as
+`<id>.md` siblings of `index.md` inside the same Akte folder.
 
 Examples:
 - `akten/2026/05/02/7k3qxh2v-q3-tax-review-fy26/index.md`
