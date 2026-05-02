@@ -40,6 +40,7 @@ Every note carries a standard frontmatter block:
 id:               YYYYMMDDHHMMSS-<ulid>  (e.g. 20260427143012-01jspxyzfhq8mw7s3a4b5c6d7e)
                                           — lex-sortable, time-ordered; never changes after creation
 title:            human-readable title
+type:             akten | vermerk | zakki | kadai   — document kind, set by template
 aliases:
 tags:
   - example
@@ -77,8 +78,8 @@ Located at `<vault-root>/templates/`. All templates use Templater syntax.
 | File | Hotkey | Command label (via Commander) | Purpose |
 |---|---|---|---|
 | `neuer-zakki.md` | `Cmd+N` | — | General note — prompts for title, lands in `zakki/YYYY/MM/DD/<id>` with `zakki` tag |
-| `neuer-akten.md` | — | `Akten: Neue Akte` | Project folder — prompts for title, creates `akten/YYYY/MM/DD/<short-uuid>-<slug>/index.md` with `akten` tag |
-| `neuer-vermerk.md` | — | `Akten: Neuer Vermerk` | Memo inside an Akte — auto-detects the active Akte (from current note's enclosing folder); falls back to a suggester listing all Akten if none is active. Lands in `akten/YYYY/MM/DD/<akte-folder>/<id>.md` with `vermerk` tag. |
+| `neuer-akten.md` | — | `Akten: Neue Akte` | Project folder — prompts for title, creates `akten/YYYY/MM/DD/<short-uuid>-<slug>/index.md` with tags `[akten, <short-uuid>]` |
+| `neuer-vermerk.md` | — | `Akten: Neuer Vermerk` | Memo inside an Akte — auto-detects the active Akte (from current note's enclosing folder); falls back to a suggester listing all Akten if none is active. Lands in `akten/YYYY/MM/DD/<akte-folder>/<id>.md` with tags `[vermerk, <vermerk-uuid>, <parent-akte-uuid>]` plus properties `vermerk.id: <vermerk-uuid>` and `akten.id: <parent-akte-uuid>`. Searching by the Akte's UUID returns the Akte's `index.md` and all its Vermerke; searching by a Vermerk's own UUID returns just that Vermerk. |
 | `shinki-kadai.md` | `Cmd+Shift+T` | `Kadai: Shinki Kadai (新規課題)` | Task note — fast (title only) or full (title, priority, due, description) prompt; lands in `kadai/YYYY/MM/DD/<id>` with `task` tag and flat `task.*` frontmatter fields (`task_id`, `start-date`, `due-date`, `priority`, `status`, `icon`, `meta.attr`). The note's H1 prefixes the title with the status icon. |
 | `add-tag.md` | `Cmd+Alt+T` | — | Adds a tag to the current note's frontmatter via prompt |
 
