@@ -54,16 +54,10 @@ if (!mode) return;
 const title = await tp.system.prompt("Task title");
 if (!title) return;
 
-let priority = 0;
-let dueRaw = "";
+const priority = 0;
+const dueIso = "";
 let description = "";
 if (mode === MODE_FULL) {
-  const priorityChoices = [];
-  for (let p = 0; p <= 5; p += 0.5) priorityChoices.push(p.toFixed(1));
-  const picked = await tp.system.suggester(priorityChoices, priorityChoices, false, "Priority (0–5)");
-  if (picked !== null && picked !== undefined) priority = parseFloat(picked);
-
-  dueRaw = (await tp.system.prompt("Due date (YYYY-MM-DD or YYYY-MM-DD HH:mm, empty for none)")) || "";
   description = (await tp.system.prompt("Description (optional)")) || "";
 }
 
@@ -84,15 +78,6 @@ const tzOff = `${tzSign}${pad(Math.floor(tzAbs / 60))}:${pad(tzAbs % 60)}`;
 const localIso = `${YYYY}-${MM}-${DD}T${hh}:${mm}:${ss}${tzOff}`;
 const utcIso = now.toISOString().replace(/\.\d{3}Z$/, "Z");
 const startIso = `${YYYY}-${MM}-${DD}T${hh}:${mm}:${ss}`;
-
-let dueIso = "";
-if (dueRaw) {
-  const m = dueRaw.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/);
-  if (m) {
-    const [, y, mo, d, H, Mi, S] = m;
-    dueIso = `${y}-${mo}-${d}T${H ?? "23"}:${Mi ?? "59"}:${S ?? "59"}`;
-  }
-}
 
 const ENCODING = "0123456789abcdefghjkmnpqrstvwxyz";
 let t = now.getTime();
