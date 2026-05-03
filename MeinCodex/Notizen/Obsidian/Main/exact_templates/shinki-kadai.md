@@ -30,7 +30,7 @@ if (active) {
     } else {
       context = "vermerk";
       const cache = app.metadataCache.getFileCache(active);
-      vermerkUid = cache?.frontmatter?.["vermerk.id"] ?? null;
+      vermerkUid = cache?.frontmatter?.id ?? null;
     }
   } else if (ap.startsWith("zakki/")) {
     context = "zakki";
@@ -71,7 +71,6 @@ const DD = pad(now.getDate());
 const hh = pad(now.getHours());
 const mm = pad(now.getMinutes());
 const ss = pad(now.getSeconds());
-const stamp = `${YYYY}${MM}${DD}${hh}${mm}${ss}`;
 
 const tzMin = -now.getTimezoneOffset();
 const tzSign = tzMin >= 0 ? "+" : "-";
@@ -81,21 +80,11 @@ const localIso = `${YYYY}-${MM}-${DD}T${hh}:${mm}:${ss}${tzOff}`;
 const utcIso = now.toISOString().replace(/\.\d{3}Z$/, "Z");
 const startIso = `${YYYY}-${MM}-${DD}T${hh}:${mm}:${ss}`;
 
-const ENCODING = "0123456789abcdefghjkmnpqrstvwxyz";
-let t = now.getTime();
-let timePart = "";
-for (let i = 9; i >= 0; i--) { timePart = ENCODING.charAt(t % 32) + timePart; t = Math.floor(t / 32); }
-const rand = new Uint8Array(16);
-crypto.getRandomValues(rand);
-let randPart = "";
-for (let i = 0; i < 16; i++) randPart += ENCODING.charAt(rand[i] % 32);
-const ulid = timePart + randPart;
-const ulidId = `${stamp}-${ulid}`;
-const documentId = ulidId;
+const uid = crypto.randomUUID().replace(/-/g, "");
+const uid6 = uid.slice(0, 6);
+const documentId = uid;
 
-const taskId = (typeof crypto !== "undefined" && crypto.randomUUID)
-  ? crypto.randomUUID()
-  : `${stamp}-${ulid}`;
+const taskId = crypto.randomUUID();
 
 const status = "incipient";
 const icon = STATUS_ICONS[status] ?? "⏳";
@@ -116,7 +105,7 @@ if (context === "akten") {
 const refBlock = refLines.length ? refLines.join("\n") + "\n" : "";
 
 const folder = `kadai/${YYYY}/${MM}/${DD}`;
-const taskPath = `${folder}/${ulidId}.md`;
+const taskPath = `${folder}/${uid6}.md`;
 if (!(await app.vault.adapter.exists(folder))) {
   await app.vault.createFolder(folder);
 }
@@ -124,7 +113,7 @@ if (!(await app.vault.adapter.exists(folder))) {
 const taskContent = `---
 id: ${documentId}
 path: ${taskPath}
-filename: ${ulidId}
+filename: ${uid6}
 title: ${title}
 type: kadai
 aliases:
@@ -159,7 +148,7 @@ ${description}
 `;
 
 if (isCreateMode) {
-  await tp.file.move(`${folder}/${ulidId}`);
+  await tp.file.move(`${folder}/${uid6}`);
   tR += taskContent;
   return;
 }
