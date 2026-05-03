@@ -102,22 +102,42 @@ const tzOff = `${tzSign}${pad(Math.floor(tzAbs / 60))}:${pad(tzAbs % 60)}`;
 const localIso = `${YYYY}-${MM}-${DD}T${hh}:${mm}:${ss}${tzOff}`;
 const utcIso = now.toISOString().replace(/\.\d{3}Z$/, "Z");
 
-const uid = crypto.randomUUID().replace(/-/g, "");
-const uid6 = uid.slice(0, 6);
-const documentId = uid;
+let slug = title
+  .normalize("NFD")
+  .replace(/[̀-ͯ]/g, "")
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, "-")
+  .replace(/^-+|-+$/g, "");
+if (slug.length > 60) {
+  slug = slug.slice(0, 60).replace(/-+$/g, "");
+  const lastDash = slug.lastIndexOf("-");
+  if (lastDash > 30) slug = slug.slice(0, lastDash);
+}
+if (!slug) slug = "untitled";
+
+let uid = crypto.randomUUID().replace(/-/g, "");
+let uid6 = uid.slice(0, 6);
+let stem = `${uid6}-${slug}`;
 
 const akteUid = aktePath.split("/").pop().split("-")[0];
 
 const vermerkeFolder = `${aktePath}/vermerke`;
-const vermerkPath = `${vermerkeFolder}/${uid6}.md`;
 if (!(await app.vault.adapter.exists(vermerkeFolder))) {
   await app.vault.createFolder(vermerkeFolder);
 }
+let vermerkPath = `${vermerkeFolder}/${stem}.md`;
+while (await app.vault.adapter.exists(vermerkPath)) {
+  uid = crypto.randomUUID().replace(/-/g, "");
+  uid6 = uid.slice(0, 6);
+  stem = `${uid6}-${slug}`;
+  vermerkPath = `${vermerkeFolder}/${stem}.md`;
+}
+const documentId = uid;
 
 const vermerkContent = `---
 id: ${documentId}
 path: ${vermerkPath}
-filename: ${uid6}
+filename: ${stem}
 title: ${title}
 type: vermerk
 aliases:
@@ -136,7 +156,7 @@ modified_at.local: "${localIso}"
 `;
 
 if (isCreateMode) {
-  await tp.file.move(`${vermerkeFolder}/${uid6}`);
+  await tp.file.move(`${vermerkeFolder}/${stem}`);
   tR += vermerkContent;
 } else {
   await app.vault.create(vermerkPath, vermerkContent);
@@ -145,7 +165,7 @@ if (isCreateMode) {
 const indexPath = `${aktePath}/index.md`;
 const indexFile = app.vault.getAbstractFileByPath(indexPath);
 if (indexFile) {
-  const link = `[[${uid6}|${title}]]`;
+  const link = `[[${stem}|${title}]]`;
   await appendLinkToSection(indexFile, link, VERMERKE_HEADING);
 } else {
   new Notice(`Akte's index.md not found at ${indexPath}; link not inserted.`);
