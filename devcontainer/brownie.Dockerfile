@@ -1,4 +1,4 @@
-ARG AIDER_DESK_IMAGE=hotovo/aider-desk:local
+ARG AIDER_DESK_IMAGE=ghcr.io/hotovo/aider-desk:local
 FROM ${AIDER_DESK_IMAGE}
 
 ARG AIDER_DESK_EXTENSIONS_DEFAULT="bmad,\

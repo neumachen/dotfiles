@@ -20,6 +20,7 @@
 #
 # Session lifecycle:
 #   • Session data lives at ~/.local/share/aider-desk/<session>/data
+#     (and Claude Code home at ~/.local/share/aider-desk/<session>/claude).
 #   • If a container exists (running or stopped), it is reused.
 #   • If the container is gone but the data directory remains,
 #     a new container is created pointing at the existing data.
@@ -32,7 +33,7 @@ set -Eeuo pipefail
 
 # ---------- defaults ----------
 DEFAULT_IMAGE="brownie:latest"
-DEFAULT_UPSTREAM_IMAGE="ghcr.io/hotovo/aider-desk:latest"
+DEFAULT_AIDER_DESK_IMAGE="ghcr.io/hotovo/aider-desk:local"
 DEFAULT_PREFIX="brownie"
 DEFAULT_PORT=24337
 DEFAULT_NETWORK_MODE="bridge"
@@ -40,7 +41,7 @@ DEFAULT_HOST_LOCALHOST_ALIAS="host.docker.internal"
 DEFAULT_HOST_GATEWAY_ALIAS="gateway.docker.internal"
 
 IMAGE="$DEFAULT_IMAGE"
-UPSTREAM_IMAGE="${UPSTREAM_IMAGE:-$DEFAULT_UPSTREAM_IMAGE}"
+UPSTREAM_IMAGE="${UPSTREAM_IMAGE:-$DEFAULT_AIDER_DESK_IMAGE}"
 NETWORK_MODE="${BROWNIE_NETWORK_MODE:-$DEFAULT_NETWORK_MODE}"
 HOST_LOCALHOST_ALIAS="${BROWNIE_HOST_LOCALHOST_ALIAS:-$DEFAULT_HOST_LOCALHOST_ALIAS}"
 HOST_GATEWAY_ALIAS="${BROWNIE_HOST_GATEWAY_ALIAS:-$DEFAULT_HOST_GATEWAY_ALIAS}"
@@ -132,9 +133,13 @@ Mounts (automatic):
   Project dir(s)           → /projects/<subdir>  (one mount per supplied dir)
   ~/.local/share/aider-desk/<session>/data
                            → /app/state            (persistent data, survives container removal)
+  ~/.local/share/aider-desk/<session>/claude
+                           → /root/.claude         (Claude Code home; persists conversation files)
   Docker volume            → /root/.aider-desk/extensions
                            (extensions cache seeded from image on first run)
-  ~/.config/aider-desk/    → /root/.aider-desk/    (global hooks, skills, etc.)
+  ~/.config/aider-desk/<subdir>
+                           → /root/.aider-desk/<subdir> (one bind per subdir:
+                           agents, commands, hooks, prompts, rules, skills)
   ~/.config/aider/aider.conf.yml
                            → /root/.aider.conf.yml (aider config, read-only)
   ~/.codex/                → /root/.codex/         (Codex auth, auto-created/mounted)
@@ -209,7 +214,7 @@ parse_rebuild_modifiers() {
 
   [ -n "$modifiers" ] || return 0
 
-  IFS=',' read -ra parts <<< "$modifiers"
+  IFS=',' read -ra parts <<<"$modifiers"
   for modifier in "${parts[@]}"; do
     modifier="$(printf '%s' "$modifier" | xargs)"
     [ -n "$modifier" ] || continue
@@ -510,6 +515,10 @@ fi
 
 # Session data directory on host
 SESSION_DATA="${AIDER_DESK_DATA_ROOT}/${SESSION_NAME}/data"
+# Per-session Claude Code home (~/.claude inside the container).
+# Persists conversation files at ~/.claude/projects/<cwd>/<session-id>.jsonl
+# across container removal so resume-by-session-id keeps working.
+SESSION_CLAUDE="${AIDER_DESK_DATA_ROOT}/${SESSION_NAME}/claude"
 
 # ---------- locate Dockerfile (for --rebuild / --pull on local image) ----------
 has_complete_devcontainer() {
@@ -645,8 +654,8 @@ recreate_extensions_volume() {
 }
 
 run_new_container() {
-  # Ensure data directory exists
-  mkdir -p "$SESSION_DATA"
+  # Ensure session directories exist
+  mkdir -p "$SESSION_DATA" "$SESSION_CLAUDE"
 
   # --- Environment ---
   local container_host_localhost="${HOST_LOCALHOST_ALIAS}"
@@ -706,8 +715,14 @@ run_new_container() {
   done
   docker_volumes+=(
     -v "${SESSION_DATA}:/app/state"
-    -v "${AIDER_DESK_GLOBAL}:/root/.aider-desk"
+    -v "${SESSION_CLAUDE}:/root/.claude"
     -v "${extensions_volume}:/root/.aider-desk/extensions"
+    -v "${AIDER_DESK_GLOBAL}/agents:/root/.aider-desk/agents"
+    -v "${AIDER_DESK_GLOBAL}/commands:/root/.aider-desk/commands"
+    -v "${AIDER_DESK_GLOBAL}/hooks:/root/.aider-desk/hooks"
+    -v "${AIDER_DESK_GLOBAL}/prompts:/root/.aider-desk/prompts"
+    -v "${AIDER_DESK_GLOBAL}/rules:/root/.aider-desk/rules"
+    -v "${AIDER_DESK_GLOBAL}/skills:/root/.aider-desk/skills"
     -v "${CODEX_AUTH_HOST_PATH}:${CODEX_AUTH_CONTAINER_PATH}"
   )
 
@@ -792,13 +807,14 @@ case "$SESSION_ACTION" in
     echo "  Project:  ${PROJECT_DIRS_ABS[$_pi]} → ${PROJECT_CONTAINER_PATHS[$_pi]}"
     _pi=$((_pi + 1))
   done
-  echo "  Config:   ${AIDER_DESK_GLOBAL} → /root/.aider-desk"
+  echo "  Config:   ${AIDER_DESK_GLOBAL}/{agents,commands,hooks,prompts,rules,skills} → /root/.aider-desk/<subdir>"
   echo "  Exts:     volume $(extensions_volume_name) → /root/.aider-desk/extensions"
   echo "  Codex:    ${CODEX_AUTH_HOST_PATH} → ${CODEX_AUTH_CONTAINER_PATH}"
   if [ -f "$AIDER_CONFIG" ]; then
     echo "  Aider:    ${AIDER_CONFIG} → /root/.aider.conf.yml (ro)"
   fi
   echo "  Data:     ${SESSION_DATA} → /app/state"
+  echo "  Claude:   ${SESSION_CLAUDE} → /root/.claude"
   echo "  UI:       http://localhost:${HOST_PORT}"
   if [ "$NETWORK_MODE" = "host" ]; then
     echo "  Network:  host (localhost inside container = host localhost)"
@@ -871,13 +887,14 @@ case "$SESSION_ACTION" in
     echo "  Project:  ${PROJECT_DIRS_ABS[$_pi]} → ${PROJECT_CONTAINER_PATHS[$_pi]}"
     _pi=$((_pi + 1))
   done
-  echo "  Config:   ${AIDER_DESK_GLOBAL} → /root/.aider-desk"
+  echo "  Config:   ${AIDER_DESK_GLOBAL}/{agents,commands,hooks,prompts,rules,skills} → /root/.aider-desk/<subdir>"
   echo "  Exts:     volume $(extensions_volume_name) → /root/.aider-desk/extensions"
   echo "  Codex:    ${CODEX_AUTH_HOST_PATH} → ${CODEX_AUTH_CONTAINER_PATH}"
   if [ -f "$AIDER_CONFIG" ]; then
     echo "  Aider:    ${AIDER_CONFIG} → /root/.aider.conf.yml (ro)"
   fi
   echo "  Data:     ${SESSION_DATA} → /app/state (existing)"
+  echo "  Claude:   ${SESSION_CLAUDE} → /root/.claude"
   echo "  UI:       http://localhost:${HOST_PORT}"
   if [ "$NETWORK_MODE" = "host" ]; then
     echo "  Network:  host (localhost inside container = host localhost)"
