@@ -1,9 +1,10 @@
 <%*
 // Canonical task status enum (matches the meta-bind dropdown rendered in
-// the task body). Done semantics: only Completed and Discarded count as
+// the task body). Lowercase kebab — keeps values stable for grep / Bases /
+// shell scripts. Done semantics: only `completed` and `discarded` count as
 // done — see meta-bind VIEW expression below.
-const STATUS_OPTIONS = ["Incipient", "In progress", "Completed", "Discarded", "Blocked", "Abandoned"];
-const DEFAULT_STATUS = "Incipient";
+const STATUS_OPTIONS = ["incipient", "in-progress", "completed", "discarded", "blocked", "abandoned"];
+const DEFAULT_STATUS = "incipient";
 
 const INSERTED_HEADING = "## Inserted Tasks";
 
@@ -139,7 +140,7 @@ const documentId = uid;
 // single source of truth). Plain-text rendering, no JS required.
 const statusOpts = STATUS_OPTIONS.map(o => `option(${o})`).join(", ");
 const statusWidget = "`INPUT[inlineSelect(" + statusOpts + "):task.status]`";
-const doneWidget = "`VIEW[(({task.status} = \"Completed\") or ({task.status} = \"Discarded\")) ? \"☑ Done\" : \"☐ Not done\"]`";
+const doneWidget = "`VIEW[(({task.status} = \"completed\") or ({task.status} = \"discarded\")) ? \"☑ Done\" : \"☐ Not done\"]`";
 
 const taskContent = `---
 id: ${documentId}
