@@ -7,13 +7,47 @@ const STATUS_ICONS = {
   "aborted":     "❌"
 };
 
-const MODE_FAST = "fast";
+const INSERTED_HEADING = "## Inserted Tasks";
+
+const RUN_MODE_CREATE_NEW = 0;
+const isCreateMode = tp.config.run_mode === RUN_MODE_CREATE_NEW;
+
+const active = isCreateMode ? null : app.workspace.getActiveFile();
+
+let context = null;
+let akteUid = null;
+let vermerkUid = null;
+let zakkiId = null;
+if (active) {
+  const ap = active.path;
+  const akteMatch = ap.match(/^akten\/\d{4}\/\d{2}\/\d{2}\/([a-z0-9]+)-[a-z0-9-]+\//);
+  if (akteMatch) {
+    akteUid = akteMatch[1];
+    if (active.basename === "index") {
+      context = "akten";
+    } else {
+      context = "vermerk";
+      const cache = app.metadataCache.getFileCache(active);
+      vermerkUid = cache?.frontmatter?.["vermerk.id"] ?? null;
+    }
+  } else if (ap.startsWith("zakki/")) {
+    context = "zakki";
+    zakkiId = active.basename;
+  }
+}
+
+const contextLabel = context === "akten" ? "Add to new Akten"
+                   : context === "vermerk" ? "Add to new Vermerk"
+                   : context === "zakki" ? "Add to new Zakki"
+                   : "Task creation";
+
+const MODE_TITLE = "title";
 const MODE_FULL = "full";
 const mode = await tp.system.suggester(
-  ["Fast — title only", "Full — title, priority, due, description"],
-  [MODE_FAST, MODE_FULL],
+  ["Title only", "Full document"],
+  [MODE_TITLE, MODE_FULL],
   false,
-  "Task creation"
+  contextLabel
 );
 if (!mode) return;
 
@@ -79,35 +113,37 @@ const taskId = (typeof crypto !== "undefined" && crypto.randomUUID)
 const status = "incipient";
 const icon = STATUS_ICONS[status] ?? "⏳";
 
-const active = app.workspace.getActiveFile();
-let refLine = "";
-if (active) {
-  const path = active.path;
-  const akteMatch = path.match(/^akten\/\d{4}\/\d{2}\/\d{2}\/([a-z0-9]+)-[a-z0-9-]+\//);
-  if (akteMatch) {
-    refLine = `reference.akten.id: ${akteMatch[1]}\n`;
-  } else if (path.startsWith("zakki/")) {
-    refLine = `reference.zakki.id: ${active.basename}\n`;
+const refLines = [];
+if (context === "akten") {
+  refLines.push(`reference.akten.id: ${akteUid}`);
+} else if (context === "vermerk") {
+  if (vermerkUid) {
+    refLines.push(`reference.vermerk.id: ${vermerkUid}`);
+  } else {
+    new Notice("Active Vermerk has no `vermerk.id` in frontmatter; only the parent Akte will be referenced.");
   }
+  refLines.push(`reference.akten.id: ${akteUid}`);
+} else if (context === "zakki") {
+  refLines.push(`reference.zakki.id: ${zakkiId}`);
 }
+const refBlock = refLines.length ? refLines.join("\n") + "\n" : "";
 
 const folder = `kadai/${YYYY}/${MM}/${DD}`;
-const path = `${folder}/${ulidId}.md`;
+const taskPath = `${folder}/${ulidId}.md`;
 if (!(await app.vault.adapter.exists(folder))) {
   await app.vault.createFolder(folder);
 }
-await tp.file.move(`${folder}/${ulidId}`);
 
-tR += `---
+const taskContent = `---
 id: ${documentId}
-path: ${path}
+path: ${taskPath}
 filename: ${ulidId}
 title: ${title}
 type: kadai
 aliases:
 tags:
   - task
-${refLine}created_at.utc: "${utcIso}"
+${refBlock}created_at.utc: "${utcIso}"
 created_at.local: "${localIso}"
 modified_at.utc: "${utcIso}"
 modified_at.local: "${localIso}"
@@ -134,4 +170,45 @@ ${description}
 
 -
 `;
+
+if (isCreateMode) {
+  await tp.file.move(`${folder}/${ulidId}`);
+  tR += taskContent;
+  return;
+}
+
+const newFile = await app.vault.create(taskPath, taskContent);
+
+const link = app.fileManager.generateMarkdownLink(newFile, active.path, "", title);
+
+const editorEl = app.workspace.activeEditor?.editor?.cm?.dom;
+const inVimNormalMode = !!editorEl?.querySelector(".cm-fat-cursor");
+
+if (inVimNormalMode) {
+  const content = await app.vault.read(active);
+  const lines = content.split("\n");
+  const headingIdx = lines.findIndex(l => l.trim() === INSERTED_HEADING);
+  const item = `- ${link}`;
+
+  if (headingIdx === -1) {
+    const trailing = content.endsWith("\n") ? "" : "\n";
+    await app.vault.modify(active, content + trailing + "\n" + INSERTED_HEADING + "\n\n" + item + "\n");
+  } else {
+    let sectionEnd = lines.length;
+    for (let i = headingIdx + 1; i < lines.length; i++) {
+      if (/^#{1,2}\s+/.test(lines[i])) { sectionEnd = i; break; }
+    }
+    while (sectionEnd > headingIdx + 1 && lines[sectionEnd - 1].trim() === "") sectionEnd--;
+    lines.splice(sectionEnd, 0, item);
+    await app.vault.modify(active, lines.join("\n"));
+  }
+} else {
+  tR += link;
+}
+
+if (mode === MODE_FULL) {
+  tp.hooks.on_all_templates_executed(async () => {
+    await app.workspace.getLeaf().openFile(newFile);
+  });
+}
 %>
