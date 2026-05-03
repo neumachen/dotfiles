@@ -1,5 +1,5 @@
-ARG UPSTREAM_IMAGE=ghcr.io/hotovo/aider-desk:latest
-FROM ${UPSTREAM_IMAGE}
+ARG AIDER_DESK_IMAGE=hotovo/aider-desk:local
+FROM ${AIDER_DESK_IMAGE}
 
 ARG AIDER_DESK_EXTENSIONS_DEFAULT="bmad,\
     chunkhound-search,\
