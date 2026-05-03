@@ -706,8 +706,8 @@ run_new_container() {
   done
   docker_volumes+=(
     -v "${SESSION_DATA}:/app/state"
-    -v "${extensions_volume}:/root/.aider-desk/extensions"
     -v "${AIDER_DESK_GLOBAL}:/root/.aider-desk"
+    -v "${extensions_volume}:/root/.aider-desk/extensions"
     -v "${CODEX_AUTH_HOST_PATH}:${CODEX_AUTH_CONTAINER_PATH}"
   )
 
