@@ -18,13 +18,7 @@ const tzOff = `${tzSign}${pad(Math.floor(tzAbs / 60))}:${pad(tzAbs % 60)}`;
 const localIso = `${YYYY}-${MM}-${DD}T${hh}:${mm}:${ss}${tzOff}`;
 const utcIso = now.toISOString().replace(/\.\d{3}Z$/, "Z");
 
-const ENCODING = "0123456789abcdefghjkmnpqrstvwxyz";
-
-const uidBytes = new Uint8Array(8);
-crypto.getRandomValues(uidBytes);
-let uid = "";
-for (let i = 0; i < 8; i++) uid += ENCODING.charAt(uidBytes[i] % 32);
-
+const uid = crypto.randomUUID().replace(/-/g, "");
 const documentId = uid;
 
 let slug = title
@@ -41,7 +35,7 @@ if (slug.length > 60) {
 if (!slug) slug = "untitled";
 
 const dirName = `${uid}-${slug}`;
-const dirPath = `akten/${YYYY}/${MM}/${DD}/${dirName}`;
+const dirPath = `akten/${YYYY}/${MM}/${dirName}`;
 const path = `${dirPath}/index.md`;
 
 if (!(await app.vault.adapter.exists(dirPath))) {
