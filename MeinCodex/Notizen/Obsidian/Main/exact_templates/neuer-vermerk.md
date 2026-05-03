@@ -3,12 +3,12 @@ const VERMERKE_HEADING = "## Vermerke";
 const RUN_MODE_CREATE_NEW = 0;
 const isCreateMode = tp.config.run_mode === RUN_MODE_CREATE_NEW;
 
-const AKTE_DIR_RE = /^akten\/\d{4}\/\d{2}\/\d{2}\/[a-z0-9]+-[a-z0-9-]+$/;
+const AKTE_DIR_RE = /^akten\/\d{4}\/\d{2}(\/\d{2})?\/[a-z0-9]+-[a-z0-9-]+$/;
 
 const findEnclosingAkte = (path) => {
   if (!path) return null;
   const parts = path.split("/");
-  for (let i = parts.length; i >= 4; i--) {
+  for (let i = parts.length; i >= 3; i--) {
     const candidate = parts.slice(0, i).join("/");
     if (AKTE_DIR_RE.test(candidate)) return candidate;
   }
@@ -18,15 +18,15 @@ const findEnclosingAkte = (path) => {
 const listAkten = async () => {
   const out = [];
   const walk = async (dir, depth) => {
-    if (depth > 4) return;
+    if (depth > 5) return;
     const listing = await app.vault.adapter.list(dir);
-    if (depth === 4) {
-      for (const sub of listing.folders) {
-        if (AKTE_DIR_RE.test(sub)) out.push(sub);
+    for (const sub of listing.folders) {
+      if (AKTE_DIR_RE.test(sub)) {
+        out.push(sub);
+      } else {
+        await walk(sub, depth + 1);
       }
-      return;
     }
-    for (const sub of listing.folders) await walk(sub, depth + 1);
   };
   if (await app.vault.adapter.exists("akten")) await walk("akten", 1);
   return out.sort();
