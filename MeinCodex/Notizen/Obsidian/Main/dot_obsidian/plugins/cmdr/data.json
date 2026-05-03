@@ -25,7 +25,7 @@
     {
       "name": "Kadai: Shinki Kadai (新規課題)",
       "macro": [
-        {"action": 0, "commandId": "templater-obsidian:create-templates/shinki-kadai.md"}
+        {"action": 0, "commandId": "templater-obsidian:templates/shinki-kadai.md"}
       ]
     }
   ],
