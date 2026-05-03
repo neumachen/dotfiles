@@ -22,7 +22,7 @@ let vermerkUid = null;
 let zakkiId = null;
 if (active) {
   const ap = active.path;
-  const akteMatch = ap.match(/^akten\/\d{4}\/\d{2}\/\d{2}\/([a-z0-9]+)-[a-z0-9-]+\//);
+  const akteMatch = ap.match(/^akten\/\d{4}\/\d{2}(?:\/\d{2})?\/([a-z0-9]+)-[a-z0-9-]+\//);
   if (akteMatch) {
     akteUid = akteMatch[1];
     if (active.basename === "index") {
