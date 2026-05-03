@@ -15,5 +15,6 @@
   "templater-obsidian",
   "obsidian-tasks-plugin",
   "mononote",
-  "cmdr"
+  "cmdr",
+  "obsidian-meta-bind-plugin"
 ]
