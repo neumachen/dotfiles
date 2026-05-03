@@ -105,7 +105,7 @@ Located at `<vault-root>/templates/`. All templates use Templater syntax.
 | `neuer-zakki.md` | `Cmd+N` | — | General note — prompts for title, lands in `zakki/YYYY/MM/DD/<id>` with `zakki` tag |
 | `neuer-akten.md` | — | `Akten: Neue Akte` | Project folder — prompts for title, creates `akten/YYYY/MM/DD/<short-uuid>-<slug>/index.md` with tags `[akten, <short-uuid>]` |
 | `neuer-vermerk.md` | — | `Akten: Neuer Vermerk` | Memo inside an Akte — auto-detects the active Akte (from current note's enclosing folder); falls back to a suggester listing all Akten if none is active. Lands in `akten/YYYY/MM/DD/<akte-folder>/<id>.md` with tags `[vermerk, <vermerk-uuid>, <parent-akte-uuid>]` plus properties `vermerk.id: <vermerk-uuid>` and `reference.akten.id: <parent-akte-uuid>`. Searching by the Akte's UUID returns the Akte's `index.md` and all its Vermerke; searching by a Vermerk's own UUID returns just that Vermerk. |
-| `shinki-kadai.md` | `Cmd+Shift+T` | `Kadai: Shinki Kadai (新規課題)` | Task note — fast (title only) or full (title, priority, due, description) prompt; lands in `kadai/YYYY/MM/DD/<id>` with `task` tag and flat `task.*` frontmatter fields (`task_id`, `start-date`, `due-date`, `priority`, `status`, `icon`, `meta.attr`). The note's H1 prefixes the title with the status icon. **Context-aware label and references:** the mode picker's placeholder reflects the active document context — `Add to new Akten` (active = Akte index), `Add to new Vermerk` (active = Vermerk), `Add to new Zakki` (active = Zakki), or `Task creation` (no context). Reference fields follow the label: Akten context → `reference.akten.id`; Vermerk context → both `reference.vermerk.id` and `reference.akten.id` (parent); Zakki context → `reference.zakki.id`; no context → no reference fields. |
+| `shinki-kadai.md` | `Cmd+Shift+T` | `Kadai: Shinki Kadai (新規課題)` | Task note — fast (title only) or full (title, priority, due, description) prompt; lands in `kadai/YYYY/MM/DD/<id>` with `task` tag and flat `task.*` frontmatter fields (`task_id`, `start-date`, `due-date`, `priority`, `status`, `icon`, `meta.attr`). The note's H1 prefixes the title with the status icon. **Context-aware references:** if created while an Akte file (index.md or Vermerk) is active, adds `reference.akten.id: <parent-akte-uuid>`; if created while a Zakki note is active, adds `reference.zakki.id: <zakki-id>`; otherwise the task is standalone. |
 | `add-tag.md` | `Cmd+Alt+T` | — | Adds a tag to the current note's frontmatter via prompt |
 
 To pick any template interactively (including `neuer-akten`), use `Cmd+Shift+N`
@@ -114,18 +114,22 @@ current note, use `Cmd+Shift+I`.
 
 ### Custom command labels (Commander plugin)
 
-The "Command label" column above lists names exposed via the **Commander** plugin
+The "Command label" column above lists names surfaced via the **Commander** plugin
 (community plugin, install via Settings → Community plugins → search "Commander").
-Templater natively only exposes commands as `Templater: templates/<filename>.md`;
-Commander rewrites these to grouped `Akten: …` / `Kadai: …` labels. Mapping (set
-manually in Commander's UI on first install — Commander stores its own
-`data.json`, which gets tracked by chezmoi after `chezmoi re-add`):
+Commander exposes single-step macros that re-trigger an underlying command under a
+custom palette label. They live in `dot_obsidian/plugins/cmdr/data.json` under the
+`macros` array and are configured directly in source (no UI step needed):
 
-| Source command | Display label |
+| Macro name (palette label) | Underlying command ID |
 |---|---|
-| `Templater: templates/neuer-akten.md` | `Akten: Neue Akte` |
-| `Templater: templates/neuer-vermerk.md` | `Akten: Neuer Vermerk` |
-| `Templater: templates/shinki-kadai.md` | `Kadai: Shinki Kadai (新規課題)` |
+| `Akten: Neue Akte` | `templater-obsidian:create-templates/neuer-akten.md` |
+| `Akten: Neuer Vermerk` | `templater-obsidian:create-templates/neuer-vermerk.md` |
+| `Kadai: Shinki Kadai (新規課題)` | `templater-obsidian:create-templates/shinki-kadai.md` |
+
+Note: Obsidian prefixes plugin commands with the plugin name in the palette, so
+the macros appear as `Commander: Akten: Neue Akte`, etc. — searching by `Akten`
+or `Kadai` still surfaces them cleanly. The `Commander:` prefix is unavoidable
+without writing a custom plugin.
 
 ---
 

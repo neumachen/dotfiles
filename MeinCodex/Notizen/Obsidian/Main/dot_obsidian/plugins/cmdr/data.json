@@ -1,0 +1,48 @@
+{
+  "confirmDeletion": true,
+  "showAddCommand": true,
+  "debug": false,
+  "editorMenu": [],
+  "fileMenu": [],
+  "leftRibbon": [],
+  "rightRibbon": [],
+  "titleBar": [],
+  "statusBar": [],
+  "pageHeader": [],
+  "macros": [
+    {
+      "name": "Akten: Neue Akte",
+      "macro": [
+        {"action": 0, "commandId": "templater-obsidian:create-templates/neuer-akten.md"}
+      ]
+    },
+    {
+      "name": "Akten: Neuer Vermerk",
+      "macro": [
+        {"action": 0, "commandId": "templater-obsidian:create-templates/neuer-vermerk.md"}
+      ]
+    },
+    {
+      "name": "Kadai: Shinki Kadai (新規課題)",
+      "macro": [
+        {"action": 0, "commandId": "templater-obsidian:create-templates/shinki-kadai.md"}
+      ]
+    }
+  ],
+  "explorer": [],
+  "hide": {
+    "statusbar": [],
+    "leftRibbon": []
+  },
+  "spacing": 8,
+  "advancedToolbar": {
+    "rowHeight": 48,
+    "rowCount": 1,
+    "spacing": 0,
+    "buttonWidth": 48,
+    "columnLayout": false,
+    "mappedIcons": [],
+    "tooltips": false,
+    "heightOffset": 0
+  }
+}
