@@ -14,5 +14,6 @@
   "homepage",
   "templater-obsidian",
   "obsidian-tasks-plugin",
-  "mononote"
+  "mononote",
+  "cmdr"
 ]
