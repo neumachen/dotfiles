@@ -1,11 +1,9 @@
 <%*
-const STATUS_ICONS = {
-  "incipient":   "⏳",
-  "in-progress": "🚧",
-  "completed":   "✅",
-  "rescinded":   "🚫",
-  "aborted":     "❌"
-};
+// Canonical task status enum (matches the meta-bind dropdown rendered in
+// the task body). Done semantics: only Completed and Discarded count as
+// done — see meta-bind VIEW expression below.
+const STATUS_OPTIONS = ["Incipient", "In progress", "Completed", "Discarded", "Blocked", "Abandoned"];
+const DEFAULT_STATUS = "Incipient";
 
 const INSERTED_HEADING = "## Inserted Tasks";
 
@@ -80,14 +78,25 @@ const localIso = `${YYYY}-${MM}-${DD}T${hh}:${mm}:${ss}${tzOff}`;
 const utcIso = now.toISOString().replace(/\.\d{3}Z$/, "Z");
 const startIso = `${YYYY}-${MM}-${DD}T${hh}:${mm}:${ss}`;
 
-const uid = crypto.randomUUID().replace(/-/g, "");
-const uid6 = uid.slice(0, 6);
-const documentId = uid;
+let slug = title
+  .normalize("NFD")
+  .replace(/[̀-ͯ]/g, "")
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, "-")
+  .replace(/^-+|-+$/g, "");
+if (slug.length > 60) {
+  slug = slug.slice(0, 60).replace(/-+$/g, "");
+  const lastDash = slug.lastIndexOf("-");
+  if (lastDash > 30) slug = slug.slice(0, lastDash);
+}
+if (!slug) slug = "untitled";
+
+let uid = crypto.randomUUID().replace(/-/g, "");
+let uid6 = uid.slice(0, 6);
+let stem = `${uid6}-${slug}`;
 
 const taskId = crypto.randomUUID();
-
-const status = "incipient";
-const icon = STATUS_ICONS[status] ?? "⏳";
+const status = DEFAULT_STATUS;
 
 const refLines = [];
 if (context === "akten") {
@@ -105,15 +114,37 @@ if (context === "akten") {
 const refBlock = refLines.length ? refLines.join("\n") + "\n" : "";
 
 const folder = `kadai/${YYYY}/${MM}/${DD}`;
-const taskPath = `${folder}/${uid6}.md`;
 if (!(await app.vault.adapter.exists(folder))) {
   await app.vault.createFolder(folder);
 }
+let taskPath = `${folder}/${stem}.md`;
+while (await app.vault.adapter.exists(taskPath)) {
+  uid = crypto.randomUUID().replace(/-/g, "");
+  uid6 = uid.slice(0, 6);
+  stem = `${uid6}-${slug}`;
+  taskPath = `${folder}/${stem}.md`;
+}
+const documentId = uid;
+
+// meta-bind widgets (rendered when the kadai file is viewed; the
+// `templates/` folder is excluded in meta-bind's settings, so the
+// backticked syntax stays as raw text inside this template).
+//
+// Status dropdown: constrained to the canonical 6 options. Editing
+// the dropdown rewrites `task.status` in frontmatter.
+//
+// Done indicator: VIEW field evaluating a math expression — renders
+// as "☑ Done" when status is Completed or Discarded, "☐ Not done"
+// otherwise. Read-only (derived from status; the dropdown is the
+// single source of truth). Plain-text rendering, no JS required.
+const statusOpts = STATUS_OPTIONS.map(o => `option(${o})`).join(", ");
+const statusWidget = "`INPUT[inlineSelect(" + statusOpts + "):task.status]`";
+const doneWidget = "`VIEW[(({task.status} = \"Completed\") or ({task.status} = \"Discarded\")) ? \"☑ Done\" : \"☐ Not done\"]`";
 
 const taskContent = `---
 id: ${documentId}
 path: ${taskPath}
-filename: ${uid6}
+filename: ${stem}
 title: ${title}
 type: kadai
 aliases:
@@ -128,11 +159,15 @@ task.start-date: ${startIso}
 task.due-date: ${dueIso}
 task.priority: ${priority}
 task.status: ${status}
-task.icon: "${icon}"
 task.meta.attr: ""
 ---
 
-# ${icon} ${title}
+# ${title}
+
+## Status
+
+- ${statusWidget}
+- ${doneWidget}
 
 ## Description
 
@@ -148,7 +183,7 @@ ${description}
 `;
 
 if (isCreateMode) {
-  await tp.file.move(`${folder}/${uid6}`);
+  await tp.file.move(`${folder}/${stem}`);
   tR += taskContent;
   return;
 }

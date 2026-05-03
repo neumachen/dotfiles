@@ -68,8 +68,8 @@ via `crypto.randomUUID()` at creation. Identical schema across types:
 |---|---|---|---|
 | `akten` | full UUID | first 6 hex chars + `-<slug>` (folder name) | folder `f47ac1-q3-tax-review/index.md`, `id: f47ac10b58cc4372a5670e02b2c3d479` |
 | `vermerk` | full UUID | first 6 hex chars + `-<slug>` (filename) | `f47ac1-named-pipe-browser-forwarding.md`, `id: f47ac10b58cc4372a5670e02b2c3d479` |
-| `zakki` | full UUID | first 6 hex chars (filename) | `9c2a8d.md`, `id: 9c2a8d11ef4a4b9aa2cb35bf12d8e0c5` |
-| `kadai` | full UUID | first 6 hex chars (filename) | `3b1d6f.md`, `id: 3b1d6f7e88d9498aa6c2d5fe04a91e7c` |
+| `zakki` | full UUID | first 6 hex chars + `-<slug>` (filename) | `9c2a8d-coffee-shop-thoughts.md`, `id: 9c2a8d11ef4a4b9aa2cb35bf12d8e0c5` |
+| `kadai` | full UUID | first 6 hex chars + `-<slug>` (filename) | `3b1d6f-fix-failing-build.md`, `id: 3b1d6f7e88d9498aa6c2d5fe04a91e7c` |
 
 Why short filenames: 32-char folder/filenames are noisy in the file
 explorer and tab bar; the 6-hex prefix is enough for collision-free
@@ -78,12 +78,14 @@ worst case). The full UUID stays in frontmatter `id` as the canonical
 identifier — anything that needs to disambiguate beyond the filename
 reads `id` directly.
 
-Vermerk and Akten filenames also append a sanitized title slug after the
-6-hex prefix (`<uid6>-<slug>`) so the file explorer is readable. Slug
-sanitization is identical for both: NFD-fold to ASCII, lowercase, non-`[a-z0-9]`
-runs collapsed to `-`, trimmed, truncated to 60 chars on a `-` boundary,
-falls back to `untitled` if empty. Zakki and Kadai stay on bare `<uid6>` —
-they're filed by `YYYY/MM/DD/`, so the date folder already provides context.
+Vermerk, Zakki, Kadai, and Akten all append a sanitized title slug
+after the 6-hex prefix (`<uid6>-<slug>`) so the file explorer is
+readable. Slug sanitization is identical across types: NFD-fold to
+ASCII, lowercase, non-`[a-z0-9]` runs collapsed to `-`, trimmed,
+truncated to 60 chars on a `-` boundary, falls back to `untitled` if
+empty. Akten encode the slug in the folder name (the `index.md` itself
+keeps its bare `index` filename); the other three encode it in the
+file basename.
 
 The `type:` field is the source of truth for document kind. Time
 ordering for Zakki / Kadai comes from the `YYYY/MM/DD/` parent folder
@@ -93,15 +95,29 @@ fine.
 The `path` field carries the document's full vault-relative path (with `.md`),
 so a note's canonical location can be read straight from frontmatter without
 walking the filesystem. The `filename` field is the bare stem (no `.md`):
-`index` for Akten, `<uid6>-<slug>` for Vermerk, the 6-char prefix for Zakki
-and Kadai. Both fields are kept in sync with the file's actual location by
-the `templates/sync-system-frontmatter.md` Templater startup hook, which
-registers a vault-wide `rename` listener and rewrites `path` / `filename`
-via `app.fileManager.processFrontMatter` whenever a `.md` file is renamed
-or moved inside Obsidian. Obsidian's built-in `alwaysUpdateLinks` setting
-handles wikilink targets concurrently, so renames keep both the link graph
-and per-note frontmatter consistent. Caveat: only in-Obsidian renames fire
-the event — renames done outside Obsidian (e.g., via shell) leave both
+`index` for Akten, `<uid6>-<slug>` for Vermerk / Zakki / Kadai. Both fields
+stay in sync with the file's actual location via
+`templates/sync-system-frontmatter.md`, a Templater startup hook that
+installs **two** vault-wide listeners:
+
+1. **`vault.on("rename", ...)`** — when a file is renamed/moved (by the
+   user, by Obsidian's link-update side effects, or by listener #2),
+   rewrite that file's `path:` and `filename:` frontmatter via
+   `app.fileManager.processFrontMatter`.
+2. **`metadataCache.on("changed", ...)`** — when the `title:`
+   frontmatter of a managed note (Vermerk under `akten/.../vermerke/`,
+   Kadai under `kadai/YYYY/MM/DD/`, Zakki under `zakki/YYYY/MM/DD/`)
+   changes, recompute `<uid6>-<slug>` from the new title and rename
+   the file via `app.fileManager.renameFile`. The first metadata-changed
+   event per file is treated as the indexing pass and skipped, so
+   pre-existing legacy files are NOT mass-renamed at startup — bulk
+   migration goes through the one-off scripts in
+   `~/MeinCodex/Codekiste/obsidian/scripts/one-off/`.
+
+Obsidian's built-in `alwaysUpdateLinks` setting rewrites wikilink
+targets in tandem with the rename, so the link graph and per-note
+frontmatter both follow. Caveat: only in-Obsidian renames fire the
+events — renames done outside Obsidian (e.g., via shell) leave both
 wikilinks and frontmatter stale.
 
 Timestamp keys use flat dotted names (`created_at.utc`, `modified_at.local`, …) — same
@@ -126,12 +142,12 @@ Located at `<vault-root>/templates/`. All templates use Templater syntax.
 
 | File | Hotkey | Command label (via Commander) | Purpose |
 |---|---|---|---|
-| `neuer-zakki.md` | `Cmd+N` | — | General note — prompts for title, lands in `zakki/YYYY/MM/DD/<uuid6>.md` with tags `[zakki]`. Frontmatter `id` is the full 32-char UUID; filename is the first 6 hex chars. |
+| `neuer-zakki.md` | `Cmd+N` | — | General note — prompts for title, lands in `zakki/YYYY/MM/DD/<uuid6>-<slug>.md` with tags `[zakki]`. Frontmatter `id` is the full 32-char UUID; filename uses the 6-hex prefix plus a sanitized title slug (slug rules identical to `neuer-akten.md`). |
 | `neuer-akten.md` | — | `Akten: Neue Akte` | Project folder — prompts for title, creates `akten/YYYY/MM/<uuid6>-<slug>/index.md` with tags `[akten]`. Folder name uses the first 6 hex chars of the UUID; the full 32-char UUID lives in frontmatter `id`. |
 | `neuer-vermerk.md` | — | `Akten: Neuer Vermerk` | Memo inside an Akte — runs in **insert mode** (matches `shinki-kadai`'s pattern). Auto-detects the parent Akte from the active file's enclosing folder; falls back to a suggester listing all Akten if none is active. Mode picker (`Title only` vs `Full document`) controls whether focus switches to the new Vermerk after creation. Lands in `akten/YYYY/MM/<akte-folder>/vermerke/<uuid6>-<slug>.md` (the `vermerke/` subdirectory is created on first use; slug sanitization mirrors `neuer-akten.md`) with tags `[vermerk, <parent-akte-uuid6>]` plus property `reference.akten.id: <parent-akte-uuid>` (full parent UUID). The Vermerk's own UUID lives in `id` only — there's no separate `vermerk.id` field anymore. **Always inserts a wikilink to the new Vermerk into the parent Akte's `index.md`** under a `## Vermerke` section (created on first use, reused thereafter), regardless of which document is currently active. |
-| `shinki-kadai.md` | `Cmd+Shift+T` | `Kadai: Shinki Kadai (新規課題)` | Task note — runs in **insert mode** by default (the hotkey is bound to `templater-obsidian:templates/shinki-kadai.md`), so the active document stays open and a wikilink to the new task is dropped into it. Two creation modes: `Title only` (just title prompt) and `Full document` (also prompts an optional description, then opens the new task after the link is inserted — priority and due date can be edited later in the task file or via the Tasks plugin). Where the link goes depends on Vim mode: in **insert mode**, the link is inserted at the cursor; in **normal mode**, the link is appended under a `## Inserted Tasks` section at the end of the active document (created on first use, reused on subsequent inserts). The task file itself always lives at `kadai/YYYY/MM/DD/<id>.md`. **Context-aware label and references:** the mode picker's placeholder reflects the active document context — `Add to new Akten` (active = Akte index), `Add to new Vermerk` (active = Vermerk), `Add to new Zakki` (active = Zakki), or `Task creation` (no context). Reference fields follow the label: Akten → `reference.akten.id`; Vermerk → both `reference.vermerk.id` and `reference.akten.id` (parent); Zakki → `reference.zakki.id`; no context → no reference fields. **Standalone fallback:** invoking `Templater: Create new note from template → templates/shinki-kadai.md` (or any create-mode wrapper) skips the insert path entirely and creates the task as a standalone open file — same prompts, no reference fields, no link insertion. |
+| `shinki-kadai.md` | `Cmd+Shift+T` | `Kadai: Shinki Kadai (新規課題)` | Task note — runs in **insert mode** by default (the hotkey is bound to `templater-obsidian:templates/shinki-kadai.md`), so the active document stays open and a wikilink to the new task is dropped into it. Two creation modes: `Title only` (just title prompt) and `Full document` (also prompts an optional description, then opens the new task after the link is inserted — priority and due date can be edited later in the task file or via the Tasks plugin). Where the link goes depends on Vim mode: in **insert mode**, the link is inserted at the cursor; in **normal mode**, the link is appended under a `## Inserted Tasks` section at the end of the active document (created on first use, reused on subsequent inserts). The task file itself always lives at `kadai/YYYY/MM/DD/<uuid6>-<slug>.md` (slug rules match `neuer-akten.md`). The task body's `## Status` section embeds two `meta-bind` widgets: an `INPUT[inlineSelect(...):task.status]` dropdown constrained to the 6 canonical options (`Incipient`, `In progress`, `Completed`, `Discarded`, `Blocked`, `Abandoned`) and a derived `VIEW` field rendering `☑ Done` / `☐ Not done` based on whether `task.status` is `Completed` or `Discarded`. Status defaults to `Incipient` at creation; change it via the dropdown. **Context-aware label and references:** the mode picker's placeholder reflects the active document context — `Add to new Akten` (active = Akte index), `Add to new Vermerk` (active = Vermerk), `Add to new Zakki` (active = Zakki), or `Task creation` (no context). Reference fields follow the label: Akten → `reference.akten.id`; Vermerk → both `reference.vermerk.id` and `reference.akten.id` (parent); Zakki → `reference.zakki.id`; no context → no reference fields. **Standalone fallback:** invoking `Templater: Create new note from template → templates/shinki-kadai.md` (or any create-mode wrapper) skips the insert path entirely and creates the task as a standalone open file — same prompts, no reference fields, no link insertion. |
 | `add-tag.md` | `Cmd+Alt+T` | — | Adds a tag to the current note's frontmatter. First shows a suggester populated from `app.metadataCache.getTags()` so existing tags fuzzy-autocomplete as you type; press `Esc` on the suggester to fall through to a free-form prompt for a brand-new tag. |
-| `sync-system-frontmatter.md` | — (startup template) | — | Registered in Templater's `startup_templates`. Runs once on vault open to install a single `app.vault.on("rename", ...)` listener that keeps each note's `path:` and `filename:` frontmatter fields aligned with the file's actual location after any in-Obsidian rename or move. Idempotent across plugin reloads via `globalThis` guard + `app.vault.offref()`. Produces no file output. |
+| `sync-system-frontmatter.md` | — (startup template) | — | Registered in Templater's `startup_templates`. Runs once on vault open to install **two** vault-wide listeners: (1) `app.vault.on("rename", ...)` — keeps each note's `path:` / `filename:` frontmatter aligned with its current location after any rename or move; (2) `app.metadataCache.on("changed", ...)` — when `title:` changes on a managed note (Vermerk / Kadai / Zakki), recomputes `<uid6>-<slug>` and renames the file via `app.fileManager.renameFile`, which then triggers Obsidian's `alwaysUpdateLinks` to rewrite wikilinks vault-wide. The first metadata-changed event per file is treated as the indexing pass and skipped, so legacy bare-`<uid6>.md` files are NOT mass-renamed silently at startup. Idempotent across plugin reloads via `globalThis` guards + `app.vault.offref()` / `app.metadataCache.offref()`. Produces no file output. |
 
 To pick any template interactively (including `neuer-akten`), use `Cmd+Shift+N`
 (Templater → *Create new note from template*). To insert a template into the
@@ -243,6 +259,7 @@ Examples:
 | `calendar` | Calendar widget in right sidebar |
 | `templater-obsidian` | Template engine — powers all note creation flows |
 | `obsidian-tasks-plugin` | Cross-vault task tracking — global filter: `#task` |
+| `obsidian-meta-bind-plugin` | Inline property widgets — provides the `task.status` dropdown and derived done indicator in Kadai files. `excludedFolders: ["templates"]` keeps backticked widget syntax inert inside template source files. JS view fields are disabled (`enableJs: false`); current widgets only need math-mode `VIEW` and `INPUT[inlineSelect]`. |
 
 ---
 
