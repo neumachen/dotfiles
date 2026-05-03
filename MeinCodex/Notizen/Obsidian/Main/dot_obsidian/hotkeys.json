@@ -61,15 +61,6 @@
       "key": "I"
     }
   ],
-  "templater-obsidian:create-templates/meeting.md": [
-    {
-      "modifiers": [
-        "Mod",
-        "Alt"
-      ],
-      "key": "M"
-    }
-  ],
   "templater-obsidian:templates/add-tag.md": [
     {
       "modifiers": [
