@@ -12,7 +12,9 @@ const INSERTED_HEADING = "## Inserted Tasks";
 const RUN_MODE_CREATE_NEW = 0;
 const isCreateMode = tp.config.run_mode === RUN_MODE_CREATE_NEW;
 
-const active = isCreateMode ? null : app.workspace.getActiveFile();
+const active = isCreateMode
+  ? null
+  : (tp.config.active_file ?? tp.config.target_file ?? app.workspace.activeEditor?.file ?? app.workspace.getActiveFile());
 
 let context = null;
 let akteUid = null;

@@ -19,7 +19,7 @@
     {
       "name": "Akten: Neuer Vermerk",
       "macro": [
-        {"action": 0, "commandId": "templater-obsidian:create-templates/neuer-vermerk.md"}
+        {"action": 0, "commandId": "templater-obsidian:templates/neuer-vermerk.md"}
       ]
     },
     {

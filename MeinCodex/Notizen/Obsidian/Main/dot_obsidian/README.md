@@ -104,7 +104,7 @@ Located at `<vault-root>/templates/`. All templates use Templater syntax.
 |---|---|---|---|
 | `neuer-zakki.md` | `Cmd+N` | — | General note — prompts for title, lands in `zakki/YYYY/MM/DD/<id>` with `zakki` tag |
 | `neuer-akten.md` | — | `Akten: Neue Akte` | Project folder — prompts for title, creates `akten/YYYY/MM/DD/<short-uuid>-<slug>/index.md` with tags `[akten, <short-uuid>]` |
-| `neuer-vermerk.md` | — | `Akten: Neuer Vermerk` | Memo inside an Akte — auto-detects the active Akte (from current note's enclosing folder); falls back to a suggester listing all Akten if none is active. Lands in `akten/YYYY/MM/DD/<akte-folder>/<id>.md` with tags `[vermerk, <vermerk-uuid>, <parent-akte-uuid>]` plus properties `vermerk.id: <vermerk-uuid>` and `reference.akten.id: <parent-akte-uuid>`. Searching by the Akte's UUID returns the Akte's `index.md` and all its Vermerke; searching by a Vermerk's own UUID returns just that Vermerk. |
+| `neuer-vermerk.md` | — | `Akten: Neuer Vermerk` | Memo inside an Akte — runs in **insert mode** (matches `shinki-kadai`'s pattern). Auto-detects the parent Akte from the active file's enclosing folder; falls back to a suggester listing all Akten if none is active. Mode picker (`Title only` vs `Full document`) controls whether focus switches to the new Vermerk after creation. Lands in `akten/YYYY/MM/DD/<akte-folder>/Vermerke/<id>.md` (the `Vermerke/` subdirectory is created on first use) with tags `[vermerk, <vermerk-uuid>, <parent-akte-uuid>]` plus properties `vermerk.id: <vermerk-uuid>` and `reference.akten.id: <parent-akte-uuid>`. **Always inserts a wikilink to the new Vermerk into the parent Akte's `index.md`** under a `## Vermerke` section (created on first use, reused thereafter), regardless of which document is currently active. Searching by the Akte's UUID returns the index plus every Vermerk; searching by a Vermerk's own UUID returns just that Vermerk. |
 | `shinki-kadai.md` | `Cmd+Shift+T` | `Kadai: Shinki Kadai (新規課題)` | Task note — runs in **insert mode** by default (the hotkey is bound to `templater-obsidian:templates/shinki-kadai.md`), so the active document stays open and a wikilink to the new task is dropped into it. Two creation modes: `Title only` (just title prompt) and `Full document` (also prompts an optional description, then opens the new task after the link is inserted — priority and due date can be edited later in the task file or via the Tasks plugin). Where the link goes depends on Vim mode: in **insert mode**, the link is inserted at the cursor; in **normal mode**, the link is appended under a `## Inserted Tasks` section at the end of the active document (created on first use, reused on subsequent inserts). The task file itself always lives at `kadai/YYYY/MM/DD/<id>.md`. **Context-aware label and references:** the mode picker's placeholder reflects the active document context — `Add to new Akten` (active = Akte index), `Add to new Vermerk` (active = Vermerk), `Add to new Zakki` (active = Zakki), or `Task creation` (no context). Reference fields follow the label: Akten → `reference.akten.id`; Vermerk → both `reference.vermerk.id` and `reference.akten.id` (parent); Zakki → `reference.zakki.id`; no context → no reference fields. **Standalone fallback:** invoking `Templater: Create new note from template → templates/shinki-kadai.md` (or any create-mode wrapper) skips the insert path entirely and creates the task as a standalone open file — same prompts, no reference fields, no link insertion. |
 | `add-tag.md` | `Cmd+Alt+T` | — | Adds a tag to the current note's frontmatter via prompt |
 
@@ -123,7 +123,7 @@ custom palette label. They live in `dot_obsidian/plugins/cmdr/data.json` under t
 | Macro name (palette label) | Underlying command ID |
 |---|---|
 | `Akten: Neue Akte` | `templater-obsidian:create-templates/neuer-akten.md` |
-| `Akten: Neuer Vermerk` | `templater-obsidian:create-templates/neuer-vermerk.md` |
+| `Akten: Neuer Vermerk` | `templater-obsidian:templates/neuer-vermerk.md` |
 | `Kadai: Shinki Kadai (新規課題)` | `templater-obsidian:create-templates/shinki-kadai.md` |
 
 Note: Obsidian prefixes plugin commands with the plugin name in the palette, so
@@ -155,10 +155,12 @@ Path format:
 
 `index.md` carries the standard note frontmatter (`id`, `title`, `aliases`,
 `tags: [akten]`, `created_at.{utc,local}`, `modified_at.{utc,local}`). Add
-subfolders or sibling notes (Vermerke, attachments) inside the project folder
-freely; the project's identity is the folder name and its canonical entry point
-is `index.md`. Vermerke created via `Akten: Neuer Vermerk` land as
-`<id>.md` siblings of `index.md` inside the same Akte folder.
+subfolders or attachments inside the project folder freely; the project's
+identity is the folder name and its canonical entry point is `index.md`.
+Vermerke created via `Akten: Neuer Vermerk` land in a `Vermerke/`
+subdirectory next to `index.md` (auto-created on first use) as
+`<id>.md`, and a wikilink is appended to the index under a `## Vermerke`
+section.
 
 Examples:
 - `akten/2026/05/02/7k3qxh2v-q3-tax-review-fy26/index.md`
