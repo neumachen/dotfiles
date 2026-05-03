@@ -1,6 +1,6 @@
 {
   "id": "d2c3fef0-65d2-4ba0-8042-72d68d108712",
-  "name": "Normal Profile",
+  "name": "New Profile",
   "provider": "openrouter",
   "model": "anthropic/claude-sonnet-4.6",
   "maxIterations": 250,
@@ -56,6 +56,5 @@
     "color": "#3368a8",
     "description": "",
     "contextMemory": "off"
-  },
-  "projectDir": "/projects/Codebasis/github.com/neumachen/dotfiles"
+  }
 }
