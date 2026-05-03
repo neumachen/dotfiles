@@ -18,21 +18,41 @@ const tzOff = `${tzSign}${pad(Math.floor(tzAbs / 60))}:${pad(tzAbs % 60)}`;
 const localIso = `${YYYY}-${MM}-${DD}T${hh}:${mm}:${ss}${tzOff}`;
 const utcIso = now.toISOString().replace(/\.\d{3}Z$/, "Z");
 
-const uid = crypto.randomUUID().replace(/-/g, "");
-const uid6 = uid.slice(0, 6);
-const documentId = uid;
+let slug = title
+  .normalize("NFD")
+  .replace(/[̀-ͯ]/g, "")
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, "-")
+  .replace(/^-+|-+$/g, "");
+if (slug.length > 60) {
+  slug = slug.slice(0, 60).replace(/-+$/g, "");
+  const lastDash = slug.lastIndexOf("-");
+  if (lastDash > 30) slug = slug.slice(0, lastDash);
+}
+if (!slug) slug = "untitled";
+
+let uid = crypto.randomUUID().replace(/-/g, "");
+let uid6 = uid.slice(0, 6);
+let stem = `${uid6}-${slug}`;
 
 const folder = `zakki/${YYYY}/${MM}/${DD}`;
-const path = `${folder}/${uid6}.md`;
 if (!(await app.vault.adapter.exists(folder))) {
   await app.vault.createFolder(folder);
 }
-await tp.file.move(`${folder}/${uid6}`);
+let path = `${folder}/${stem}.md`;
+while (await app.vault.adapter.exists(path)) {
+  uid = crypto.randomUUID().replace(/-/g, "");
+  uid6 = uid.slice(0, 6);
+  stem = `${uid6}-${slug}`;
+  path = `${folder}/${stem}.md`;
+}
+const documentId = uid;
+await tp.file.move(`${folder}/${stem}`);
 
 tR += `---
 id: ${documentId}
 path: ${path}
-filename: ${uid6}
+filename: ${stem}
 title: ${title}
 type: zakki
 aliases:

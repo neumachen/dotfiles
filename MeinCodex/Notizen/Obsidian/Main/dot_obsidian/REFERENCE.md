@@ -47,9 +47,11 @@ priority, due, description). Each task file carries the standard note frontmatte
 (`id`, `title`, `aliases`, `tags`, `created`, `updated`) plus flat `task.*` fields
 holding the structured task metadata.
 
-The H1 of each task file is `# <icon> <title>` — the status icon flows from the
-`task.icon` frontmatter field, so changing the icon updates the rendered heading
-on next save.
+The H1 of each task file is `# <title>`. The status indicator lives in the
+`## Status` section directly below: a meta-bind dropdown bound to `task.status`
+(constrained to the 6 canonical options) and a derived done indicator
+(`☑ Done` / `☐ Not done`) computed from the status value. See *Task
+Frontmatter* below for the enum and done semantics.
 
 Inline `- [ ] #task` checkboxes inside a task file (e.g. subtasks under
 `## Subtasks`) are still picked up by the `obsidian-tasks-plugin` via the `#task`
@@ -68,9 +70,12 @@ panel collapses any nested YAML to a JSON-string field, so we use literal
 | `task.start-date` | Date & time   | `YYYY-MM-DDTHH:mm:ss` (local) — defaults to creation time |
 | `task.due-date`   | Date & time   | `YYYY-MM-DDTHH:mm:ss` (local) — empty if not set |
 | `task.priority`   | Number        | 0–5 in 0.5 increments |
-| `task.status`     | Text          | `incipient` · `in-progress` · `completed` · `rescinded` · `aborted` (defaults to `incipient`) |
-| `task.icon`       | Text (emoji)  | Defaults from status: ⏳ incipient · 🚧 in-progress · ✅ completed · 🚫 rescinded · ❌ aborted. Editable in Properties. |
+| `task.status`     | Text (enum)   | One of: `Incipient` · `In progress` · `Completed` · `Discarded` · `Blocked` · `Abandoned`. Defaults to `Incipient`. The enum is **enforced post-creation** by a meta-bind `INPUT[inlineSelect(...):task.status]` widget rendered in the task body's `## Status` section. The Properties panel shows `task.status` as plain Text, but the meta-bind dropdown is the canonical edit surface. |
 | `task.meta.attr`  | Text          | Freeform placeholder for ad-hoc per-task attributes |
+
+**Done semantics.** A second meta-bind widget in the `## Status` section is a `VIEW` field deriving the done state from `task.status`: it renders `☑ Done` when status is `Completed` or `Discarded`, otherwise `☐ Not done`. The widget is read-only — `task.status` is the single source of truth, and the dropdown is the only way to change it. (`Blocked`, `Abandoned`, `Incipient`, and `In progress` all read as not-done; revisit if the project's working definition shifts.)
+
+The legacy `task.icon` field has been **removed** — the status dropdown is the canonical visible indicator, and the H1 no longer carries a status emoji. Pre-existing kadai files retain `task.icon` until they are touched; a future migration could strip it, but it does no harm in place.
 
 `created` / `updated` are deliberately **not** duplicated under `task.*` — they
 already exist at the top level of every note's frontmatter and are auto-maintained
@@ -83,8 +88,8 @@ implicitly local — fine for a single-timezone vault.
 ### Querying tasks
 
 The `obsidian-tasks-plugin` queries inline checkboxes only. To query the
-file-level `task.*` fields, use **Bases** (core, enabled) — e.g. a Base filtered
-by `tags contains task` with columns `task.icon`, `task.status`, `task.priority`,
+file-level `task.*` fields, use **Bases** (core) — e.g. a Base filtered
+by `tags contains task` with columns `task.status`, `task.priority`,
 `task.due-date`. Inline subtasks within task files remain queryable via ordinary
 `tasks` blocks:
 
