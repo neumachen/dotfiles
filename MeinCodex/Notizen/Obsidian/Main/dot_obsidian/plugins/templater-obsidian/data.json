@@ -12,7 +12,9 @@
     "templates/neuer-zakki.md",
     "templates/shinki-kadai.md"
   ],
-  "startup_templates": [],
+  "startup_templates": [
+    "templates/sync-system-frontmatter.md"
+  ],
   "enable_system_commands": false,
   "shell_path": "",
   "user_scripts_folder": "",
