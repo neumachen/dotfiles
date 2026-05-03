@@ -102,26 +102,14 @@ const tzOff = `${tzSign}${pad(Math.floor(tzAbs / 60))}:${pad(tzAbs % 60)}`;
 const localIso = `${YYYY}-${MM}-${DD}T${hh}:${mm}:${ss}${tzOff}`;
 const utcIso = now.toISOString().replace(/\.\d{3}Z$/, "Z");
 
-const ENCODING = "0123456789abcdefghjkmnpqrstvwxyz";
-let t = now.getTime();
-let timePart = "";
-for (let i = 9; i >= 0; i--) { timePart = ENCODING.charAt(t % 32) + timePart; t = Math.floor(t / 32); }
-const rand = new Uint8Array(16);
-crypto.getRandomValues(rand);
-let randPart = "";
-for (let i = 0; i < 16; i++) randPart += ENCODING.charAt(rand[i] % 32);
-const ulidId = `${stamp}-${timePart}${randPart}`;
-
-const vermerkUidBytes = new Uint8Array(8);
-crypto.getRandomValues(vermerkUidBytes);
-let vermerkUid = "";
-for (let i = 0; i < 8; i++) vermerkUid += ENCODING.charAt(vermerkUidBytes[i] % 32);
+const uid = crypto.randomUUID().replace(/-/g, "");
+const uid6 = uid.slice(0, 6);
+const documentId = uid;
 
 const akteUid = aktePath.split("/").pop().split("-")[0];
-const documentId = vermerkUid;
 
-const vermerkeFolder = `${aktePath}/Vermerke`;
-const vermerkPath = `${vermerkeFolder}/${ulidId}.md`;
+const vermerkeFolder = `${aktePath}/vermerke`;
+const vermerkPath = `${vermerkeFolder}/${uid6}.md`;
 if (!(await app.vault.adapter.exists(vermerkeFolder))) {
   await app.vault.createFolder(vermerkeFolder);
 }
@@ -129,15 +117,13 @@ if (!(await app.vault.adapter.exists(vermerkeFolder))) {
 const vermerkContent = `---
 id: ${documentId}
 path: ${vermerkPath}
-filename: ${ulidId}
+filename: ${uid6}
 title: ${title}
 type: vermerk
 aliases:
 tags:
   - vermerk
-  - ${vermerkUid}
   - ${akteUid}
-vermerk.id: ${vermerkUid}
 reference.akten.id: ${akteUid}
 created_at.utc: "${utcIso}"
 created_at.local: "${localIso}"
@@ -150,7 +136,7 @@ modified_at.local: "${localIso}"
 `;
 
 if (isCreateMode) {
-  await tp.file.move(`${vermerkeFolder}/${ulidId}`);
+  await tp.file.move(`${vermerkeFolder}/${uid6}`);
   tR += vermerkContent;
 } else {
   await app.vault.create(vermerkPath, vermerkContent);
@@ -159,7 +145,7 @@ if (isCreateMode) {
 const indexPath = `${aktePath}/index.md`;
 const indexFile = app.vault.getAbstractFileByPath(indexPath);
 if (indexFile) {
-  const link = `[[${ulidId}|${title}]]`;
+  const link = `[[${uid6}|${title}]]`;
   await appendLinkToSection(indexFile, link, VERMERKE_HEADING);
 } else {
   new Notice(`Akte's index.md not found at ${indexPath}; link not inserted.`);

@@ -19,6 +19,7 @@ const localIso = `${YYYY}-${MM}-${DD}T${hh}:${mm}:${ss}${tzOff}`;
 const utcIso = now.toISOString().replace(/\.\d{3}Z$/, "Z");
 
 const uid = crypto.randomUUID().replace(/-/g, "");
+const uid6 = uid.slice(0, 6);
 const documentId = uid;
 
 let slug = title
@@ -34,7 +35,7 @@ if (slug.length > 60) {
 }
 if (!slug) slug = "untitled";
 
-const dirName = `${uid}-${slug}`;
+const dirName = `${uid6}-${slug}`;
 const dirPath = `akten/${YYYY}/${MM}/${dirName}`;
 const path = `${dirPath}/index.md`;
 
@@ -53,7 +54,6 @@ type: akten
 aliases:
 tags:
   - akten
-  - ${uid}
 created_at.utc: "${utcIso}"
 created_at.local: "${localIso}"
 modified_at.utc: "${utcIso}"

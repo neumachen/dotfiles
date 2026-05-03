@@ -10,7 +10,6 @@ const DD = pad(now.getDate());
 const hh = pad(now.getHours());
 const mm = pad(now.getMinutes());
 const ss = pad(now.getSeconds());
-const stamp = `${YYYY}${MM}${DD}${hh}${mm}${ss}`;
 
 const tzMin = -now.getTimezoneOffset();
 const tzSign = tzMin >= 0 ? "+" : "-";
@@ -19,32 +18,21 @@ const tzOff = `${tzSign}${pad(Math.floor(tzAbs / 60))}:${pad(tzAbs % 60)}`;
 const localIso = `${YYYY}-${MM}-${DD}T${hh}:${mm}:${ss}${tzOff}`;
 const utcIso = now.toISOString().replace(/\.\d{3}Z$/, "Z");
 
-const ENCODING = "0123456789abcdefghjkmnpqrstvwxyz";
-let t = now.getTime();
-let timePart = "";
-for (let i = 9; i >= 0; i--) {
-  timePart = ENCODING.charAt(t % 32) + timePart;
-  t = Math.floor(t / 32);
-}
-const rand = new Uint8Array(16);
-crypto.getRandomValues(rand);
-let randPart = "";
-for (let i = 0; i < 16; i++) randPart += ENCODING.charAt(rand[i] % 32);
-const ulid = timePart + randPart;
+const uid = crypto.randomUUID().replace(/-/g, "");
+const uid6 = uid.slice(0, 6);
+const documentId = uid;
 
-const ulidId = `${stamp}-${ulid}`;
-const documentId = ulidId;
 const folder = `zakki/${YYYY}/${MM}/${DD}`;
-const path = `${folder}/${ulidId}.md`;
+const path = `${folder}/${uid6}.md`;
 if (!(await app.vault.adapter.exists(folder))) {
   await app.vault.createFolder(folder);
 }
-await tp.file.move(`${folder}/${ulidId}`);
+await tp.file.move(`${folder}/${uid6}`);
 
 tR += `---
 id: ${documentId}
 path: ${path}
-filename: ${ulidId}
+filename: ${uid6}
 title: ${title}
 type: zakki
 aliases:

@@ -15,7 +15,8 @@ snippets, and templates.
 ```
 <vault-root>/
 ├── akten/          project folders, filed by creation month under YYYY/MM/
-│   └── YYYY/MM/<uuid>-<slug>/index.md
+│   └── YYYY/MM/<uuid6>-<slug>/index.md
+│                   (folder uses 6-hex-char UUID prefix; full UUID in frontmatter `id`)
 │                   (see "Akten Project Folders" below)
 ├── assets/         attachments (images, PDFs, files)
 ├── kadai/          task notes — file-per-task with `task:` frontmatter, filed by creation date
@@ -37,14 +38,20 @@ Every note carries a standard frontmatter block:
 
 ```yaml
 ---
-id:               <short-id-or-ulid>            — see "Document ID" below
+id:               <full-uuidv4-hex>             — 32-char hex UUIDv4 (no hyphens), set at creation
 path:             <vault-relative file path including .md>
-filename:         <bare filename stem, without .md>   — `index` for Akten, ULID for the rest
+filename:         <bare filename stem, without .md>   — first 6 hex chars of `id` for
+                                                       zakki / vermerk / kadai; `index`
+                                                       for Akten (folder uses the 6-hex
+                                                       prefix instead)
 title:            human-readable title
 type:             akten | vermerk | zakki | kadai   — document kind, set by template
 aliases:
-tags:
-  - example
+tags:                                            — `<type>` (akten / vermerk / zakki) auto-added;
+                                                   `task` for kadai (Tasks plugin filter);
+                                                   Vermerke also tag the parent Akte's UUID
+                                                   for `#<akte-uuid>` cross-doc search;
+                                                   user-added tags accumulate alongside
 created_at.utc:   "YYYY-MM-DDTHH:mm:ssZ"        — set at creation, never updated
 created_at.local: "YYYY-MM-DDTHH:mm:ss±HH:MM"   — local wall-clock + offset at creation
 modified_at.utc:  "YYYY-MM-DDTHH:mm:ssZ"        — auto-maintained by Linter on every save
@@ -54,28 +61,32 @@ modified_at.local:"YYYY-MM-DDTHH:mm:ss±HH:MM"   — set at creation; not refres
 
 ### Document ID
 
-Every note's `id` is the bare identifier — no type prefix. The shape depends on type:
+Every note's `id` is a full 32-char hex UUIDv4 (hyphens stripped), generated
+via `crypto.randomUUID()` at creation. Identical schema across types:
 
-| Type | Identifier | Example |
-|---|---|---|
-| `akten` | 32-char hex UUIDv4 with hyphens stripped (same as the folder name's first segment) | `f47ac10b58cc4372a5670e02b2c3d479` |
-| `vermerk` | 8-char Crockford-base32 short UUID (same as the `vermerk.id` field) | `9pmt4az2` |
-| `zakki` | full ULID (`YYYYMMDDHHMMSS-<26-char-base32>`, same as the filename) | `20260423135002-01kpxttywg6e00rgr5fpy57t8y` |
-| `kadai` | full ULID (same as the filename) | `20260502153045-01kqab...` |
+| Type | `id` | Filename / folder prefix | Example |
+|---|---|---|---|
+| `akten` | full UUID | first 6 hex chars + `-<slug>` (folder name) | folder `f47ac1-q3-tax-review/index.md`, `id: f47ac10b58cc4372a5670e02b2c3d479` |
+| `vermerk` | full UUID | first 6 hex chars (filename) | `f47ac1.md`, `id: f47ac10b58cc4372a5670e02b2c3d479` |
+| `zakki` | full UUID | first 6 hex chars (filename) | `9c2a8d.md`, `id: 9c2a8d11ef4a4b9aa2cb35bf12d8e0c5` |
+| `kadai` | full UUID | first 6 hex chars (filename) | `3b1d6f.md`, `id: 3b1d6f7e88d9498aa6c2d5fe04a91e7c` |
 
-The `type:` field is the source of truth for kind. Removing the prefix from
-`id` keeps the value identical to how it appears in the filename / folder
-name and avoids duplicating type information in two places.
+Why short filenames: 32-char folder/filenames are noisy in the file
+explorer and tab bar; the 6-hex prefix is enough for collision-free
+naming inside a single date folder (16M-space, dozens of notes per day
+worst case). The full UUID stays in frontmatter `id` as the canonical
+identifier — anything that needs to disambiguate beyond the filename
+reads `id` directly.
 
-Filenames for `zakki`, `vermerk`, and `kadai` are the bare ULID (`<ulid>.md`). The
-`YYYYMMDDHHMMSS-` prefix makes filenames lex-sort by creation time; the
-Crockford-base32 ULID suffix provides per-second uniqueness. Akten use the folder
-name `<uuid>-<slug>/` and an inner `index.md`.
+The `type:` field is the source of truth for document kind. Time
+ordering for Zakki / Kadai comes from the `YYYY/MM/DD/` parent folder
+plus `created_at.utc`; the random UUID filename is unsortable and that's
+fine.
 
 The `path` field carries the document's full vault-relative path (with `.md`),
 so a note's canonical location can be read straight from frontmatter without
 walking the filesystem. The `filename` field is the bare stem (no `.md`):
-`index` for Akten, the ULID for Zakki / Vermerk / Kadai. Both are
+`index` for Akten, the 6-char prefix for Zakki / Vermerk / Kadai. Both are
 creation-time records — Obsidian auto-updates wikilinks on rename, but
 doesn't update arbitrary frontmatter fields, so `path` and `filename` will
 go stale if a note is moved or renamed manually.
@@ -102,9 +113,9 @@ Located at `<vault-root>/templates/`. All templates use Templater syntax.
 
 | File | Hotkey | Command label (via Commander) | Purpose |
 |---|---|---|---|
-| `neuer-zakki.md` | `Cmd+N` | — | General note — prompts for title, lands in `zakki/YYYY/MM/DD/<id>` with `zakki` tag |
-| `neuer-akten.md` | — | `Akten: Neue Akte` | Project folder — prompts for title, creates `akten/YYYY/MM/<uuid>-<slug>/index.md` with tags `[akten, <uuid>]`. UUID is a 32-char hex UUIDv4 with hyphens stripped. |
-| `neuer-vermerk.md` | — | `Akten: Neuer Vermerk` | Memo inside an Akte — runs in **insert mode** (matches `shinki-kadai`'s pattern). Auto-detects the parent Akte from the active file's enclosing folder; falls back to a suggester listing all Akten if none is active. Mode picker (`Title only` vs `Full document`) controls whether focus switches to the new Vermerk after creation. Lands in `akten/YYYY/MM/<akte-folder>/Vermerke/<id>.md` (the `Vermerke/` subdirectory is created on first use) with tags `[vermerk, <vermerk-uuid>, <parent-akte-uuid>]` plus properties `vermerk.id: <vermerk-uuid>` and `reference.akten.id: <parent-akte-uuid>`. **Always inserts a wikilink to the new Vermerk into the parent Akte's `index.md`** under a `## Vermerke` section (created on first use, reused thereafter), regardless of which document is currently active. Searching by the Akte's UUID returns the index plus every Vermerk; searching by a Vermerk's own UUID returns just that Vermerk. |
+| `neuer-zakki.md` | `Cmd+N` | — | General note — prompts for title, lands in `zakki/YYYY/MM/DD/<uuid6>.md` with tags `[zakki]`. Frontmatter `id` is the full 32-char UUID; filename is the first 6 hex chars. |
+| `neuer-akten.md` | — | `Akten: Neue Akte` | Project folder — prompts for title, creates `akten/YYYY/MM/<uuid6>-<slug>/index.md` with tags `[akten]`. Folder name uses the first 6 hex chars of the UUID; the full 32-char UUID lives in frontmatter `id`. |
+| `neuer-vermerk.md` | — | `Akten: Neuer Vermerk` | Memo inside an Akte — runs in **insert mode** (matches `shinki-kadai`'s pattern). Auto-detects the parent Akte from the active file's enclosing folder; falls back to a suggester listing all Akten if none is active. Mode picker (`Title only` vs `Full document`) controls whether focus switches to the new Vermerk after creation. Lands in `akten/YYYY/MM/<akte-folder>/vermerke/<uuid6>.md` (the `vermerke/` subdirectory is created on first use) with tags `[vermerk, <parent-akte-uuid6>]` plus property `reference.akten.id: <parent-akte-uuid>` (full parent UUID). The Vermerk's own UUID lives in `id` only — there's no separate `vermerk.id` field anymore. **Always inserts a wikilink to the new Vermerk into the parent Akte's `index.md`** under a `## Vermerke` section (created on first use, reused thereafter), regardless of which document is currently active. |
 | `shinki-kadai.md` | `Cmd+Shift+T` | `Kadai: Shinki Kadai (新規課題)` | Task note — runs in **insert mode** by default (the hotkey is bound to `templater-obsidian:templates/shinki-kadai.md`), so the active document stays open and a wikilink to the new task is dropped into it. Two creation modes: `Title only` (just title prompt) and `Full document` (also prompts an optional description, then opens the new task after the link is inserted — priority and due date can be edited later in the task file or via the Tasks plugin). Where the link goes depends on Vim mode: in **insert mode**, the link is inserted at the cursor; in **normal mode**, the link is appended under a `## Inserted Tasks` section at the end of the active document (created on first use, reused on subsequent inserts). The task file itself always lives at `kadai/YYYY/MM/DD/<id>.md`. **Context-aware label and references:** the mode picker's placeholder reflects the active document context — `Add to new Akten` (active = Akte index), `Add to new Vermerk` (active = Vermerk), `Add to new Zakki` (active = Zakki), or `Task creation` (no context). Reference fields follow the label: Akten → `reference.akten.id`; Vermerk → both `reference.vermerk.id` and `reference.akten.id` (parent); Zakki → `reference.zakki.id`; no context → no reference fields. **Standalone fallback:** invoking `Templater: Create new note from template → templates/shinki-kadai.md` (or any create-mode wrapper) skips the insert path entirely and creates the task as a standalone open file — same prompts, no reference fields, no link insertion. |
 | `add-tag.md` | `Cmd+Alt+T` | — | Adds a tag to the current note's frontmatter. First shows a suggester populated from `app.metadataCache.getTags()` so existing tags fuzzy-autocomplete as you type; press `Esc` on the suggester to fall through to a free-form prompt for a brand-new tag. |
 
@@ -143,31 +154,31 @@ per month rather than many per day). Creation/update timestamps live only in the
 
 Path format:
 
-    akten/YYYY/MM/<uuid>-<title-slug>/index.md
+    akten/YYYY/MM/<uuid6>-<title-slug>/index.md
 
 - `YYYY/MM` — local creation year/month, zero-padded.
-- `<uuid>` — 32-char hex UUIDv4 with hyphens stripped (e.g.
-  `f47ac10b58cc4372a5670e02b2c3d479`), generated via `crypto.randomUUID()`.
-  Random, not sortable; ordering by creation time isn't needed since the
-  `YYYY/MM/` path already groups by month and projects aren't browsed
-  chronologically.
+- `<uuid6>` — first 6 hex chars of the full UUIDv4 stored in `id`
+  (e.g. `f47ac1` from `f47ac10b58cc4372a5670e02b2c3d479`). Short enough
+  to keep folder names readable; full UUID in frontmatter for canonical
+  identity. Random, not sortable; ordering by creation time isn't
+  needed since the `YYYY/MM/` path already groups by month.
 - `<title-slug>` — title NFD-folded to ASCII, lowercased, non-`[a-z0-9]` → `-`,
   runs collapsed, trimmed, truncated to 60 chars on a `-` boundary; falls back
   to `untitled` if empty.
 
 `index.md` carries the standard note frontmatter (`id`, `title`, `aliases`,
-`tags: [akten]`, `created_at.{utc,local}`, `modified_at.{utc,local}`). Add
+empty `tags:`, `created_at.{utc,local}`, `modified_at.{utc,local}`). Add
 subfolders or attachments inside the project folder freely; the project's
 identity is the folder name and its canonical entry point is `index.md`.
-Vermerke created via `Akten: Neuer Vermerk` land in a `Vermerke/`
+Vermerke created via `Akten: Neuer Vermerk` land in a `vermerke/`
 subdirectory next to `index.md` (auto-created on first use) as
 `<id>.md`, and a wikilink is appended to the index under a `## Vermerke`
 section.
 
 Examples:
-- `akten/2026/05/f47ac10b58cc4372a5670e02b2c3d479-q3-tax-review-fy26/index.md`
-- `akten/2026/05/9c2a8d11ef4a4b9aa2cb35bf12d8e0c5-migration-postgres-aurora/index.md`
-- `akten/2026/05/3b1d6f7e88d9498aa6c2d5fe04a91e7c-arger-mit-dem-vermieter/index.md`
+- `akten/2026/05/f47ac1-q3-tax-review-fy26/index.md`
+- `akten/2026/05/9c2a8d-migration-postgres-aurora/index.md`
+- `akten/2026/05/3b1d6f-arger-mit-dem-vermieter/index.md`
 
 ---
 
