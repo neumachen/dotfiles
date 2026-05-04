@@ -337,7 +337,7 @@ Fast, async completion engine written in Rust.
 | `<C-e>` | Hide completion |
 
 **Snippet engine:** LuaSnip  
-**Disabled for:** `TelescopePrompt`, `snacks_picker_input`
+**Disabled for:** `snacks_picker_input`
 
 **Dependencies:** `blink-emoji.nvim`, `blink-cmp-spell`, `blink-ripgrep.nvim`, `blink-cmp-words`, `lspkind.nvim`
 
@@ -733,7 +733,7 @@ Preset: `modern`. Spell suggestions enabled.
 | `image` | Image preview |
 | `input` | Better input UI |
 | `notifier` | Notification system (3s timeout) |
-| `picker` | Fuzzy finder (replaces Telescope; `ui_select = true`) |
+| `picker` | Fuzzy finder (`ui_select = true`) |
 | `quickfile` | Fast file opening |
 | `scope` | Scope highlighting |
 | `scroll` | Smooth scrolling |
@@ -1001,7 +1001,7 @@ Add, change, delete surroundings (brackets, quotes, tags, etc.).
 
 Auto-close brackets and quotes. Integrates with treesitter.  
 Fast wrap: `<C-e>`  
-Disabled for: `TelescopePrompt`, `spectre_panel`, `snacks_picker_input`
+Disabled for: `spectre_panel`, `snacks_picker_input`
 
 #### `Wansmer/treesj`
 
