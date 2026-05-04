@@ -7,6 +7,7 @@
   "blink-emoji.nvim": { "branch": "master", "commit": "dff709139ad5389fb55ebab026e75278a12b325a" },
   "blink-ripgrep.nvim": { "branch": "main", "commit": "7a3bedb0c978e7fbde3c68127df544e23554e22b" },
   "blink.cmp": { "branch": "main", "commit": "d3874d2a13aa19b095bdd10d37a82a8f0aa7cad3" },
+  "blink.lib": { "branch": "main", "commit": "f29d8bac6549bc1e7d699c83f680823d7def98bd" },
   "bufferline.nvim": { "branch": "main", "commit": "655133c3b4c3e5e05ec549b9f8cc2894ac6f51b3" },
   "candela.nvim": { "branch": "main", "commit": "aa9d1716cd761e65a48037ea8d7af30355de9b42" },
   "catppuccin": { "branch": "main", "commit": "426dbebe06b5c69fd846ceb17b42e12f890aedf1" },
