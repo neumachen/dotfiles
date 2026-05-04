@@ -13,19 +13,28 @@
     {
       "name": "Akten: Neue Akte",
       "macro": [
-        {"action": 0, "commandId": "templater-obsidian:create-templates/neuer-akten.md"}
+        {
+          "action": 0,
+          "commandId": "templater-obsidian:create-templates/neuer-akten.md"
+        }
       ]
     },
     {
       "name": "Akten: Neuer Vermerk",
       "macro": [
-        {"action": 0, "commandId": "templater-obsidian:templates/neuer-vermerk.md"}
+        {
+          "action": 0,
+          "commandId": "templater-obsidian:templates/neuer-vermerk.md"
+        }
       ]
     },
     {
       "name": "Kadai: Shinki Kadai (新規課題)",
       "macro": [
-        {"action": 0, "commandId": "templater-obsidian:templates/shinki-kadai.md"}
+        {
+          "action": 0,
+          "commandId": "templater-obsidian:templates/shinki-kadai.md"
+        }
       ]
     }
   ],

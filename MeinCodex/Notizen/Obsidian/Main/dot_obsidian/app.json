@@ -1,5 +1,5 @@
 {
-  "trashOption": "local",
+  "trashOption": "system",
   "foldIndent": false,
   "autoPairMarkdown": false,
   "tabSize": 4,
@@ -11,5 +11,6 @@
   "newFileLocation": "folder",
   "newFileFolderPath": "zakki",
   "readableLineLength": true,
-  "vimMode": true
+  "vimMode": true,
+  "showUnsupportedFiles": false
 }

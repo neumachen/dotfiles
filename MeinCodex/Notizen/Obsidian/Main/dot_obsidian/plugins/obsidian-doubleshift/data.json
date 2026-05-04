@@ -6,6 +6,11 @@
       "command": "switcher:open",
       "key": "ShiftLeft",
       "lastKeyUpTime": 0
+    },
+    {
+      "command": "",
+      "key": "ShiftLeft",
+      "lastKeyUpTime": 1777829966270
     }
   ]
 }
