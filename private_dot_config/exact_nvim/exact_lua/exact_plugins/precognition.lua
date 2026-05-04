@@ -24,7 +24,6 @@ return {
       NextParagraph = { text = '}', prio = 8 },
     },
     disabled_fts = {
-      'Telescope',
       'snacks_picker_input',
       'snacks_dashboard',
       'startify',
