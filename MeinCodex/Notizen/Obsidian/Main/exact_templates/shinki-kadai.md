@@ -147,7 +147,7 @@ const documentId = uid;
 // dotted property name verbatim from frontmatter.
 const statusOpts = STATUS_OPTIONS.map(o => `option(${o})`).join(", ");
 const statusWidget = "`INPUT[inlineSelect(" + statusOpts + "):[\"task.status\"]]`";
-const doneWidget = "`VIEW[(({[\"task.status\"]} = \"completed\") or ({[\"task.status\"]} = \"discarded\")) ? \"☑ Done\" : \"☐ Not done\"]`";
+const doneWidget = "`VIEW[(({[\"task.status\"]} == \"completed\") or ({[\"task.status\"]} == \"discarded\")) ? \"☑ Done\" : \"☐ Not done\"]`";
 
 const taskContent = `---
 id: ${documentId}
