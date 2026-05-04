@@ -18,15 +18,9 @@ return {
     'onsails/lspkind.nvim',
   },
   opts = function(_, opts)
-    -- I noticed that telescope was extremely slow and taking too long to open,
-    -- assumed related to blink, so disabled blink and in fact it was related
-    -- :lua print(vim.bo[0].filetype)
-    -- So I'm disabling blink.cmp for Telescope
     opts.enabled = function()
-      -- Get the current buffer's filetype
       local filetype = vim.bo[0].filetype
-      -- Disable for Telescope buffers
-      if filetype == 'TelescopePrompt' or filetype == 'snacks_picker_input' then
+      if filetype == 'snacks_picker_input' then
         return false
       end
       return true

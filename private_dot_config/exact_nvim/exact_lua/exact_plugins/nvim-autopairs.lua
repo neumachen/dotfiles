@@ -4,7 +4,7 @@ return {
   config = function()
     require('nvim-autopairs').setup({
       close_triple_quotes = true,
-      disable_filetype = { 'TelescopePrompt', 'spectre_panel', 'snacks_picker_input' },
+      disable_filetype = { 'spectre_panel', 'snacks_picker_input' },
       check_ts = true,
       fast_wrap = { map = '<c-e>' },
       ts_config = {

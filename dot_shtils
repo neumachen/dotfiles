@@ -275,4 +275,3 @@ remove_from_front_of_path() {
 		esac
 	done
 }
-
