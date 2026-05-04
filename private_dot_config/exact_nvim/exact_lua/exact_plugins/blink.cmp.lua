@@ -11,6 +11,7 @@ return {
   -- https://github.com/Saghen/blink.cmp/releases
   -- version = "v0.13.1",
   dependencies = {
+    'saghen/blink.lib',
     'moyiz/blink-emoji.nvim',
     'ribru17/blink-cmp-spell',
     'mikavilpas/blink-ripgrep.nvim',
@@ -20,9 +21,7 @@ return {
   opts = function(_, opts)
     opts.enabled = function()
       local filetype = vim.bo[0].filetype
-      if filetype == 'snacks_picker_input' then
-        return false
-      end
+      if filetype == 'snacks_picker_input' then return false end
       return true
     end
 
