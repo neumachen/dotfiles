@@ -259,7 +259,7 @@ Examples:
 | `calendar` | Calendar widget in right sidebar |
 | `templater-obsidian` | Template engine — powers all note creation flows |
 | `obsidian-tasks-plugin` | Cross-vault task tracking — global filter: `#task` |
-| `obsidian-meta-bind-plugin` | Inline property widgets — provides the `task.status` dropdown and derived done indicator in Kadai files. `excludedFolders: ["templates"]` keeps backticked widget syntax inert inside template source files. JS view fields are disabled (`enableJs: false`); current widgets only need math-mode `VIEW` and `INPUT[inlineSelect]`. |
+| `obsidian-meta-bind-plugin` | Inline property widgets — provides the `task.status` dropdown and derived done indicator in Kadai files. `excludedFolders: ["templates"]` keeps backticked widget syntax inert inside template source files. JS view fields are disabled (`enableJs: false`); current widgets only need math-mode `VIEW` and `INPUT[inlineSelect]`. **Important**: when binding to a flat YAML key with a literal dot (`task.status`, `created_at.utc`, etc.), use bracket notation: `INPUT[...:["task.status"]]` and `{["task.status"]}` inside view expressions. Unbracketed `task.status` is interpreted as nested-object access and silently fails to bind. |
 
 ---
 

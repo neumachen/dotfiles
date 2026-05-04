@@ -135,12 +135,19 @@ const documentId = uid;
 // the dropdown rewrites `task.status` in frontmatter.
 //
 // Done indicator: VIEW field evaluating a math expression — renders
-// as "☑ Done" when status is Completed or Discarded, "☐ Not done"
+// as "☑ Done" when status is completed or discarded, "☐ Not done"
 // otherwise. Read-only (derived from status; the dropdown is the
 // single source of truth). Plain-text rendering, no JS required.
+//
+// Why ["task.status"] (bracket notation) instead of task.status:
+// meta-bind treats a literal dot in a bind target as nested-object
+// access — `target.task.status` would resolve to target["task"]["status"],
+// which fails because `task` is not a sub-object here. Using bracket
+// notation with the quoted full key tells meta-bind to read the flat
+// dotted property name verbatim from frontmatter.
 const statusOpts = STATUS_OPTIONS.map(o => `option(${o})`).join(", ");
-const statusWidget = "`INPUT[inlineSelect(" + statusOpts + "):task.status]`";
-const doneWidget = "`VIEW[(({task.status} = \"completed\") or ({task.status} = \"discarded\")) ? \"☑ Done\" : \"☐ Not done\"]`";
+const statusWidget = "`INPUT[inlineSelect(" + statusOpts + "):[\"task.status\"]]`";
+const doneWidget = "`VIEW[(({[\"task.status\"]} = \"completed\") or ({[\"task.status\"]} = \"discarded\")) ? \"☑ Done\" : \"☐ Not done\"]`";
 
 const taskContent = `---
 id: ${documentId}
