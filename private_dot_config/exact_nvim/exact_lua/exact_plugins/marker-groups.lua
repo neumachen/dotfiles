@@ -8,7 +8,7 @@ return {
   config = function()
     require('marker-groups').setup({
       -- Default picker is 'vim' (built-in vim.ui)
-      -- Accepted values: 'vim' | 'snacks' | 'fzf-lua' | 'mini.pick' | 'telescope'
+      -- Accepted values: 'vim' | 'snacks' | 'fzf-lua' | 'mini.pick'
       picker = 'snacks',
     })
   end,
