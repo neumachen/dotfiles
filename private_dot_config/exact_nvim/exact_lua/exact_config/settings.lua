@@ -190,8 +190,8 @@ opt.emoji = false
 -----------------------------------------------------------------------------//
 -- This is from the help docs, it enables mode shapes, "Cursor" highlight, and blinking
 opt.guicursor = {
-  'n-v-c-sm:block-Cursor',
-  'i-ci-ve:ver25-iCursor',
+  'n-v-sm:block-Cursor',
+  'i-ci-ve-c:ver25-iCursor',
   'r-cr-o:hor20-Cursor',
   'a:blinkon0',
 }
