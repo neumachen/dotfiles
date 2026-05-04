@@ -16,6 +16,10 @@ return {
       -- may not work on all platforms.
       new_shell_escaping = true,
     },
+    integrations = {
+      grep_in_directory = 'fzf-lua',
+      grep_in_selected_files = 'fzf-lua',
+    },
   },
   keys = {
     {
