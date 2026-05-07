@@ -1,7 +1,7 @@
 local wezterm = require('wezterm')
 local utils = require('modules.utils')
 local keybinds = require('keybinds')
-local scheme = wezterm.get_builtin_color_schemes()['nord']
+local scheme = wezterm.get_builtin_color_schemes()['Tokyo Night Storm']
 local act = wezterm.action
 
 -- selene: allow(unused_variable)
@@ -42,7 +42,7 @@ wezterm.on('format-tab-title', function(tab, tabs, panes, config, hover, max_wid
   -- https://github.com/wez/wezterm/issues/807
   -- local edge_background = scheme.background
   -- https://github.com/wez/wezterm/blob/61f01f6ed75a04d40af9ea49aa0afe91f08cb6bd/config/src/color.rs#L245
-  local edge_background = '#2e3440'
+  local edge_background = '#24283b' -- Tokyo Night Storm background
   local background = scheme.ansi[1]
   local foreground = scheme.ansi[5]
 
@@ -71,18 +71,11 @@ wezterm.on('format-tab-title', function(tab, tabs, panes, config, hover, max_wid
 end)
 
 -- https://github.com/wez/wezterm/issues/1680
+-- selene: allow(unused_variable)
+---@diagnostic disable-next-line: unused-function, unused-local
 local function update_window_background(window, pane)
-  local overrides = window:get_config_overrides() or {}
-  -- If there's no foreground process, assume that we are "wezterm connect" or "wezterm ssh"
-  -- and use a different background color
-  -- if pane:get_foreground_process_name() == nil then
-  -- 	-- overrides.colors = { background = "blue" }
-  -- 	overrides.color_scheme = "Red Alert"
-  -- end
-
-  if overrides.color_scheme == nil then return end
-  if pane:get_user_vars().production == '1' then overrides.color_scheme = 'OneHalfDark' end
-  window:set_config_overrides(overrides)
+  -- Placeholder for future per-pane background overrides if needed
+  -- Currently using Tokyo Night Storm globally
 end
 
 -- selene: allow(unused_variable)
@@ -130,7 +123,8 @@ wezterm.on('update-right-status', function(window, pane)
   local ssh = update_ssh_status(window, pane)
   local copy_mode = display_copy_mode(window, pane)
   update_window_background(window, pane)
-  local status = utils.merge_lists(ssh, copy_mode)
+  local workspace = { { Text = window:active_workspace() .. ' ' } }
+  local status = utils.merge_lists(utils.merge_lists(workspace, ssh), copy_mode)
   window:set_right_status(wezterm.format(status))
 end)
 
@@ -148,8 +142,7 @@ wezterm.on('toggle-tmux-keybinds', function(window, pane)
   window:set_config_overrides(overrides)
 end)
 
--- workspace
-wezterm.on('update-right-status', function(window, _) window:set_right_status(window:active_workspace()) end)
+-- workspace status is now integrated into the main update-right-status handler above
 
 local io = require('io')
 local os = require('os')

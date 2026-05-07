@@ -25,9 +25,11 @@ end
 local function create_ssh_domain_from_ssh_config(ssh_domains)
   if ssh_domains == nil then ssh_domains = {} end
   for host, config in pairs(wezterm.enumerate_ssh_hosts()) do
+    local hostname = config.hostname or host
+    local port = config.port or '22'
     table.insert(ssh_domains, {
       name = host,
-      remote_address = config.hostname .. ':' .. config.port,
+      remote_address = hostname .. ':' .. port,
       username = config.user,
       multiplexing = 'None',
       assume_shell = 'Posix',
