@@ -16,5 +16,6 @@
   "obsidian-tasks-plugin",
   "mononote",
   "cmdr",
-  "obsidian-meta-bind-plugin"
+  "obsidian-meta-bind-plugin",
+  "obsidian-vimrc-support"
 ]
