@@ -10,9 +10,9 @@ elif [ -f /usr/local/bin/brew ]; then
   eval "$(/usr/local/bin/brew shellenv)"
 fi
 
-HELFERLEIN_DIR="${HOME}/.local/share/meine-helferlein"
-if [ -d "${HELFERLEIN_DIR}" ]; then
-  export PATH="${HELFERLEIN_DIR}:${PATH}"
+LOCAL_BIN="${HOME}/.local/bin"
+if [ -d "${LOCAL_BIN}" ]; then
+  export PATH="${LOCAL_BIN}:${PATH}"
 fi
 
 _log_info()  { if command -v echo-info  &>/dev/null; then echo-info  "$@"; else echo "[INFO] --- $*"; fi; }
@@ -20,7 +20,7 @@ _log_ok()    { if command -v echo-ok    &>/dev/null; then echo-ok    "$@"; else 
 _log_warn()  { if command -v echo-warn  &>/dev/null; then echo-warn  "$@"; else echo "[WARN] --- $*" >&2; fi; }
 _log_err()   { if command -v echo-err   &>/dev/null; then echo-err   "$@"; else echo "[ERROR] --- $*" >&2; fi; }
 
-LINUXIFY="${HELFERLEIN_DIR}/linuxify"
+LINUXIFY="${LOCAL_BIN}/linuxify"
 if [ -x "${LINUXIFY}" ]; then
   _log_info "Running linuxify install..."
   "${LINUXIFY}" install
