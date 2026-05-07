@@ -560,6 +560,27 @@ if [ -z "$BROWNIE_DOCKERFILE" ]; then
   done
 fi
 
+# Legacy name from an earlier brownie revision that used a dedicated
+# docker-container driver builder. Kept here so the cleanup trap can remove
+# any stale instance from prior runs.
+BROWNIE_LEGACY_BUILDER_NAME="brownie-builder"
+_brownie_build_in_flight=0
+
+cleanup_brownie_build() {
+  if [ "${_brownie_build_in_flight}" -eq 1 ]; then
+    # Stops the BuildKit daemon container the active builder may have
+    # spawned. No-op when BuildKit is embedded in the Docker daemon
+    # (docker driver) since there is no separate container.
+    docker buildx stop >/dev/null 2>&1 || true
+    docker buildx rm "${BROWNIE_LEGACY_BUILDER_NAME}" >/dev/null 2>&1 || true
+  fi
+}
+
+mark_brownie_build_in_flight() {
+  _brownie_build_in_flight=1
+  trap cleanup_brownie_build EXIT
+}
+
 build_image() {
   if ! has_complete_devcontainer "$BROWNIE_DOCKERFILE"; then
     die "Cannot find a complete brownie devcontainer (brownie.Dockerfile, entrypoint.sh, install-aiderdesk-extensions.sh). Set BROWNIE_DOCKERFILE=/path/to/brownie.Dockerfile or sync your dotfiles source tree."
@@ -593,6 +614,7 @@ build_image() {
   else
     echo "  Using default built-in extensions"
   fi
+  mark_brownie_build_in_flight
   docker build \
     "${build_args[@]}" \
     --file "$BROWNIE_DOCKERFILE" \
