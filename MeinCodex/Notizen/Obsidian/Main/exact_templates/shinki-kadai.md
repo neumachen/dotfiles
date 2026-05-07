@@ -8,6 +8,63 @@ const DEFAULT_STATUS = "incipient";
 
 const INSERTED_HEADING = "## Inserted Tasks";
 
+// When inserting a task into a parent doc (Akte index, Vermerk, Zakki), emit
+// a Bases code block scoped to that parent's id instead of a wikilink. One
+// block per scope; re-running the template with the same scope is a no-op.
+// Bracket notation is required because property names with literal dots
+// (e.g. `reference.akten.id`) are otherwise parsed as nested-object access
+// and resolve to nothing. YAML single-quotes wrap the expression so the
+// inner brackets and double-quoted value parse as a single scalar.
+const buildTaskBaseBlock = (refKey, refValue, scopeLabel) => [
+  "```base",
+  "filters:",
+  "  and:",
+  "    - file.hasTag(\"task\")",
+  `    - 'note["${refKey}"] == "${refValue}"'`,
+  "views:",
+  "  - type: table",
+  `    name: Tasks — ${scopeLabel}`,
+  "    order:",
+  "      - title",
+  "      - task.status",
+  "      - task.priority",
+  "      - task.due-date",
+  "    sort:",
+  "      - { property: task.due-date, direction: ASC }",
+  "```",
+].join("\n");
+
+const sectionHasBaseScope = (lines, headingIdx, sectionEnd, refKey, refValue) => {
+  const target = `note["${refKey}"] == "${refValue}"`;
+  let inBase = false;
+  for (let i = headingIdx + 1; i < sectionEnd; i++) {
+    const trimmed = lines[i].trim();
+    if (!inBase && /^```base\b/.test(trimmed)) { inBase = true; continue; }
+    if (inBase && trimmed === "```") { inBase = false; continue; }
+    if (inBase && lines[i].includes(target)) return true;
+  }
+  return false;
+};
+
+const insertBaseBlockIntoSection = async (file, baseBlock, headingText, refKey, refValue) => {
+  const content = await app.vault.read(file);
+  const lines = content.split("\n");
+  const headingIdx = lines.findIndex(l => l.trim() === headingText);
+  if (headingIdx === -1) {
+    const trailing = content.endsWith("\n") ? "" : "\n";
+    await app.vault.modify(file, content + trailing + "\n" + headingText + "\n\n" + baseBlock + "\n");
+    return;
+  }
+  let sectionEnd = lines.length;
+  for (let i = headingIdx + 1; i < lines.length; i++) {
+    if (/^#{1,2}\s+/.test(lines[i])) { sectionEnd = i; break; }
+  }
+  if (sectionHasBaseScope(lines, headingIdx, sectionEnd, refKey, refValue)) return;
+  while (sectionEnd > headingIdx + 1 && lines[sectionEnd - 1].trim() === "") sectionEnd--;
+  lines.splice(sectionEnd, 0, "", ...baseBlock.split("\n"));
+  await app.vault.modify(file, lines.join("\n"));
+};
+
 const RUN_MODE_CREATE_NEW = 0;
 const isCreateMode = tp.config.run_mode === RUN_MODE_CREATE_NEW;
 
@@ -200,10 +257,38 @@ const newFile = await app.vault.create(taskPath, taskContent);
 
 const link = app.fileManager.generateMarkdownLink(newFile, active.path, "", title);
 
+let refKey = null, refValue = null, scopeLabel = null;
+if (context === "akten") {
+  refKey = "reference.akten.id";
+  refValue = akteUid;
+  scopeLabel = "Akte";
+} else if (context === "vermerk") {
+  if (vermerkUid) {
+    refKey = "reference.vermerk.id";
+    refValue = vermerkUid;
+    scopeLabel = "Vermerk";
+  } else {
+    refKey = "reference.akten.id";
+    refValue = akteUid;
+    scopeLabel = "Akte";
+  }
+} else if (context === "zakki") {
+  refKey = "reference.zakki.id";
+  refValue = zakkiId;
+  scopeLabel = "Zakki";
+}
+const baseBlock = (refKey && refValue) ? buildTaskBaseBlock(refKey, refValue, scopeLabel) : null;
+
 const editorEl = app.workspace.activeEditor?.editor?.cm?.dom;
 const inVimNormalMode = !!editorEl?.querySelector(".cm-fat-cursor");
 
-if (inVimNormalMode) {
+// Base blocks always land under ## Inserted Tasks (idempotent — re-running
+// on a parent that already has the block is a no-op). Cursor position is
+// irrelevant for the base path. Only the wikilink fallback respects the
+// vim/non-vim split: vim appends under the section, non-vim drops at cursor.
+if (baseBlock) {
+  await insertBaseBlockIntoSection(active, baseBlock, INSERTED_HEADING, refKey, refValue);
+} else if (inVimNormalMode) {
   const content = await app.vault.read(active);
   const lines = content.split("\n");
   const headingIdx = lines.findIndex(l => l.trim() === INSERTED_HEADING);
