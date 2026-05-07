@@ -4,11 +4,6 @@
 
 set -e # -e: exit on error
 
-HELFERLEIN_DIR="${HOME}/.local/share/meine-helferlein"
-if [ -d "${HELFERLEIN_DIR}" ]; then
-  export PATH="${HELFERLEIN_DIR}:${PATH}"
-fi
-
 _log_info()  { if command -v echo-info  >/dev/null 2>&1; then echo-info  "$@"; else echo "[INFO] --- $*"; fi; }
 _log_ok()    { if command -v echo-ok    >/dev/null 2>&1; then echo-ok    "$@"; else echo "[SUCCESS] --- $*"; fi; }
 _log_warn()  { if command -v echo-warn  >/dev/null 2>&1; then echo-warn  "$@"; else echo "[WARN] --- $*" >&2; fi; }
