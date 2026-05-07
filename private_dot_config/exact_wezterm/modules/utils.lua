@@ -17,10 +17,10 @@ end
 
 function M.merge_lists(t1, t2)
 	local result = {}
-	for _, v in pairs(t1) do
+	for _, v in ipairs(t1) do
 		table.insert(result, v)
 	end
-	for _, v in pairs(t2) do
+	for _, v in ipairs(t2) do
 		table.insert(result, v)
 	end
 	return result
