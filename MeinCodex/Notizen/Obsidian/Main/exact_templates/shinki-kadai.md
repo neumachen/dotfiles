@@ -6,7 +6,7 @@
 const STATUS_OPTIONS = ["incipient", "in-progress", "completed", "discarded", "blocked", "abandoned"];
 const DEFAULT_STATUS = "incipient";
 
-const INSERTED_HEADING = "## Inserted Tasks";
+const TASKS_HEADING = "## Tasks";
 
 // When inserting a task into a parent doc (Akte index, Vermerk, Zakki), emit
 // a Bases code block scoped to that parent's id instead of a wikilink. One
@@ -14,18 +14,25 @@ const INSERTED_HEADING = "## Inserted Tasks";
 // Bracket notation is required because property names with literal dots
 // (e.g. `reference.akten.id`) are otherwise parsed as nested-object access
 // and resolve to nothing. YAML single-quotes wrap the expression so the
-// inner brackets and double-quoted value parse as a single scalar.
+// inner brackets and double-quoted value parse as a single scalar. The
+// `titleLink` formula renders the title as a clickable link to the row's
+// underlying file via `file.asLink(...)`.
 const buildTaskBaseBlock = (refKey, refValue, scopeLabel) => [
   "```base",
   "filters:",
   "  and:",
   "    - file.hasTag(\"task\")",
   `    - 'note["${refKey}"] == "${refValue}"'`,
+  "formulas:",
+  "  titleLink: 'file.asLink(title)'",
+  "properties:",
+  "  formula.titleLink:",
+  "    displayName: Title",
   "views:",
   "  - type: table",
   `    name: Tasks — ${scopeLabel}`,
   "    order:",
-  "      - title",
+  "      - formula.titleLink",
   "      - task.status",
   "      - task.priority",
   "      - task.due-date",
@@ -282,21 +289,21 @@ const baseBlock = (refKey && refValue) ? buildTaskBaseBlock(refKey, refValue, sc
 const editorEl = app.workspace.activeEditor?.editor?.cm?.dom;
 const inVimNormalMode = !!editorEl?.querySelector(".cm-fat-cursor");
 
-// Base blocks always land under ## Inserted Tasks (idempotent — re-running
+// Base blocks always land under ## Tasks (idempotent — re-running
 // on a parent that already has the block is a no-op). Cursor position is
 // irrelevant for the base path. Only the wikilink fallback respects the
 // vim/non-vim split: vim appends under the section, non-vim drops at cursor.
 if (baseBlock) {
-  await insertBaseBlockIntoSection(active, baseBlock, INSERTED_HEADING, refKey, refValue);
+  await insertBaseBlockIntoSection(active, baseBlock, TASKS_HEADING, refKey, refValue);
 } else if (inVimNormalMode) {
   const content = await app.vault.read(active);
   const lines = content.split("\n");
-  const headingIdx = lines.findIndex(l => l.trim() === INSERTED_HEADING);
+  const headingIdx = lines.findIndex(l => l.trim() === TASKS_HEADING);
   const item = `- ${link}`;
 
   if (headingIdx === -1) {
     const trailing = content.endsWith("\n") ? "" : "\n";
-    await app.vault.modify(active, content + trailing + "\n" + INSERTED_HEADING + "\n\n" + item + "\n");
+    await app.vault.modify(active, content + trailing + "\n" + TASKS_HEADING + "\n\n" + item + "\n");
   } else {
     let sectionEnd = lines.length;
     for (let i = headingIdx + 1; i < lines.length; i++) {
