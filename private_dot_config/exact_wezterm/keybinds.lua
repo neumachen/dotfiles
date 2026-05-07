@@ -28,8 +28,8 @@ M.tmux_keybinds = {
     }),
   },
   {
-    key = 'p',
-    mods = 'LEADER',
+    key = 'P',
+    mods = 'LEADER|SHIFT',
     action = act({ PasteFrom = 'PrimarySelection' }),
   },
   { key = '1', mods = 'CMD', action = act({ ActivateTab = 0 }) },
