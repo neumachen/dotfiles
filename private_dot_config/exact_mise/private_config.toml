@@ -17,6 +17,7 @@ rust = "1.94.0"
 zig = "0.15.2"
 
 act = "latest"
+aws = "latest"
 action-validator = "latest"
 actionlint = "latest"
 bat = "latest"
