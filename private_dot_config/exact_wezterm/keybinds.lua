@@ -9,6 +9,23 @@ local workspace_switcher = wezterm.plugin.require(
     .. '/'
     .. '.local/share/wezterm/plugins/smart_workspace_switcher.wezterm'
 )
+
+-- Hide the active workspace from the picker. workspace_ids still tracks it so
+-- the zoxide entry for its cwd doesn't show up as a duplicate "new workspace".
+workspace_switcher.choices.get_workspace_elements = function(choice_table)
+  local active = wezterm.mux.get_active_workspace()
+  local workspace_ids = {}
+  for _, workspace in ipairs(wezterm.mux.get_workspace_names()) do
+    workspace_ids[workspace] = true
+    if workspace ~= active then
+      table.insert(choice_table, {
+        id = workspace,
+        label = workspace_switcher.workspace_formatter(workspace),
+      })
+    end
+  end
+  return choice_table, workspace_ids
+end
 ---------------------------------------------------------------
 --- keybinds
 ---------------------------------------------------------------
