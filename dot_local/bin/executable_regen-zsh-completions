@@ -30,8 +30,8 @@ generate() {
   fi
 }
 
-have rustup  && generate _rustup  rustup completions zsh
-have rustup  && generate _cargo   rustup completions zsh cargo
+have rustup               && generate _rustup  rustup completions zsh
+have rustup && have cargo && generate _cargo   rustup completions zsh cargo
 have chezmoi && generate _chezmoi chezmoi completion zsh
 have op      && generate _op      op completion zsh
 have mo      && generate _mo      mo completion zsh
