@@ -3,7 +3,7 @@
 command_timeout = 2000
 add_newline = true
 
-palette = 'catppuccin_macchiato'
+palette = 'tokyonight_storm'
 format = """
 $all\
 $time\
@@ -55,6 +55,37 @@ $vlang\
 $vagrant\
 $zig\
 $character"""
+
+# Tokyo Night Storm — folke/tokyonight.nvim Storm variant.
+# Keys mirror the catppuccin palette names so the existing $yellow/$sky/$blue/
+# peach/etc. references throughout this file work without rewriting.
+[palettes.tokyonight_storm]
+rosewater = "#f7768e"  # tn red (no rose in tn — closest stand-in)
+flamingo  = "#f7768e"  # tn red
+pink      = "#bb9af7"  # tn magenta
+mauve     = "#bb9af7"  # tn magenta
+red       = "#f7768e"  # tn red
+maroon    = "#db4b4b"  # tn red1
+peach     = "#ff9e64"  # tn orange
+yellow    = "#e0af68"  # tn yellow
+green     = "#9ece6a"  # tn green
+teal      = "#73daca"  # tn green1
+sky       = "#7dcfff"  # tn cyan
+sapphire  = "#2ac3de"  # tn blue1
+blue      = "#7aa2f7"  # tn blue
+lavender  = "#b4f9f8"  # tn blue6
+text      = "#c0caf5"  # tn fg
+subtext1  = "#a9b1d6"  # tn fg_dark
+subtext0  = "#9aa5ce"  # tn fg2
+overlay2  = "#737aa2"  # tn dark5
+overlay1  = "#565f89"  # tn comment
+overlay0  = "#414868"  # tn terminal_black
+surface2  = "#3b4261"  # tn fg_gutter
+surface1  = "#292e42"  # tn bg_highlight
+surface0  = "#1f2335"  # tn bg_dark
+base      = "#24283b"  # tn bg
+mantle    = "#1f2335"  # tn bg_dark
+crust     = "#1d202f"  # tn ansi[1]
 
 [palettes.catppuccin_macchiato]
 rosewater = "#f4dbd6"
