@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-. "${HOME}/.shtils"
+. "${XDG_CONFIG_HOME:-$HOME/.config}/sh/lib.sh"
 
 # Remove one or more versions of specified language
 # e.g. `vmi rust` # => fzf multimode, tab to mark, enter to remove

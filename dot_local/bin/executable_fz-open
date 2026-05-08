@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-source "${HOME}/.shtils"
+source "${XDG_CONFIG_HOME:-$HOME/.config}/sh/lib.sh"
 
 # Modified version where you can press
 #   - CTRL-O to open with `open` command,
