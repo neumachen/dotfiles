@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Regenerate dynamic zsh completions sourced from CLI tools.
+#
+# Each generator (`<tool> completion zsh`-style) runs once and its output is
+# written atomically to ${ZDOTDIR:-$HOME/.config/zsh}/completions/_<name>.
+# Tools not on PATH are silently skipped.
+#
+# Triggered automatically by the chezmoi run_onchange_after_ hook whenever
+# this script's content changes. Run manually after upgrading any listed
+# tool to refresh its completion.
+
+set -u
+
+ZSH_COMP_DIR="${ZDOTDIR:-$HOME/.config/zsh}/completions"
+mkdir -p "$ZSH_COMP_DIR"
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+generate() {
+  local name="$1"; shift
+  local out="${ZSH_COMP_DIR}/${name}"
+  local tmp="${out}.tmp.$$"
+  if "$@" >"$tmp" 2>/dev/null && [[ -s "$tmp" ]]; then
+    mv -f "$tmp" "$out"
+    printf '  regenerated %s\n' "$out"
+  else
+    rm -f "$tmp"
+    printf '  failed     %s (%s)\n' "$name" "$*" >&2
+    return 1
+  fi
+}
+
+have rustup  && generate _rustup  rustup completions zsh
+have rustup  && generate _cargo   rustup completions zsh cargo
+have chezmoi && generate _chezmoi chezmoi completion zsh
+have op      && generate _op      op completion zsh
+have mo      && generate _mo      mo completion zsh
+have mole    && generate _mole    mole completion zsh
+have codex   && generate _codex   codex completion zsh
+have jira    && generate _jira    jira completion zsh
+have jiratui && generate _jiratui jiratui completions zsh
+have wezterm && generate _wezterm wezterm shell-completion --shell zsh
+have aider   && generate _aider   aider --shell-completion zsh
+
+# Pre-compile to .zwc so the first compinit doesn't pay the parse cost.
+if have zsh; then
+  zsh -fc "for f in ${ZSH_COMP_DIR}/_*(.); do zcompile -U \"\$f\" 2>/dev/null || true; done" || true
+fi
+
+exit 0

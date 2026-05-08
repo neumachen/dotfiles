@@ -1,0 +1,13 @@
+#!/bin/bash
+# Re-run the dynamic-completion regen script whenever its content changes.
+# The hash directive below pulls the regen script's content into this file's
+# own hash, so any edit to the regen script triggers chezmoi to re-execute
+# this hook on the next `chezmoi apply`.
+#
+# regen-zsh-completions hash: {{ include "dot_local/bin/executable_regen-zsh-completions" | sha256sum }}
+
+set -e
+
+if [[ -x "$HOME/.local/bin/regen-zsh-completions" ]]; then
+  "$HOME/.local/bin/regen-zsh-completions"
+fi
