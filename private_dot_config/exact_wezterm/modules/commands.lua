@@ -1,8 +1,19 @@
 local wezterm = require('wezterm')
 local utils = require('modules.utils')
 local keybinds = require('keybinds')
-local scheme = wezterm.get_builtin_color_schemes()['Tokyo Night Storm']
 local act = wezterm.action
+
+-- Tokyo Night Storm palette (folke/tokyonight.nvim) — kept in sync with
+-- ../colors/tokyonight_storm.toml so the tab bar matches the active scheme.
+local tn = {
+  bg = '#24283b',
+  ansi_black = '#1d202f',
+  ansi_blue = '#7aa2f7',
+  bright_black = '#414868',
+  bright_white = '#c0caf5',
+  cursor_bg = '#c0caf5',
+  cursor_fg = '#24283b',
+}
 
 -- Shells we treat as "no real process running" so the tab falls back to cwd.
 local SHELL_PROCESSES = {
@@ -58,19 +69,16 @@ wezterm.on('format-tab-title', function(tab, tabs, panes, config, hover, max_wid
   local solid_left_arrow = utf8.char(0x2590)
   -- selene: allow(undefined_variable)
   local solid_right_arrow = utf8.char(0x258c)
-  -- https://github.com/wez/wezterm/issues/807
-  -- local edge_background = scheme.background
-  -- https://github.com/wez/wezterm/blob/61f01f6ed75a04d40af9ea49aa0afe91f08cb6bd/config/src/color.rs#L245
-  local edge_background = '#24283b' -- Tokyo Night Storm background
-  local background = scheme.ansi[1]
-  local foreground = scheme.ansi[5]
+  local edge_background = tn.bg
+  local background = tn.ansi_black
+  local foreground = tn.ansi_blue
 
   if tab.is_active then
-    background = scheme.brights[1]
-    foreground = scheme.brights[8]
+    background = tn.bright_black
+    foreground = tn.bright_white
   elseif hover then
-    background = scheme.cursor_bg
-    foreground = scheme.cursor_fg
+    background = tn.cursor_bg
+    foreground = tn.cursor_fg
   end
   local edge_foreground = background
 
