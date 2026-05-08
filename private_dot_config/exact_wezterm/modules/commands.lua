@@ -4,28 +4,47 @@ local keybinds = require('keybinds')
 local scheme = wezterm.get_builtin_color_schemes()['Tokyo Night Storm']
 local act = wezterm.action
 
+-- Shells we treat as "no real process running" so the tab falls back to cwd.
+local SHELL_PROCESSES = {
+  zsh = true,
+  bash = true,
+  fish = true,
+  sh = true,
+  dash = true,
+  nu = true,
+  ['-zsh'] = true,
+  ['-bash'] = true,
+}
+
+local function cwd_label(pane)
+  local cwd_url = pane.current_working_dir
+  if cwd_url == nil then return '' end
+  local path = cwd_url.file_path or tostring(cwd_url):gsub('^file://[^/]*', '')
+  return utils.convert_useful_path(path)
+end
+
 -- selene: allow(unused_variable)
 ---@diagnostic disable-next-line: unused-local
 local function create_tab_title(tab, tabs, panes, config, hover, max_width)
-  -- local user_title = tab.active_pane.user_vars.panetitle
-  -- if user_title ~= nil and #user_title > 0 then return tab.tab_index + 1 .. ':' .. user_title end
-  -- pane:get_foreground_process_info().status
-
-  local title = wezterm.truncate_right(utils.basename(tab.active_pane.foreground_process_name), max_width)
-  if title == '' then
-    local dir = string.gsub(tab.active_pane.title, '(.*[: ])(.*)]', '%2')
-    dir = utils.convert_useful_path(dir)
-    title = wezterm.truncate_right(dir, max_width)
+  local pane = tab.active_pane
+  local process = utils.basename(pane.foreground_process_name or '')
+  local title
+  if process == '' or SHELL_PROCESSES[process] then
+    title = cwd_label(pane)
+    if title == '' then title = process end
+  else
+    title = process
   end
+  title = wezterm.truncate_right(title, max_width)
 
-  local copy_mode, n = string.gsub(tab.active_pane.title, '(.+) mode: .*', '%1', 1)
+  local copy_mode, n = string.gsub(pane.title, '(.+) mode: .*', '%1', 1)
   if copy_mode == nil or n == 0 then
     copy_mode = ''
   else
     copy_mode = copy_mode .. ': '
   end
   local zoomed = ''
-  if tab.active_pane.zoomed then zoomed = '[Z]' end
+  if pane.is_zoomed then zoomed = '[Z]' end
   return zoomed .. copy_mode .. tab.tab_index + 1 .. ':' .. title
 end
 
