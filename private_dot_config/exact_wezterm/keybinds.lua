@@ -428,16 +428,19 @@ M.key_tables = {
 }
 
 M.mouse_bindings = {
+  -- Plain left-click: open link under cursor if any (no drag in progress),
+  -- otherwise complete the text selection.
   {
     event = { Up = { streak = 1, button = 'Left' } },
     mods = 'NONE',
-    action = act({ CompleteSelection = 'PrimarySelection' }),
+    action = act({ CompleteSelectionOrOpenLinkAtMouseCursor = 'PrimarySelection' }),
   },
   {
     event = { Up = { streak = 1, button = 'Right' } },
     mods = 'NONE',
     action = act({ CompleteSelection = 'Clipboard' }),
   },
+  -- Keep CTRL+click as an explicit "open link" fallback.
   {
     event = { Up = { streak = 1, button = 'Left' } },
     mods = 'CTRL',
