@@ -539,5 +539,23 @@ function reload-shell() {
   exec zsh -il
 }
 
+# Report cwd via OSC 7 so terminals (Wezterm, etc.) can show it in tabs when
+# no foreground process is running. Harmless in terminals that don't parse it.
+autoload -Uz add-zsh-hook
+function _osc7_cwd() {
+  local strlen=${#PWD} encoded="" pos c o
+  for (( pos=0; pos<strlen; pos++ )); do
+    c=${PWD:$pos:1}
+    case "$c" in
+      [-/:_.!\'\(\)~[:alnum:]]) o=$c ;;
+      *) printf -v o '%%%02X' "'$c" ;;
+    esac
+    encoded+=$o
+  done
+  printf '\e]7;file://%s%s\e\\' "$HOST" "$encoded"
+}
+add-zsh-hook -Uz chpwd _osc7_cwd
+_osc7_cwd
+
 # Profiling End
 # zprof
