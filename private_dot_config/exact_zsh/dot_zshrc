@@ -267,52 +267,9 @@ if command_exists starship; then
   znap eval starship 'starship init zsh'
 fi
 
-# cargo (via rustup)
-if command_exists rustup; then
-  znap fpath _rustup 'rustup completions zsh'
-  znap fpath _cargo 'rustup completions zsh cargo'
-fi
-
-# chezmoi
-if command_exists chezmoi; then
-  znap fpath _chezmoi 'chezmoi completion zsh'
-fi
-
-# op (1Password CLI)
-if command_exists op; then
-  znap fpath _op 'op completion zsh'
-fi
-
-# mole
-if command_exists mole; then
-  znap fpath _mo 'mo completion zsh'
-  znap fpath _mole 'mole completion zsh'
-fi
-
-# codex
-if command_exists codex; then
-  znap fpath _codex 'codex completion zsh'
-fi
-
-# jira-cli - https://github.com/ankitpokhrel/jira-cli
-if command_exists jira; then
-  znap fpath _jira 'jira completion zsh'
-fi
-
-# jiraatui - https://github.com/whyisdifficult/jiratui
-if command_exists jira; then
-  znap fpath _jiratui 'jiratui completions zsh'
-fi
-
-# wezterm
-if command_exists wezterm; then
-  znap fpath _wezterm 'wezterm shell-completion --shell zsh'
-fi
-
-# aider
-if command_exists aider; then
-  znap fpath _aider 'aider --shell-completion zsh'
-fi
+# Dynamic CLI-sourced completions are produced by ~/.local/bin/regen-zsh-completions
+# and live in ${ZDOTDIR}/completions/. Regenerate via that script after upgrading
+# any listed tool, or via `chezmoi apply` after editing it.
 
 #############################
 # fzf-tab (load after zsh-autocomplete)
