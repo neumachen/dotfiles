@@ -1,9 +1,9 @@
 # -*- mode: sh; sh-set-shell: zsh -*-
 # vim: ft=zsh
 
-source "${HOME}/.shtils"
+source "${XDG_CONFIG_HOME:-$HOME/.config}/sh/lib.sh"
 
-# Override the POSIX command_exists from .shtils with the faster zsh-native version
+# Override the POSIX command_exists from sh/lib.sh with the faster zsh-native version
 command_exists() { (( $+commands[$1] )); }
 
 # Deduplicate PATH entries - catches anything path_helper or other tools add
