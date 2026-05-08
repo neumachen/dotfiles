@@ -4,11 +4,11 @@
 # Profiling Start
 # zmodload zsh/zprof
 
-source "${HOME}/.shtils"
+source "${XDG_CONFIG_HOME:-$HOME/.config}/sh/lib.sh"
 
 # ZSH only and most performant way to check existence of an executable
 # https://www.topbug.net/blog/2016/10/11/speed-test-check-the-existence-of-a-command-in-bash-and-zsh/
-# Override the POSIX version from .shtils with the faster zsh-specific version
+# Override the POSIX version from sh/lib.sh with the faster zsh-specific version
 command_exists() { (( $+commands[$1] )); }
 
 #############################
