@@ -5,33 +5,10 @@
 _SHTILS_LOADED=1
 
 command_exists() {
-    command -v "$1" > /dev/null 2>&1;
+	command -v "$1" > /dev/null 2>&1;
 }
 
-# Usage: is_not_set_or_empty VAR_NAME
-# Returns 0 if the variable is not set OR is empty; 1 otherwise.
-is_not_set_or_empty() {
-	var_name=$1
-	# We use 'eval' to dynamically check the variable whose name is in $var_name.
-	eval '[ -z "${'"$var_name"'+x}" ] || [ -z "${'"$var_name"'}" ]'
-}
-
-# Function: pathmunge
-# Description: Adds a directory to the PATH environment variable if it's not already present.
-# Usage: pathmunge <directory> [after]
-# Parameters:
-#   $1 - The directory to add to PATH
-#   $2 - Optional. If set to "after", the directory is appended to PATH instead of prepended
-#
-# This `pathmunge` function is used to add a new directory to the system's PATH environment variable, but only if it's not already present. Here's a breakdown of its functionality:
-#
-# 1. It first checks if the given directory ($1) is already in the PATH using grep with a regular expression.
-# 2. If the directory is not in the PATH, it then checks for a second argument:
-#    - If the second argument is "after", it appends the new directory to the end of the PATH.
-#    - Otherwise, it prepends the new directory to the beginning of the PATH.
-# 3. If the directory is already in the PATH, it does nothing to avoid duplicates.
-#
-# This function helps maintain a clean PATH by preventing duplicate entries while allowing flexibility in where new directories are added (beginning or end of PATH).
+# pathmunge <dir> [after]: prepend (default) or append <dir> to PATH if absent.
 pathmunge() {
 	if ! echo "$PATH" | grep -Eq "(^|:)$1($|:)"; then
 		if [ "${2}" = "after" ]; then
@@ -42,10 +19,9 @@ pathmunge() {
 	fi
 }
 
-# Usage: path_force_front <directory>
-# Unconditionally moves <directory> to the front of PATH, whether or not it is
-# already present. Unlike pathmunge, this re-orders existing entries, making it
-# immune to path_helper or parent-process PATH ordering surprises.
+# path_force_front <dir>: unconditionally move <dir> to the front of PATH,
+# reordering if already present. Use when path_helper or a parent process
+# may have placed entries in the wrong order.
 path_force_front() {
 	local _p=":${PATH}:"
 	_p="${_p//:${1}:/:}"
@@ -76,81 +52,27 @@ info_pathmunge() {
 
 local_bin_dir="${HOME}/.local/bin"
 if [ -d "$local_bin_dir" ]; then
-  pathmunge "$local_bin_dir"
+	pathmunge "$local_bin_dir"
 fi
 
-alias brew-upgrade='echo_run brew upgrade --ignore-pinned --display-times'
-
-autoload_script() {
-	# usage: autoload_script func_name /path/to/func_name
-	eval "${1}() {
-    eval \"
-      ${1}() {
-        \$(cat ${2})
-      }
-    ${1} \\\"\\\$@\\\"\"
-  }"
+# Echo helpers used by the venv suite. Defined as shell functions rather than
+# delegated to the ~/.local/bin/echo-* binaries because `echo_run deactivate`
+# and `echo_run . activate` need their args to run in the calling shell — a
+# binary fork would lose the state change.
+echo_run() {
+	printf '\033[1;34m$ %s\033[0m\n' "$*" >&2
+	"$@"
 }
 
-# Only autoload helper scripts if the directory exists and is populated
-if [ -d "$local_bin_dir" ]; then
-  autoload_script echo_eval "${local_bin_dir}/echo-eval"
-  autoload_script echo_run "${local_bin_dir}/echo-run"
-  autoload_script safe_run "${local_bin_dir}/safe-run"
-  autoload_script echo_info "${local_bin_dir}/echo-info"
-  autoload_script echo_err "${local_bin_dir}/echo-err"
-  autoload_script echo_warn "${local_bin_dir}/echo-warn"
-  autoload_script echo_ok "${local_bin_dir}/echo-ok"
-fi
-
-take() {
-	# shellcheck disable=SC2164
-	mkdir -p "$1" && cd "$1"
+echo_info() {
+	printf '\033[1;34m[INFO] --- %s\033[0m\n' "$*" >&2
 }
 
-restart_sh() {
-	# Sometimes the shell will be started with a dash in front of the name of the
-	# shell to indicate that it's a login shell. This breaks the restart because
-	# exec thinks that the name of the shell is actually an argument.
-	set -- "$(ps -p $$ | tail -1 | awk '{print $4}')"
-	set -- "${1#-}"
-	set -- "$(command -v "$1")"
-
-	if [ "$(jobs)" != "" ]; then
-		echo_warn "Current shell has backgrounded jobs. Not restarting ${1}"
-		return 1
-	fi
-
-	# Since we reset $PATH and the autoloading requires cat we need to run this
-	# first to load the echo_run script
-	echo_run echo >/dev/null 2>&1
-
-	echo_eval 'PATH="/usr/bin:/bin:/usr/sbin:/sbin"'
-	# shellcheck disable=SC2153
-	if [ "$FPATH" != "" ]; then
-		echo_eval 'FPATH=""'
-	fi
-
-	echo_run exec "$1" -li
+echo_err() {
+	printf '\033[1;31m[ERROR] --- %s\033[0m\n' "$*" >&2
 }
 
-new_or_switch_tmux() {
-	if ! tmux has-session -t "$1" >/dev/null 2>&1; then
-		echo_run tmux new-session -d -s "$1" -c "$2"
-		if [ "$#" -ge 3 ]; then
-			tmux send-keys -t "$1" "clear; $3" Enter
-		fi
-	fi
-
-	if [ "$TMUX" = "" ]; then
-		echo_run tmux attach-session -t "$1"
-	elif [ "$(tmux display-message -p '#S')" != "$1" ]; then
-		echo_run tmux switch-client -t "$1"
-	else
-		# shellcheck disable=SC2164
-		echo_run cd "$2"
-	fi
-}
+# Python venv management.
 
 novenv() {
 	save_venv --quiet
@@ -187,34 +109,12 @@ restore_venv() {
 	fi
 }
 
-tmp() {
-	set -- "${TMPDIR}$(date +%Y-%m-%dT%H%M%S)"
-	echo_run mkdir -p "$1"
-	echo_run cd "$1"
-}
-
 venv() {
 	while [ $# -gt 0 ]; do
 		case "$1" in
 		-h | --help)
-			echo "usage: $(basename "$0") [--create|--create3] [--create2] [<venv name>]" >&2
+			echo "usage: $(basename "$0") [--create] [<venv name>]" >&2
 			return
-			;;
-		--create2)
-			shift
-			if [ "$VIRTUAL_ENV" != "" ]; then
-				echo_run deactivate
-			fi
-			if [ -d "${1:-.venv}" ]; then
-				echo_run rm -rf "${1:-.venv}"
-			fi
-			echo_run python2 -m pip install virtualenv
-			echo_run python2 -m virtualenv "${1:-.venv}"
-			echo_run . "${1:-.venv}/bin/activate"
-			if [ -f requirements.txt ]; then
-				echo_run pip install -r requirements.txt
-			fi
-			return $?
 			;;
 		--create | --create3)
 			shift
@@ -238,39 +138,25 @@ venv() {
 		shift
 	done
 
-	# Recursively search up until home directory for a virtual environment with
-	# the desired name. This allows you to activate a venv from the root of your
-	# project while you're deep in the directory structure
+	# Recursively search up to $HOME for a venv with the desired name, so it
+	# can be activated from anywhere within a project.
 	set -- "${1:-.venv}" "$PWD" "$1"
 	while [ "$2" != "$HOME" ] && [ "$2" != "/" ] && [ ! -f "${2}/${1}/bin/activate" ]; do
 		set -- "$1" "$(dirname "$2")" "$3"
 	done
 
-	# If you're in a venv and you didn't specify a different one explicitly then
-	# you probably want to deactivate the current one
+	# If you're in a venv and you didn't specify a different one, deactivate
+	# the current one.
 	if [ "$VIRTUAL_ENV" != "" ] && [ "$3" = "" ]; then
 		echo_run deactivate
 		return
 	fi
 
 	if [ ! -f "${2}/${1}/bin/activate" ]; then
-		echo-err "Couldn't find a valid venv for '${1}'"
+		echo_err "Couldn't find a valid venv for '${1}'"
 		return 1
 	fi
 
 	# shellcheck disable=SC1090
 	echo_run . "${2}/${1}/bin/activate"
-}
-
-remove_from_front_of_path() {
-	while true; do
-		case ":$PATH" in
-		*:"$1"/*:*) PATH="${PATH%%${1}*}${PATH#*${1}*:}" ;;
-		*"$1"/*) PATH="${PATH%%${1}*}" ;;
-		*)
-			PATH="${PATH%:}"
-			break
-			;;
-		esac
-	done
 }
