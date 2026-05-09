@@ -1339,18 +1339,6 @@ Code symbol outline and navigation.
 | `<localleader>ta` | Toggle aerial |
 | `{` / `}` | Prev/next symbol (in buffer) |
 
-#### `hedyhli/outline.nvim`
-
-**File:** `lua/plugins/outline.lua`
-
-Symbol outline panel (alternative to aerial).
-
-**Keymaps:**
-
-| Key | Action |
-|---|---|
-| `<localleader>to` | Toggle outline |
-
 #### `kevinhwang91/nvim-bqf`
 
 **File:** `lua/plugins/nvim-bqf.lua`
