@@ -4,13 +4,13 @@ map(
   { 'n', 'v' },
   '<localleader>;',
   ':',
-  { desc = 'command line without colon' }
+  { desc = 'Command Line Without Colon' }
 )
 map(
   { 'n', 'v' },
   '<localleader><localleader>;',
   '@:',
-  { desc = 'replay recent command without colon' }
+  { desc = 'Replay Recent Command Without Colon' }
 )
 
 -- Better up/down
@@ -85,8 +85,8 @@ map(
 )
 
 -- Goto
-map('n', 'gl', '$', { desc = 'Go to end of line' })
-map('n', 'gh', '^', { desc = 'go to start of line' })
+map('n', 'gl', '$', { desc = 'Go to End of Line' })
+map('n', 'gh', '^', { desc = 'Go to Start of Line' })
 
 -- buffers (cycling handled by bufferline.lua)
 map('n', '<leader>bb', '<cmd>e #<cr>', { desc = 'Switch to Other Buffer' })
@@ -101,7 +101,7 @@ map(
 )
 
 -- jk to escape in insert mode
-map('i', 'jk', '<esc>', { desc = 'Exit insert mode' })
+map('i', 'jk', '<esc>', { desc = 'Exit Insert Mode' })
 
 -- Clear search, diff update and redraw
 -- taken from runtime/lua/_editor.lua
@@ -304,31 +304,31 @@ end, { desc = 'Toggle Autoformat' })
 
 -- Close all fold except the current one.
 map('n', 'zv', 'zMzvzz', {
-  desc = 'Close all folds except the current one',
+  desc = 'Close All Folds Except Current',
 })
 
 -- Close current fold when open. Always open next fold.
 map('n', 'zj', 'zcjzOzz', {
-  desc = 'Close current fold when open. Always open next fold.',
+  desc = 'Close Current Fold, Open Next',
 })
 
 -- Close current fold when open. Always open previous fold.
 map('n', 'zk', 'zckzOzz', {
-  desc = 'Close current fold when open. Always open previous fold.',
+  desc = 'Close Current Fold, Open Previous',
 })
 
 -- Evaluates whether there is a fold on the current line if so unfold it else return a normal space
 map('n', '<space><space>', [[@=(foldlevel('.')?'za':"\<Space>")<CR>]], {
-  desc = 'toggle fold under cursor',
+  desc = 'Toggle Fold Under Cursor',
 })
 
 -- Refocus folds
-map('n', '<localleader>z', [[zMzvzz]], { desc = 'center viewport' })
+map('n', '<localleader>z', [[zMzvzz]], { desc = 'Refocus Folds and Center' })
 
 -- Make zO recursively open whatever top level fold we're in, no matter where the
 -- cursor happens to be.
 map('n', 'zO', [[zCzO]], {
-  desc = 'recursively open current top level fold',
+  desc = 'Recursively Open Top Level Fold',
 })
 
 -- Refer [FAQ - Neovide](https://neovide.dev/faq.html#how-can-i-use-cmd-ccmd-v-to-copy-and-paste)
@@ -365,14 +365,14 @@ map('v', '>', '>gv', opts)
 
 -- Fix Spell checking
 map('n', 'z0', '1z=', {
-  desc = 'Fix world under cursor',
+  desc = 'Fix Word Under Cursor',
 })
 
 map(
   'n',
   '<leader>uS',
   "<cmd>lua require('utils.cspell').add_word_to_c_spell_dictionary()<CR>",
-  { noremap = true, silent = true, desc = 'Add unknown to cspell dictionary' }
+  { noremap = true, silent = true, desc = 'Add Unknown to Cspell Dictionary' }
 )
 
 -- Replace selected character(s) in buffer (handles any encoding)
@@ -424,4 +424,4 @@ map('v', '<localleader>rc', function()
       vim.notify('Replacement failed: ' .. tostring(err), vim.log.levels.ERROR)
     end
   end)
-end, { desc = 'Replace selected char(s) in buffer' })
+end, { desc = 'Replace Selected Char(s) in Buffer' })
