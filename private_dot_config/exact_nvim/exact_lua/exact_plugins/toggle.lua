@@ -4,8 +4,8 @@ return {
     require('toggle').setup({
       keymaps = {
         toggle_option_prefix = 'yo',
-        previous_option_prefix = '[o',
-        next_option_prefix = ']o',
+        previous_option_prefix = false, -- Disabled to free [o for sort.nvim
+        next_option_prefix = false, -- Disabled to free ]o for sort.nvim
         status_dashboard = 'yos',
       },
       -- The interface for registering keymaps.
