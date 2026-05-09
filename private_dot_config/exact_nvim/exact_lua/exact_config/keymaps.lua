@@ -367,16 +367,6 @@ map(
 map('v', '<', '<gv', opts)
 map('v', '>', '>gv', opts)
 
--- Easier access to beginning and end of lines
-map('n', '<A-h>', '^', {
-  desc = 'Go to start of line',
-  silent = true,
-})
-map('n', '<A-l>', '$', {
-  desc = 'Go to end of line',
-  silent = true,
-})
-
 -- Fix Spell checking
 map('n', 'z0', '1z=', {
   desc = 'Fix world under cursor',
