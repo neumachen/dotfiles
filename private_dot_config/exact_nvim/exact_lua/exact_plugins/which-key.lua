@@ -62,6 +62,11 @@ return {
         desc = 'Finding/searching operations',
       },
       { '<localleader>y', group = '+yazi', desc = 'Yazi plugin operations' },
+      {
+        '<localleader>c',
+        group = '+candela',
+        desc = 'Candela log analysis',
+      },
       -- Subgroups - Leader
       { '<leader>gh', group = '+hunk', desc = 'Git hunk operations' },
       { '<leader>gl', group = '+log', desc = 'Git Log operations' },

@@ -1,5 +1,11 @@
 return {
   'KieranCanter/candela.nvim',
+  keys = {
+    { '<localleader>cc', '<Plug>CandelaUi', desc = 'Candela UI' },
+    { '<localleader>cr', '<Plug>CandelaRefresh', desc = 'Candela refresh' },
+    { '<localleader>cx', '<Plug>CandelaClear', desc = 'Candela clear' },
+    { '<localleader>cl', '<Plug>CandelaLightbox', desc = 'Candela lightbox' },
+  },
   config = function()
     require('candela').setup({
       window = {

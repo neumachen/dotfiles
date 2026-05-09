@@ -2,6 +2,9 @@ return {
   'esmuellert/codediff.nvim',
   dependencies = { 'MunifTanjim/nui.nvim' },
   cmd = 'CodeDiff',
+  keys = {
+    { '<leader>cD', '<cmd>CodeDiff<cr>', desc = 'Code diff view' },
+  },
   config = function()
     require('codediff').setup({
       -- Highlight configuration
