@@ -84,9 +84,8 @@ map(
   vim.tbl_extend('force', opts, { desc = 'Move block up' })
 )
 
--- Goto
-map('n', 'gl', '$', { desc = 'Go to End of Line' })
-map('n', 'gh', '^', { desc = 'Go to Start of Line' })
+-- LSP hover (use native ^ and $ for line start/end)
+map('n', 'gh', vim.lsp.buf.hover, { desc = 'LSP Hover Documentation' })
 
 -- buffers (cycling handled by bufferline.lua)
 map('n', '<leader>bb', '<cmd>e #<cr>', { desc = 'Switch to Other Buffer' })
