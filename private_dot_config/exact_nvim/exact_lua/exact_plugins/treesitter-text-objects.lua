@@ -29,37 +29,44 @@ return {
     vim.keymap.set(
       { 'x', 'o' },
       'af',
-      function() select.select_textobject('@function.outer', 'textobjects') end
+      function() select.select_textobject('@function.outer', 'textobjects') end,
+      { desc = 'Around function' }
     )
     vim.keymap.set(
       { 'x', 'o' },
       'if',
-      function() select.select_textobject('@function.inner', 'textobjects') end
+      function() select.select_textobject('@function.inner', 'textobjects') end,
+      { desc = 'Inner function' }
     )
     vim.keymap.set(
       { 'x', 'o' },
       'ac',
-      function() select.select_textobject('@class.outer', 'textobjects') end
+      function() select.select_textobject('@class.outer', 'textobjects') end,
+      { desc = 'Around class' }
     )
     vim.keymap.set(
       { 'x', 'o' },
       'ic',
-      function() select.select_textobject('@class.inner', 'textobjects') end
+      function() select.select_textobject('@class.inner', 'textobjects') end,
+      { desc = 'Inner class' }
     )
     vim.keymap.set(
       { 'x', 'o' },
       'as',
-      function() select.select_textobject('@local.scope', 'locals') end
+      function() select.select_textobject('@local.scope', 'locals') end,
+      { desc = 'Around scope' }
     )
     vim.keymap.set(
       { 'x', 'o' },
       'il',
-      function() select.select_textobject('@loop.inner', 'textobjects') end
+      function() select.select_textobject('@loop.inner', 'textobjects') end,
+      { desc = 'Inner loop' }
     )
     vim.keymap.set(
       { 'x', 'o' },
       'al',
-      function() select.select_textobject('@loop.outer', 'locals') end
+      function() select.select_textobject('@loop.outer', 'locals') end,
+      { desc = 'Around loop' }
     )
 
     -- Swaps
@@ -67,12 +74,14 @@ return {
     vim.keymap.set(
       'n',
       '<leader>a',
-      function() swap.swap_next('@parameter.inner') end
+      function() swap.swap_next('@parameter.inner') end,
+      { desc = 'Swap parameter forward' }
     )
     vim.keymap.set(
       'n',
       '<leader>A',
-      function() swap.swap_previous('@parameter.outer') end
+      function() swap.swap_previous('@parameter.outer') end,
+      { desc = 'Swap parameter backward' }
     )
 
     -- Functions
@@ -80,23 +89,27 @@ return {
     vim.keymap.set(
       { 'n', 'x', 'o' },
       ']f',
-      function() move.goto_next_start('@function.outer', 'textobjects') end
+      function() move.goto_next_start('@function.outer', 'textobjects') end,
+      { desc = 'Next function start' }
     )
     vim.keymap.set(
       { 'n', 'x', 'o' },
       '[f',
-      function() move.goto_previous_start('@function.outer', 'textobjects') end
+      function() move.goto_previous_start('@function.outer', 'textobjects') end,
+      { desc = 'Previous function start' }
     )
     -- Classes
     vim.keymap.set(
       { 'n', 'x', 'o' },
       ']c',
-      function() move.goto_next_start('@class.outer', 'textobjects') end
+      function() move.goto_next_start('@class.outer', 'textobjects') end,
+      { desc = 'Next class start' }
     )
     vim.keymap.set(
       { 'n', 'x', 'o' },
       '[c',
-      function() move.goto_previous_start('@class.outer', 'textobjects') end
+      function() move.goto_previous_start('@class.outer', 'textobjects') end,
+      { desc = 'Previous class start' }
     )
 
     -- Loops
@@ -105,7 +118,8 @@ return {
       ']l',
       function()
         move.goto_next_start({ '@loop.inner', '@loop.outer' }, 'textobjects')
-      end
+      end,
+      { desc = 'Next loop' }
     )
     vim.keymap.set(
       { 'n', 'x', 'o' },
@@ -115,7 +129,8 @@ return {
           { '@loop.inner', '@loop.outer' },
           'textobjects'
         )
-      end
+      end,
+      { desc = 'Previous loop' }
     )
 
   end,
