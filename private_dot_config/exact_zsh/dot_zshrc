@@ -228,26 +228,6 @@ znap source marlonrichert/zsh-autocomplete
 # Git utilities (plugin functionality, completions via chezmoi external)
 znap source wfxr/forgit
 
-# Chezmoi integration
-znap source joke/zim-chezmoi
-
-# GitHub CLI
-znap source joke/zim-github-cli
-
-# Kubernetes tools
-znap source joke/zim-helm
-znap source joke/zim-istioctl
-znap source joke/zim-k9s
-znap source joke/zim-kubectl
-znap source joke/zim-minikube
-znap source joke/zim-skaffold
-
-# Alias finder
-znap source shanwker1223/zim-alias-finder
-
-# Starship prompt
-znap source joke/zim-starship
-
 #############################
 # Eval commands (cached)
 #############################
