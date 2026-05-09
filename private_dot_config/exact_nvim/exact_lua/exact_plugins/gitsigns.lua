@@ -47,14 +47,14 @@ return {
       bmap({ 'o', 'x' }, 'ih', ':<C-U>Gitsigns select_hunk<CR>', { desc = 'select hunk' })
 
       map('n', '[h', function()
-        vim.schedule(function() gs.next_hunk() end)
-        return '<Ignore>'
-      end, { expr = true, desc = 'go to next git hunk' })
-
-      map('n', ']h', function()
         vim.schedule(function() gs.prev_hunk() end)
         return '<Ignore>'
-      end, { expr = true, desc = 'go to previous git hunk' })
+      end, { expr = true, desc = 'Go to previous git hunk' })
+
+      map('n', ']h', function()
+        vim.schedule(function() gs.next_hunk() end)
+        return '<Ignore>'
+      end, { expr = true, desc = 'Go to next git hunk' })
     end,
   },
 }
