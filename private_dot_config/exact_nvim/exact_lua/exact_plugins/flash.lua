@@ -14,8 +14,8 @@ return {
     },
   },
   keys = {
-    { 's', function() require('flash').jump() end, mode = { 'n', 'x', 'o' } },
-    { 'S', function() require('flash').treesitter() end, mode = { 'o', 'x' } },
+    { 's', function() require('flash').jump() end, mode = { 'n', 'x', 'o' }, desc = 'Flash Jump' },
+    { 'S', function() require('flash').treesitter() end, mode = { 'o', 'x' }, desc = 'Flash Treesitter' },
     {
       'r',
       function() require('flash').remote() end,
