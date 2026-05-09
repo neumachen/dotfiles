@@ -21,10 +21,9 @@ return {
           inner = 'io',
           around = 'ao',
         },
-        -- NOTE: ']o'/'[o' conflicted with toggle.nvim's next/previous_option_prefix.
         motion = {
-          next_delimiter = ']O',
-          prev_delimiter = '[O',
+          next_delimiter = ']o',
+          prev_delimiter = '[o',
         },
       },
     })
