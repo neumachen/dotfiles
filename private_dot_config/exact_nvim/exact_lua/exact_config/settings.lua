@@ -290,6 +290,8 @@ if vim.g.neovide then
   vim.g.neovide_cursor_antialiasing = false
   vim.g.neovide_input_macos_option_key_is_meta = 'only_left'
   vim.g.neovide_input_ime = true
+  vim.g.neovide_text_gamma = 0.8
+  vim.g.neovide_text_contrast = 0.1
 end
 -----------------------------------------------------------------------------//
 -- vim:foldmethod=marker
