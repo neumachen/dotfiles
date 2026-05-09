@@ -1,6 +1,8 @@
 return {
   'FabijanZulj/blame.nvim',
-  lazy = false,
+  keys = {
+    { '<localleader>gB', '<cmd>BlameToggle<cr>', desc = 'Toggle git blame' },
+  },
   opts = {
     blame_options = { '-w' },
   },
