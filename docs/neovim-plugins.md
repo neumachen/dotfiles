@@ -1311,14 +1311,6 @@ Rust crates.io dependency management for `Cargo.toml`.
 
 **Trigger:** `BufRead Cargo.toml`
 
-#### `vuki656/package-info.nvim`
-
-**File:** `lua/plugins/package-info.lua`
-
-npm package version info for `package.json`.
-
-**Dependencies:** `MunifTanjim/nui.nvim`
-
 ---
 
 ### Miscellaneous
