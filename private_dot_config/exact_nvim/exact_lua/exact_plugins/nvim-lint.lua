@@ -3,8 +3,6 @@ return {
   event = 'VeryLazy',
   opts = {
     linters_by_ft = {
-      -- TODO:disabled while testing codebook
-      -- ['*'] = { 'cspell', 'codespell' },
       go = { 'golangcilint' },
       ruby = { 'rubocop' },
       dockerfile = { 'hadolint' },
@@ -14,13 +12,6 @@ return {
       typescriptreact = { 'oxlint', 'eslint_d' },
     },
     linters = {
-      -- TODO:disabled while testing codebook
-      -- cspell = {
-      --   args = {
-      --     '--config',
-      --     '~/.config/cspell.yaml',
-      --   },
-      -- },
       eslint_d = {
         args = {
           '--no-warn-ignored', -- Ignore warnings, support Eslint 9
