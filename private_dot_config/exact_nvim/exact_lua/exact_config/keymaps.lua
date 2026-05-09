@@ -301,32 +301,37 @@ end, { desc = 'Toggle Autoformat' })
 
 -- ------------------------------------------------------------------------- }}}
 -- {{{ Folding commands.
+--
+-- NOTE: These mappings intentionally override Vim defaults with different behavior:
+--   zv: Vim default opens folds to show cursor; here it closes all folds except current
+--   zj: Vim default moves to next fold; here it closes current fold and opens next
+--   zk: Vim default moves to prev fold; here it closes current fold and opens previous
+--   zO: Vim default opens folds recursively under cursor; here it opens from top-level
 
--- Close all fold except the current one.
+-- Close all folds except the current one (overrides default zv)
 map('n', 'zv', 'zMzvzz', {
   desc = 'Close All Folds Except Current',
 })
 
--- Close current fold when open. Always open next fold.
+-- Close current fold, open next fold (overrides default zj)
 map('n', 'zj', 'zcjzOzz', {
   desc = 'Close Current Fold, Open Next',
 })
 
--- Close current fold when open. Always open previous fold.
+-- Close current fold, open previous fold (overrides default zk)
 map('n', 'zk', 'zckzOzz', {
   desc = 'Close Current Fold, Open Previous',
 })
 
--- Evaluates whether there is a fold on the current line if so unfold it else return a normal space
+-- Toggle fold under cursor, or insert space if no fold
 map('n', '<space><space>', [[@=(foldlevel('.')?'za':"\<Space>")<CR>]], {
   desc = 'Toggle Fold Under Cursor',
 })
 
--- Refocus folds
+-- Refocus folds: close all, open current, center
 map('n', '<localleader>z', [[zMzvzz]], { desc = 'Refocus Folds and Center' })
 
--- Make zO recursively open whatever top level fold we're in, no matter where the
--- cursor happens to be.
+-- Open top-level fold recursively (overrides default zO)
 map('n', 'zO', [[zCzO]], {
   desc = 'Recursively Open Top Level Fold',
 })
