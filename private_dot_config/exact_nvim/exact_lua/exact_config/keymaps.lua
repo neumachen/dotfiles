@@ -88,11 +88,7 @@ map(
 map('n', 'gl', '$', { desc = 'Go to end of line' })
 map('n', 'gh', '^', { desc = 'go to start of line' })
 
--- buffers
-map('n', '<s-h>', '<cmd>bprevious<cr>', { desc = 'prev buffer' })
-map('n', '<s-l>', '<cmd>bnext<cr>', { desc = 'next buffer' })
-map('n', '[b', '<cmd>bprevious<cr>', { desc = 'prev buffer' })
-map('n', ']b', '<cmd>bnext<cr>', { desc = 'next buffer' })
+-- buffers (cycling handled by bufferline.lua)
 map('n', '<leader>bb', '<cmd>e #<cr>', { desc = 'Switch to Other Buffer' })
 map('n', '<leader>`', '<cmd>e #<cr>', { desc = 'Switch to Other Buffer' })
 
