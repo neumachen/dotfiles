@@ -151,9 +151,9 @@ map(
 )
 
 -- Add undo break-points
-map('i', ',', ',<c-g>u')
-map('i', '.', '.<c-g>u')
-map('i', ';', ';<c-g>u')
+map('i', ',', ',<c-g>u', { desc = 'Comma (undo point)' })
+map('i', '.', '.<c-g>u', { desc = 'Period (undo point)' })
+map('i', ';', ';<c-g>u', { desc = 'Semicolon (undo point)' })
 
 -- Save file with notification (Ctrl-S in all relevant modes)
 map({ 'n', 'i', 'v', 'x', 's' }, '<C-s>', function()
@@ -180,8 +180,8 @@ end, { desc = 'Save File' })
 map('n', '<leader>K', '<cmd>norm! K<cr>', { desc = 'Keywordprg' })
 
 -- better indenting
-map('v', '<', '<gv')
-map('v', '>', '>gv')
+map('v', '<', '<gv', { desc = 'Dedent and keep selection' })
+map('v', '>', '>gv', { desc = 'Indent and keep selection' })
 
 -- commenting
 map(
