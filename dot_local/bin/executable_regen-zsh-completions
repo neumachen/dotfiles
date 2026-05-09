@@ -41,6 +41,13 @@ have jira    && generate _jira    jira completion zsh
 have jiratui && generate _jiratui jiratui completions zsh
 have wezterm && generate _wezterm wezterm shell-completion --shell zsh
 have aider   && generate _aider   aider --shell-completion zsh
+have gh       && generate _gh       gh completion -s zsh
+have helm     && generate _helm     helm completion zsh
+have istioctl && generate _istioctl istioctl completion zsh
+have k9s      && generate _k9s      k9s completion zsh
+have kubectl  && generate _kubectl  kubectl completion zsh
+have minikube && generate _minikube minikube completion zsh
+have skaffold && generate _skaffold skaffold completion zsh
 
 # Pre-compile to .zwc so the first compinit doesn't pay the parse cost.
 if have zsh; then
