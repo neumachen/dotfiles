@@ -574,6 +574,12 @@ Selecting a range opens `DiffviewOpen <from>~1..<to>`.
 
 Git blame viewer. Options: `blame_options = { '-w' }` (ignore whitespace).
 
+**Keymaps:**
+
+| Key | Action |
+|---|---|
+| `<localleader>gB` | Toggle git blame |
+
 #### `esmuellert/codediff.nvim`
 
 **File:** `lua/plugins/codediff.lua`
@@ -584,6 +590,12 @@ Side-by-side code diff viewer with conflict resolution support.
 **Command:** `CodeDiff`
 
 Features: explorer panel, conflict resolution keymaps, merge conflict support.
+
+**Keymaps:**
+
+| Key | Action |
+|---|---|
+| `<leader>cD` | Code diff view |
 
 ---
 
@@ -1088,7 +1100,16 @@ Group and manage marks. Uses `snacks` picker.
 
 **File:** `lua/plugins/candela.lua`
 
-Advanced search and highlight tool with lightbox diff view and color palette.
+Regex highlighter designed for efficient log analysis. Supports multiple patterns, color palettes, and a lightbox view showing only matched lines.
+
+**Keymaps:**
+
+| Key | Action |
+|---|---|
+| `<localleader>cc` | Candela UI |
+| `<localleader>cr` | Refresh highlights |
+| `<localleader>cx` | Clear patterns |
+| `<localleader>cl` | Toggle lightbox |
 
 ---
 
