@@ -56,10 +56,15 @@ stylua.toml
 codebook.toml
 
 # Obsidian vault content — managed at runtime, not by Chezmoi
-# Note: akten/ and zakki/ dirs are created by a chezmoi run-once script; content is never tracked.
+# Note: akten/, zakki/, kadai/ dirs are created by a chezmoi run-once script.
+# Note content is never tracked, but _bases/ subdirectories ARE tracked for Obsidian Bases.
 # assets/ is created by Obsidian on first attachment drop; never tracked.
-MeinCodex/Notizen/Obsidian/Main/akten/*
-MeinCodex/Notizen/Obsidian/Main/zakki/**
+#
+# Chezmoi does not support negation patterns, so we explicitly ignore year subdirs
+# (where notes live) while allowing _bases/ to pass through.
+MeinCodex/Notizen/Obsidian/Main/akten/[0-9]*
+MeinCodex/Notizen/Obsidian/Main/zakki/[0-9]*
+MeinCodex/Notizen/Obsidian/Main/kadai/[0-9]*
 MeinCodex/Notizen/Obsidian/Main/assets/**
 
 # Obsidian plugin compiled/bundled files — downloaded by Obsidian on first launch, not tracked.
