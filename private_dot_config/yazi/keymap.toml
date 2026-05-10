@@ -3,6 +3,15 @@
 [mgr]
 
 prepend_keymap = [
+  { on = "1", run = "plugin relative-motions 1", desc = "Move with Vim-style count" },
+  { on = "2", run = "plugin relative-motions 2", desc = "Move with Vim-style count" },
+  { on = "3", run = "plugin relative-motions 3", desc = "Move with Vim-style count" },
+  { on = "4", run = "plugin relative-motions 4", desc = "Move with Vim-style count" },
+  { on = "5", run = "plugin relative-motions 5", desc = "Move with Vim-style count" },
+  { on = "6", run = "plugin relative-motions 6", desc = "Move with Vim-style count" },
+  { on = "7", run = "plugin relative-motions 7", desc = "Move with Vim-style count" },
+  { on = "8", run = "plugin relative-motions 8", desc = "Move with Vim-style count" },
+  { on = "9", run = "plugin relative-motions 9", desc = "Move with Vim-style count" },
   { on = "l", run = "plugin smart-enter", desc = "Enter the child directory, or open the file" },
   { on = "f", run = "plugin jump-to-char", desc = "Jump to char" },
   { on = "F", run = "plugin smart-filter", desc = "Smart filter" },
@@ -94,8 +103,8 @@ keymap = [
   { on = "<C-->", run = "hardlink", desc = "Hardlink yanked files" },
   { on = "Y", run = "unyank", desc = "Cancel the yank status" },
   { on = "X", run = "unyank", desc = "Cancel the yank status" },
-  { on = "d", run = '''shell '"${XDG_CONFIG_HOME:-$HOME/.config}/yazi/scripts/yazi-trash" "$@"' --confirm''', desc = "Trash selected files (trash CLI if available)" },
-  { on = "D", run = "remove --permanently", desc = "Permanently delete selected files" },
+  { on = "d", run = "remove", desc = "Move selected files to system trash (confirm first)" },
+  { on = "D", run = "remove --permanently", desc = "Permanently delete selected files (confirm first)" },
   { on = "a", run = "create", desc = "Create a file (ends with / for directories)" },
   { on = "r", run = "rename --cursor=before_ext", desc = "Rename selected file(s)" },
   { on = ";", run = "shell --interactive", desc = "Run a shell command" },
