@@ -27,3 +27,5 @@ MeinCodex/Notizen/Obsidian/Main/dot_obsidian/bookmarks.json
 # Obsidian plugin runtime cache files
 MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/omnisearch/*.db
 MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/omnisearch/*-cache.*
+
+.git-ignored/
