@@ -1,0 +1,77 @@
+filters:
+  and:
+    - file.hasTag("task")
+    - 'note["type"] == "kadai"'
+
+formulas:
+  titleLink: 'file.asLink(title)'
+  dueDate: 'note["task.due-date"]'
+  taskStatus: 'note["task.status"]'
+  taskPriority: 'note["task.priority"]'
+  akteRef: 'note["reference.akten.id"]'
+  isOpen: 'note["task.status"] != "completed" and note["task.status"] != "discarded" and note["task.status"] != "abandoned"'
+  dueSortKey: 'note["task.due-date"] ?? "9999-12-31"'
+  recordedOn: 'note["modified_at.utc"]'
+
+properties:
+  formula.titleLink:
+    displayName: Task
+  formula.taskStatus:
+    displayName: Status
+  formula.dueDate:
+    displayName: Due
+  formula.recordedOn:
+    displayName: Recorded On
+  formula.taskPriority:
+    displayName: Priority
+  formula.akteRef:
+    displayName: Akte
+  file.tags:
+    displayName: Tags
+
+views:
+  - type: table
+    name: Open By Due
+    filter: formula.isOpen
+    order:
+      - formula.titleLink
+      - formula.taskStatus
+      - formula.dueDate
+      - formula.recordedOn
+      - formula.taskPriority
+      - formula.akteRef
+      - file.tags
+    sort:
+      - property: formula.dueSortKey
+        direction: ASC
+      - property: formula.recordedOn
+        direction: DESC
+
+  - type: table
+    name: Recent
+    filter: formula.isOpen
+    order:
+      - formula.titleLink
+      - formula.taskStatus
+      - formula.dueDate
+      - formula.recordedOn
+      - formula.taskPriority
+      - formula.akteRef
+      - file.tags
+    sort:
+      - property: formula.recordedOn
+        direction: DESC
+
+  - type: table
+    name: All Tasks
+    order:
+      - formula.titleLink
+      - formula.taskStatus
+      - formula.dueDate
+      - formula.recordedOn
+      - formula.taskPriority
+      - formula.akteRef
+      - file.tags
+    sort:
+      - property: formula.recordedOn
+        direction: DESC
