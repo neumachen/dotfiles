@@ -181,6 +181,16 @@ let stem = `${uid6}-${slug}`;
 
 const akteUid = aktePath.split("/").pop().split("-")[0];
 
+// Fetch the Akte's title from its index.md frontmatter
+const akteIndexPath = `${aktePath}/index.md`;
+const akteIndexFile = app.vault.getAbstractFileByPath(akteIndexPath);
+let akteTitle = "";
+if (akteIndexFile) {
+  const akteCache = app.metadataCache.getFileCache(akteIndexFile);
+  akteTitle = akteCache?.frontmatter?.title ?? "";
+}
+const akteLink = `[[${akteIndexPath}|${akteTitle || akteUid}]]`;
+
 const vermerkeFolder = `${aktePath}/vermerke`;
 if (!(await app.vault.adapter.exists(vermerkeFolder))) {
   await app.vault.createFolder(vermerkeFolder);
@@ -205,6 +215,8 @@ tags:
   - vermerk
   - ${akteUid}
 reference.akten.id: ${akteUid}
+reference.akten.title: "${akteTitle}"
+reference.akten.link: "${akteLink}"
 created_at.utc: "${utcIso}"
 created_at.local: "${localIso}"
 modified_at.utc: "${utcIso}"

@@ -1,0 +1,26 @@
+filters:
+  and:
+    - file.hasTag("akten")
+
+formulas:
+  titleLink: 'file.asLink(title)'
+  recordedOn: 'note["modified_at.utc"]'
+
+properties:
+  formula.titleLink:
+    displayName: Title
+  formula.recordedOn:
+    displayName: Recorded On
+  file.tags:
+    displayName: Tags
+
+views:
+  - type: table
+    name: Recent
+    order:
+      - formula.titleLink
+      - formula.recordedOn
+      - file.tags
+    sort:
+      - property: formula.recordedOn
+        direction: DESC

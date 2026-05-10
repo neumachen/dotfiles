@@ -1,8 +1,16 @@
 # Obsidian vault content — managed at runtime, not tracked in git.
-# Directories (akten/, zakki/, assets/) are created by run_once_05-obsidian-vault-dirs.sh.tmpl.
+# Directories (akten/, zakki/, kadai/, assets/) are created by run_once_05-obsidian-vault-dirs.sh.tmpl.
 # No .keep files or content should be tracked here.
-MeinCodex/Notizen/Obsidian/Main/akten/
-MeinCodex/Notizen/Obsidian/Main/zakki/
+# Exception: _bases/ subdirectories are tracked for Obsidian Bases (.base files).
+MeinCodex/Notizen/Obsidian/Main/akten/*
+!MeinCodex/Notizen/Obsidian/Main/akten/.gitkeep
+!MeinCodex/Notizen/Obsidian/Main/akten/_bases/
+MeinCodex/Notizen/Obsidian/Main/zakki/*
+!MeinCodex/Notizen/Obsidian/Main/zakki/.gitkeep
+!MeinCodex/Notizen/Obsidian/Main/zakki/_bases/
+MeinCodex/Notizen/Obsidian/Main/kadai/*
+!MeinCodex/Notizen/Obsidian/Main/kadai/.gitkeep
+!MeinCodex/Notizen/Obsidian/Main/kadai/_bases/
 MeinCodex/Notizen/Obsidian/Main/assets/
 
 # Obsidian plugin compiled files — downloaded by Obsidian on first launch, not tracked in git
