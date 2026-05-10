@@ -1,13 +1,11 @@
 filters:
   and:
     - file.hasTag("vermerk")
-    - 'note["type"] == "vermerk"'
-
+    - note["type"] == "vermerk"
 formulas:
-  titleLink: 'file.asLink(title)'
-  akteLink: 'note["reference.akten.link"]'
-  recordedOn: 'note["modified_at.utc"]'
-
+  titleLink: file.asLink(title)
+  akteLink: note["reference.akten.link"]
+  recordedOn: note["modified_at.utc"]
 properties:
   formula.titleLink:
     displayName: Title
@@ -17,7 +15,6 @@ properties:
     displayName: Recorded On
   file.tags:
     displayName: Tags
-
 views:
   - type: table
     name: Recent

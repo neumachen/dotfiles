@@ -1,11 +1,9 @@
 filters:
   and:
     - file.hasTag("zakki")
-
 formulas:
-  titleLink: 'file.asLink(title)'
-  recordedOn: 'note["modified_at.utc"]'
-
+  titleLink: file.asLink(title)
+  recordedOn: note["modified_at.utc"]
 properties:
   formula.titleLink:
     displayName: Title
@@ -13,7 +11,6 @@ properties:
     displayName: Recorded On
   file.tags:
     displayName: Tags
-
 views:
   - type: table
     name: Recent
