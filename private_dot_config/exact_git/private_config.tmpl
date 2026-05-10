@@ -196,6 +196,11 @@
   smudge = git-lfs smudge -- %f
   process = git-lfs filter-process
 
+[lfs "customtransfer.xet"]
+  path = git-xet
+  args = transfer
+  concurrent = true
+
 [ghq]
   root = {{ expandenv "${CODEBASIS_DIR}" }}
   vcs = git
