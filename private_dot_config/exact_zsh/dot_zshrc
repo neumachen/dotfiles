@@ -207,6 +207,14 @@ function clippaste() {
 }
 
 #############################
+# zsh-vi-mode Configuration (must be before plugin load)
+#############################
+
+function zvm_config() {
+  ZVM_VI_INSERT_ESCAPE_BINDKEY=jk
+}
+
+#############################
 # Plugins - Load Order Matters!
 #############################
 
