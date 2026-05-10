@@ -9,3 +9,9 @@ require('git'):setup()
 require('full-border'):setup({
   type = ui.Border.ROUNDED,
 })
+require('relative-motions'):setup({
+  show_numbers = 'relative_absolute',
+  show_motion = true,
+  only_motions = true,
+  enter_mode = 'cache_or_first',
+})
