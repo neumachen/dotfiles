@@ -127,6 +127,13 @@ fi
 pathmunge "${LOCAL_BIN}" after
 pathmunge "${LOCAL_SBIN}" after
 
+# Go configuration
+if command_exists go; then
+  _gopath="${HOME}/.local/share/go"
+  [[ ! -d "${_gopath}" ]] && mkdir -p "${_gopath}"
+  export GOPATH="${_gopath}"
+fi
+
 # Taskwarrior config
 if [[ ! -d "${XDG_CONFIG_HOME}/taskwarrior" ]] && command_exists task; then
   export TASKWARRIOR_CONFIG="${XDG_CONFIG_HOME}/taskwarrior"
