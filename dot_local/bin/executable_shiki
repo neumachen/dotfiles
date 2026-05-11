@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
-# brownie: launch AiderDesk in a container with per-session persistent data
+# shiki: launch AiderDesk in a container with per-session persistent data
 #
-# Why "Brownie"?
-#   In Scottish/English folklore, a Brownie is a helpful house-spirit that
-#   tidies and assists quietly at night—so long as it's respected. This script
-#   wraps AiderDesk in a container with persistent sessions, SSH agent
-#   forwarding for 1Password commit signing, and sensible mounts.
+# This script wraps AiderDesk in a container with persistent sessions, SSH agent
+# forwarding for 1Password commit signing, and sensible mounts.
 #
 # Usage:
-#   brownie [wrapper-opts] -- [docker run opts ...]
+#   shiki [wrapper-opts] -- [docker run opts ...]
 #
 # Behavior:
 #   • Args BEFORE `--` are wrapper options.
@@ -32,9 +29,9 @@
 set -Eeuo pipefail
 
 # ---------- defaults ----------
-DEFAULT_IMAGE="brownie:latest"
+DEFAULT_IMAGE="shiki:latest"
 DEFAULT_AIDER_DESK_IMAGE="ghcr.io/hotovo/aider-desk:local"
-DEFAULT_PREFIX="brownie"
+DEFAULT_PREFIX="shiki"
 DEFAULT_PORT=24337
 DEFAULT_NETWORK_MODE="bridge"
 DEFAULT_HOST_LOCALHOST_ALIAS="host.docker.internal"
@@ -42,9 +39,9 @@ DEFAULT_HOST_GATEWAY_ALIAS="gateway.docker.internal"
 
 IMAGE="$DEFAULT_IMAGE"
 UPSTREAM_IMAGE="${UPSTREAM_IMAGE:-$DEFAULT_AIDER_DESK_IMAGE}"
-NETWORK_MODE="${BROWNIE_NETWORK_MODE:-$DEFAULT_NETWORK_MODE}"
-HOST_LOCALHOST_ALIAS="${BROWNIE_HOST_LOCALHOST_ALIAS:-$DEFAULT_HOST_LOCALHOST_ALIAS}"
-HOST_GATEWAY_ALIAS="${BROWNIE_HOST_GATEWAY_ALIAS:-$DEFAULT_HOST_GATEWAY_ALIAS}"
+NETWORK_MODE="${SHIKI_NETWORK_MODE:-$DEFAULT_NETWORK_MODE}"
+HOST_LOCALHOST_ALIAS="${SHIKI_HOST_LOCALHOST_ALIAS:-$DEFAULT_HOST_LOCALHOST_ALIAS}"
+HOST_GATEWAY_ALIAS="${SHIKI_HOST_GATEWAY_ALIAS:-$DEFAULT_HOST_GATEWAY_ALIAS}"
 PULL_IMAGE=0
 REBUILD_IMAGE=0
 UPDATE_EXTENSIONS=0
@@ -56,11 +53,7 @@ PROJECT_DIRS=()
 DOCKER_EXTRAS=()
 EXTENSIONS_VOLUME_SUFFIX="extensions"
 
-BROWNIE_ABOUT=$'Brownie — a friendly nod to the Scottish/English household spirit.\n\
-In folklore, a Brownie is a quiet helper who keeps things tidy if treated well.\n\
-This tool wraps AiderDesk in a container with persistent sessions, SSH agent\n\
-forwarding for 1Password commit signing, and sensible mounts for your project.\n\
-Be respectful; keep your config in order—and the work flows. 🙂'
+SHIKI_ABOUT=$'Shiki — AiderDesk in a container with persistent sessions.\nThis tool wraps AiderDesk with SSH agent forwarding for 1Password commit\nsigning and sensible mounts for your project.'
 
 die() {
   printf 'error: %s\n' "$*" >&2
@@ -70,13 +63,13 @@ die() {
 usage() {
   cat <<'USAGE'
 Usage:
-  brownie [wrapper-opts] -- [docker run opts ...]
+  shiki [wrapper-opts] -- [docker run opts ...]
 
 Wrapper options (before --):
-  -n, --name         Session/container name (default: brownie-<project>).
+  -n, --name         Session/container name (default: shiki-<project>).
                      Deterministic names allow restoring sessions even
                      after the container has been removed.
-  -i, --image        Image to run (default: brownie:latest).
+  -i, --image        Image to run (default: shiki:latest).
   -p, --port         Host port for AiderDesk UI (default: 24337).
   -d, --dir          Project directory to mount (default: $PWD).
                      Accepts one or more directory arguments after the flag,
@@ -92,14 +85,14 @@ Wrapper options (before --):
       --pull         Pull the upstream AiderDesk base image,
                      then exit without starting a container.
       --rebuild[=mods]
-                     Rebuild the local brownie image from the Dockerfile,
+                     Rebuild the local shiki image from the Dockerfile,
                      then exit without starting a container.
                      Defaults to: pull,no-cache
                      Supported modifiers: pull,no-pull,cache,no-cache
       --update-extensions
                      Recreate the per-session extensions volume from the current image,
                      then exit without starting a container.
-      --about        Explain why this tool is named "Brownie".
+      --about        Show a short description of Shiki.
   -h, --help         Show this help and exit.
 
 Required environment variables:
@@ -113,17 +106,17 @@ Optional environment variables:
                      Comma-separated extension IDs/URLs to append to defaults at build time.
   AIDER_DESK_EXTENSIONS_OVERRIDE
                      Comma-separated extension IDs/URLs that fully replace defaults at build time.
-  BROWNIE_NETWORK_MODE
+  SHIKI_NETWORK_MODE
                      Container network mode: bridge (default) or host.
-  BROWNIE_HOST_LOCALHOST_ALIAS
+  SHIKI_HOST_LOCALHOST_ALIAS
                      Hostname inside the container that resolves to the host
                      machine in bridge mode (default: host.docker.internal).
-  BROWNIE_HOST_GATEWAY_ALIAS
+  SHIKI_HOST_GATEWAY_ALIAS
                      Secondary hostname inside the container that resolves to
                      the host machine in bridge mode (default: gateway.docker.internal).
 
 SSH agent forwarding (required for commit signing):
-  Brownie auto-detects a usable SSH agent socket for the container.
+  Shiki auto-detects a usable SSH agent socket for the container.
   Preference order:
     1. /run/host-services/ssh-auth.sock (when available from the container runtime)
     2. $SSH_AUTH_SOCK from the host environment
@@ -147,40 +140,40 @@ Mounts (automatic):
 
 Host localhost access:
   Bridge mode (default):
-    New containers get host aliases so processes inside brownie can reach
+    New containers get host aliases so processes inside shiki can reach
     services bound to localhost on the host machine.
     Inside the container, use:
       host.docker.internal:<port>
-    Brownie also adds gateway.docker.internal as a secondary alias when the
+    Shiki also adds gateway.docker.internal as a secondary alias when the
     Docker engine supports host-gateway mappings.
 
   Host network mode:
-    Run brownie with --host-network (or set BROWNIE_NETWORK_MODE=host).
+    Run shiki with --host-network (or set SHIKI_NETWORK_MODE=host).
     In this mode, localhost inside the container is the host machine's
     localhost, so services bound on the host are reachable directly via:
       localhost:<port>
 
 Session restore:
   Data is stored on the host at ~/.local/share/aider-desk/<session>/data.
-  If the container is removed, running brownie with the same -n <name>
+  If the container is removed, running shiki with the same -n <name>
   will create a new container that picks up the existing data.
 
 Examples:
-  brownie                                         # auto-named from project dir
-  brownie -n my-project                           # deterministic name, restorable
-  brownie -n my-project                           # same command restores the session
-  brownie -p 8080
-  brownie -d ~/code/my-app -n my-app
-  brownie -d ~/code/app ~/code/lib -n my-app     # one -d, multiple dirs
-  brownie -d ~/code/app -d ~/code/lib -n my-app  # repeated -d also works
-  brownie --host-network                          # localhost in container = host localhost
-  brownie --pull                                  # pull upstream base image only
-  brownie --rebuild                               # rebuild image only (pull + no-cache)
-  brownie --rebuild=cache                         # rebuild image only (pull + cache)
-  brownie --rebuild=no-pull                       # rebuild image only (no-pull + no-cache)
-  brownie --rebuild=cache,no-pull                 # rebuild image only (no-pull + cache)
-  brownie -n my-session --update-extensions       # refresh extensions volume only
-  brownie -n my-session --rebuild --update-extensions
+  shiki                                         # auto-named from project dir
+  shiki -n my-project                           # deterministic name, restorable
+  shiki -n my-project                           # same command restores the session
+  shiki -p 8080
+  shiki -d ~/code/my-app -n my-app
+  shiki -d ~/code/app ~/code/lib -n my-app     # one -d, multiple dirs
+  shiki -d ~/code/app -d ~/code/lib -n my-app  # repeated -d also works
+  shiki --host-network                          # localhost in container = host localhost
+  shiki --pull                                  # pull upstream base image only
+  shiki --rebuild                               # rebuild image only (pull + no-cache)
+  shiki --rebuild=cache                         # rebuild image only (pull + cache)
+  shiki --rebuild=no-pull                       # rebuild image only (no-pull + no-cache)
+  shiki --rebuild=cache,no-pull                 # rebuild image only (no-pull + cache)
+  shiki -n my-session --update-extensions       # refresh extensions volume only
+  shiki -n my-session --rebuild --update-extensions
                                                    # rebuild image and refresh extensions only
 USAGE
 }
@@ -205,7 +198,7 @@ make_default_session_name() {
   sanitize_docker_name "${DEFAULT_PREFIX}-${base}"
 }
 
-print_about() { printf '%s\n' "$BROWNIE_ABOUT"; }
+print_about() { printf '%s\n' "$SHIKI_ABOUT"; }
 
 parse_rebuild_modifiers() {
   local modifiers="${1:-}"
@@ -352,7 +345,7 @@ have git || die "git not found in PATH (needed to read host identity)."
 
 case "$NETWORK_MODE" in
 bridge | host) ;;
-*) die "Invalid BROWNIE_NETWORK_MODE/--network mode: ${NETWORK_MODE} (expected: bridge or host)" ;;
+*) die "Invalid SHIKI_NETWORK_MODE/--network mode: ${NETWORK_MODE} (expected: bridge or host)" ;;
 esac
 
 # Resolve and validate all project dirs; primary dir is first entry
@@ -533,68 +526,68 @@ has_complete_devcontainer() {
   [ -f "$devcontainer_dir/install-aiderdesk-extensions.sh" ] || return 1
 }
 
-BROWNIE_SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
-BROWNIE_DOCKERFILE="${BROWNIE_DOCKERFILE:-}"
-if [ -z "$BROWNIE_DOCKERFILE" ]; then
+SHIKI_SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
+SHIKI_DOCKERFILE="${SHIKI_DOCKERFILE:-}"
+if [ -z "$SHIKI_DOCKERFILE" ]; then
   local_search_dir="$PWD"
   while [ "$local_search_dir" != "/" ]; do
-    candidate="${local_search_dir}/devcontainer/brownie.Dockerfile"
+    candidate="${local_search_dir}/devcontainer/shiki.Dockerfile"
     candidate="$(realpath -m "$candidate")"
     if has_complete_devcontainer "$candidate"; then
-      BROWNIE_DOCKERFILE="$candidate"
+      SHIKI_DOCKERFILE="$candidate"
       break
     fi
     local_search_dir="$(dirname "$local_search_dir")"
   done
 fi
-if [ -z "$BROWNIE_DOCKERFILE" ]; then
+if [ -z "$SHIKI_DOCKERFILE" ]; then
   for candidate in \
-    "${BROWNIE_SCRIPT_DIR}/../../devcontainer/brownie.Dockerfile" \
-    "${BROWNIE_SCRIPT_DIR}/../../../devcontainer/brownie.Dockerfile" \
-    "${HOME}/.local/share/chezmoi/devcontainer/brownie.Dockerfile"; do
+    "${SHIKI_SCRIPT_DIR}/../../devcontainer/shiki.Dockerfile" \
+    "${SHIKI_SCRIPT_DIR}/../../../devcontainer/shiki.Dockerfile" \
+    "${HOME}/.local/share/chezmoi/devcontainer/shiki.Dockerfile"; do
     candidate="$(realpath -m "$candidate")"
     if has_complete_devcontainer "$candidate"; then
-      BROWNIE_DOCKERFILE="$candidate"
+      SHIKI_DOCKERFILE="$candidate"
       break
     fi
   done
 fi
 
-# Legacy name from an earlier brownie revision that used a dedicated
+# Legacy name from an earlier shiki revision that used a dedicated
 # docker-container driver builder. Kept here so the cleanup trap can remove
 # any stale instance from prior runs.
-BROWNIE_LEGACY_BUILDER_NAME="brownie-builder"
-_brownie_build_in_flight=0
+SHIKI_LEGACY_BUILDER_NAME="shiki-builder"
+_shiki_build_in_flight=0
 
-cleanup_brownie_build() {
-  if [ "${_brownie_build_in_flight}" -eq 1 ]; then
+cleanup_shiki_build() {
+  if [ "${_shiki_build_in_flight}" -eq 1 ]; then
     # Stops the BuildKit daemon container the active builder may have
     # spawned. No-op when BuildKit is embedded in the Docker daemon
     # (docker driver) since there is no separate container.
     docker buildx stop >/dev/null 2>&1 || true
-    docker buildx rm "${BROWNIE_LEGACY_BUILDER_NAME}" >/dev/null 2>&1 || true
+    docker buildx rm "${SHIKI_LEGACY_BUILDER_NAME}" >/dev/null 2>&1 || true
   fi
 }
 
-mark_brownie_build_in_flight() {
-  _brownie_build_in_flight=1
-  trap cleanup_brownie_build EXIT
+mark_shiki_build_in_flight() {
+  _shiki_build_in_flight=1
+  trap cleanup_shiki_build EXIT
 }
 
 build_image() {
-  if ! has_complete_devcontainer "$BROWNIE_DOCKERFILE"; then
-    die "Cannot find a complete brownie devcontainer (brownie.Dockerfile, entrypoint.sh, install-aiderdesk-extensions.sh). Set BROWNIE_DOCKERFILE=/path/to/brownie.Dockerfile or sync your dotfiles source tree."
+  if ! has_complete_devcontainer "$SHIKI_DOCKERFILE"; then
+    die "Cannot find a complete shiki devcontainer (shiki.Dockerfile, entrypoint.sh, install-aiderdesk-extensions.sh). Set SHIKI_DOCKERFILE=/path/to/shiki.Dockerfile or sync your dotfiles source tree."
   fi
   local build_context
   local -a build_args
-  build_context="$(dirname "$BROWNIE_DOCKERFILE")"
+  build_context="$(dirname "$SHIKI_DOCKERFILE")"
   build_args=(
     --build-arg "UPSTREAM_IMAGE=${UPSTREAM_IMAGE}"
     --build-arg "AIDER_DESK_EXTENSIONS_APPEND=${AIDER_DESK_EXTENSIONS_APPEND:-}"
     --build-arg "AIDER_DESK_EXTENSIONS_OVERRIDE=${AIDER_DESK_EXTENSIONS_OVERRIDE:-}"
   )
 
-  echo "Building image '${IMAGE}' from ${BROWNIE_DOCKERFILE} ..."
+  echo "Building image '${IMAGE}' from ${SHIKI_DOCKERFILE} ..."
   if [ "$BUILD_PULL" -eq 1 ]; then
     echo "  Pulling latest upstream AiderDesk base image: ${UPSTREAM_IMAGE}"
     build_args+=(--pull)
@@ -614,10 +607,10 @@ build_image() {
   else
     echo "  Using default built-in extensions"
   fi
-  mark_brownie_build_in_flight
+  mark_shiki_build_in_flight
   docker build \
     "${build_args[@]}" \
-    --file "$BROWNIE_DOCKERFILE" \
+    --file "$SHIKI_DOCKERFILE" \
     --tag "$IMAGE" \
     "$build_context"
   echo "Image '${IMAGE}' built successfully."
@@ -692,9 +685,9 @@ run_new_container() {
     -e "GIT_USER_EMAIL=${GIT_USER_EMAIL}"
     -e "AIDER_DESK_PROJECTS=${PROJECT_CONTAINER_PATH_LIST}"
     -e "AIDER_DESK_DATA_DIR=/app/state"
-    -e "BROWNIE_NETWORK_MODE=${NETWORK_MODE}"
-    -e "BROWNIE_HOST_LOCALHOST=${container_host_localhost}"
-    -e "BROWNIE_HOST_GATEWAY=${container_host_gateway}"
+    -e "SHIKI_NETWORK_MODE=${NETWORK_MODE}"
+    -e "SHIKI_HOST_LOCALHOST=${container_host_localhost}"
+    -e "SHIKI_HOST_GATEWAY=${container_host_gateway}"
   )
 
   # Signing key (fall back to host git config)

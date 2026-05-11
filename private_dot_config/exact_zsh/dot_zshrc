@@ -45,7 +45,7 @@ fi
 # This includes completions managed by chezmoi external:
 # - _fzf, _eza, _kubectx, _kubens, _fd, _ghq, _git-forgit, _docker
 # And local completions:
-# - _rg, _just, _brownie, _kind
+# - _rg, _just, _shiki, _kind
 fpath=("${ZDOTDIR}/completions" $fpath)
 
 #############################
