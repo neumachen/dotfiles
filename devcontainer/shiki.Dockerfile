@@ -24,7 +24,7 @@ ARG AIDER_DESK_EXTENSIONS_DEFAULT="bmad,\
     tree-sitter-repo-map,\
     ultrathink,\
     wakatime,\
-    https://github.com/neumachen/aider-desk-codex-auth-extension"
+    https://github.com/neumachen/aiderdesk-codex-extension"
 ARG AIDER_DESK_EXTENSIONS_APPEND=""
 ARG AIDER_DESK_EXTENSIONS_OVERRIDE=""
 
