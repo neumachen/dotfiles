@@ -1,6 +1,6 @@
-#compdef brownie
+#compdef shiki
 
-_brownie() {
+_shiki() {
   local context state state_descr line
   typeset -A opt_args
 
@@ -59,22 +59,22 @@ _brownie() {
   # Before `--`: complete wrapper options only
   _arguments -S -s \
     '(-h --help)'{-h,--help}'[show help and exit]' \
-    '--about[explain the Brownie folklore name]' \
-    '(-n --name)'{-n,--name}'[session/container name]:session name:_brownie_sessions' \
-    '(-i --image)'{-i,--image}'[container image to run]:image:_brownie_images' \
+    '--about[show a short description of Shiki]' \
+    '(-n --name)'{-n,--name}'[session/container name]:session name:_shiki_sessions' \
+    '(-i --image)'{-i,--image}'[container image to run]:image:_shiki_images' \
     '(-p --port)'{-p,--port}'[host port for AiderDesk UI (default: 24337)]:port:' \
     '*'{-d,--dir}'[project directory to mount (one or more may follow)]:directory:_directories' \
-    '--host-network[share the host network namespace so localhost inside brownie is the host]' \
+    '--host-network[share the host network namespace so localhost inside shiki is the host]' \
     '--bridge-network[use normal bridge networking (default)]' \
     '--pull[pull the upstream AiderDesk base image and exit]' \
-    '--rebuild=-[rebuild the local brownie image and exit; modifiers: pull,no-pull,cache,no-cache]:modifiers:' \
+    '--rebuild=-[rebuild the local shiki image and exit; modifiers: pull,no-pull,cache,no-cache]:modifiers:' \
     '--update-extensions[recreate the per-session extensions volume from the current image]' \
     '--[end of wrapper args; start docker run args]'
 }
 
-_brownie_sessions() {
+_shiki_sessions() {
   local -a sessions
-  sessions=(${(f)"$(docker ps -a --filter 'name=brownie-' --format '{{.Names}}' 2>/dev/null)"})
+  sessions=(${(f)"$(docker ps -a --filter 'name=shiki-' --format '{{.Names}}' 2>/dev/null)"})
   if (( $#sessions )); then
     _describe 'session' sessions
   else
@@ -82,10 +82,10 @@ _brownie_sessions() {
   fi
 }
 
-_brownie_images() {
+_shiki_images() {
   local -a imgs
   imgs=(${(f)"$(docker image ls --format '{{.Repository}}:{{.Tag}}' 2>/dev/null)"})
   (( $#imgs )) && compadd -- $imgs || _message 'image'
 }
 
-_brownie "$@"
+_shiki "$@"
