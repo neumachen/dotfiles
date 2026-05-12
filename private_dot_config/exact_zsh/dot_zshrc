@@ -306,6 +306,17 @@ function zvm_after_init() {
   else
     echo-warn "fzf keybindings file: $fzf_key_bindings_path not found"
   fi
+
+  # Prefix-aware history navigation. Rebound here so zsh-vi-mode doesn't
+  # stomp them. ↑/↓ and Ctrl-P/Ctrl-N walk history filtered by what's
+  # already typed at the prompt (e.g. `git st<↑>` only cycles `git st…`).
+  autoload -Uz up-line-or-beginning-search down-line-or-beginning-search
+  zle -N up-line-or-beginning-search
+  zle -N down-line-or-beginning-search
+  bindkey '^[[A' up-line-or-beginning-search
+  bindkey '^[[B' down-line-or-beginning-search
+  bindkey '^P'   up-line-or-beginning-search
+  bindkey '^N'   down-line-or-beginning-search
 }
 
 #############################
@@ -334,11 +345,6 @@ if command_exists ov; then
 elif command_exists less; then
   export PAGER='less'
   export MANPAGER='less -is'
-fi
-
-# MANPAGER with nvim (overrides above if nvim is available)
-if command_exists nvim; then
-  export MANPAGER='nvim +Man!'
 fi
 
 # LESSOPEN - use lesspipe if available (still useful even with ov as some tools use less directly)
@@ -371,6 +377,7 @@ setopt PUSHD_MINUS            # Exchange + and - in pushd
 setopt PUSHD_SILENT           # Don't print directory stack
 setopt PUSHD_TO_HOME          # pushd with no args goes home
 setopt PUSHD_IGNORE_DUPS      # Don't push duplicates
+DIRSTACKSIZE=20               # Bound the auto-pushd stack
 setopt NO_HUP                 # Don't kill background jobs on exit
 
 # Input/Output
@@ -394,6 +401,7 @@ setopt MULTIOS                # Allow multiple redirections
 #############################
 
 alias c='clear'
+alias d='dirs -v'  # Show numbered AUTO_PUSHD stack; jump with `cd -N`
 
 # Utility aliases
 alias mkdir='mkdir -p'
@@ -405,15 +413,18 @@ if command_exists eza; then
   alias ls='eza --group-directories-first'
   alias ll='eza -l --group-directories-first'
   alias la='eza -la --group-directories-first'
+  alias lal='eza -la --group-directories-first'
   alias lt='eza --tree --group-directories-first'
 elif command_exists exa; then
   alias ls='exa --group-directories-first'
   alias ll='exa -l --group-directories-first'
   alias la='exa -la --group-directories-first'
+  alias lal='exa -la --group-directories-first'
   alias lt='exa --tree --group-directories-first'
 else
   alias ll='ls -lh'
   alias la='ls -lAh'
+  alias lal='ls -lAh'
 fi
 
 if command_exists task; then
