@@ -1,19 +1,44 @@
 #!/usr/bin/env bash
 #
-# Find and replace by a given list of files.
+# replace-in-files - Find and replace text across multiple files
 #
-# replace foo bar **/*.rb
+# Usage:
+#   replace-in-files [-v|--verbose] [-n|--dry-run] <pattern> <replacement> [<file>...]
+#
+# Options:
+#   -v, --verbose   Show each file being processed
+#   -n, --dry-run   Show what would be changed without modifying files
+#   -h, --help      Show this help message
+#
+# Examples:
+#   replace-in-files foo bar **/*.rb
+#   replace-in-files -v 'old_func' 'new_func' src/
+#   replace-in-files -n 'http://' 'https://' .
+#
+# Notes:
+#   - Uses ripgrep (rg) if available, falls back to grep
+#   - Pattern is treated as a literal string, not a regex
+#   - If no files are specified, searches current directory
 
-USAGE="usage: $(basename "$0") [-v|--verbose] <pattern> <replacement> [<file>...]"
+set -euo pipefail
+
+USAGE="usage: $(basename "$0") [-v|--verbose] [-n|--dry-run] <pattern> <replacement> [<file>...]"
 
 find_this=''
 replace_with=''
 verbose=false
+dry_run=false
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     -h | --help) echo "$USAGE"; exit ;;
     -v | --verbose) verbose=true ;;
+    -n | --dry-run) dry_run=true; verbose=true ;;
+    -*)
+      echo-err "Unknown option: $1"
+      echo "$USAGE"
+      exit 1
+      ;;
     *)
       if [ -z "$find_this" ]; then
         find_this="$1"
@@ -26,26 +51,85 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 
+# Validate required arguments
+if [ -z "$find_this" ]; then
+  echo-err "Missing required argument: <pattern>"
+  echo "$USAGE"
+  exit 1
+fi
+
+if [ -z "$replace_with" ]; then
+  echo-err "Missing required argument: <replacement>"
+  echo "$USAGE"
+  exit 1
+fi
+
+# Default to current directory if no files specified
 if [ $# -eq 0 ]; then
   set -- "$PWD"
 fi
 
+# Find files containing the pattern
 if command -v rg >/dev/null 2>&1; then
-  items=$(rg --files-with-matches --color never "$find_this" "$@")
+  items=$(rg --files-with-matches --color never --fixed-strings "$find_this" "$@" 2>/dev/null) || true
 else
-  items=$(grep --files-with-matches --extended-regexp "$find_this" "$@")
+  items=$(grep --files-with-matches --fixed-strings "$find_this" "$@" 2>/dev/null) || true
 fi
 
+if [ -z "$items" ]; then
+  echo-info "No files contain the pattern: $find_this"
+  exit 0
+fi
+
+# Escape special characters for sed
+escape_sed() {
+  printf '%s' "$1" | sed 's/[&/\]/\\&/g'
+}
+
+find_escaped=$(escape_sed "$find_this")
+replace_escaped=$(escape_sed "$replace_with")
+
+# Get file permissions portably
+get_permissions() {
+  if stat -c '%a' "$1" >/dev/null 2>&1; then
+    # GNU/Linux stat
+    stat -c '%a' "$1"
+  else
+    # BSD/macOS stat
+    stat -f '%Lp' "$1"
+  fi
+}
+
 temp="${TMPDIR:-/tmp}/replace_temp_file.$$"
+trap 'rm -f "$temp"' EXIT
+
+changed=0
 IFS=$'\n'
 for item in $items; do
   if $verbose; then
-    echo-info "Replacing in '${item}'"
+    if $dry_run; then
+      echo-info "Would replace in '${item}'"
+    else
+      echo-info "Replacing in '${item}'"
+    fi
   fi
-  if sed "s+${find_this}+${replace_with}+g" "$item" > "$temp"; then
-    chmod "$(stat -f '%p' "$item")" "$temp"
+
+  if $dry_run; then
+    ((changed++)) || true
+    continue
+  fi
+
+  if sed "s/${find_escaped}/${replace_escaped}/g" "$item" > "$temp"; then
+    chmod "$(get_permissions "$item")" "$temp"
     mv "$temp" "$item"
+    ((changed++)) || true
   else
     echo-err "Failed to replace in ${item}"
   fi
 done
+
+if $dry_run; then
+  echo-ok "Dry run complete: $changed file(s) would be modified"
+else
+  echo-ok "Replaced in $changed file(s)"
+fi
