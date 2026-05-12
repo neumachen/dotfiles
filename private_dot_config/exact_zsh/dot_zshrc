@@ -306,10 +306,34 @@ export FORGIT_LOG_FZF_OPTS="--bind='ctrl-e:execute(echo {} |grep -Eo [a-f0-9]+ |
 
 export RIPGREP_CONFIG_PATH="${HOME}/.config/rg/.ripgreprc"
 
+# Global fzf defaults. Picked up by Ctrl-R / Ctrl-T / Alt-C and any
+# fzf invocation that doesn't override them. Mirrors the popup/inline
+# split used by _ZO_FZF_OPTS below.
+if [[ -n "$TMUX" ]]; then
+  export FZF_DEFAULT_OPTS="--tmux center,80%,50% --reverse --info=inline --border"
+else
+  export FZF_DEFAULT_OPTS="--height=50% --reverse --info=inline --border"
+fi
+
+# Use fd for the default source list (faster than find, respects .gitignore).
+if command_exists fd; then
+  export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
+  export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+  export FZF_ALT_C_COMMAND='fd --type d --hidden --follow --exclude .git'
+fi
+
+# Per-keybinding previews.
+if command_exists bat; then
+  export FZF_CTRL_T_OPTS="--preview 'bat --color=always --style=numbers --line-range=:200 {} 2>/dev/null || cat {}'"
+fi
+if command_exists eza; then
+  export FZF_ALT_C_OPTS="--preview 'eza --color=always --icons -1 {} 2>/dev/null || ls {}'"
+fi
+export FZF_CTRL_R_OPTS="--preview 'echo {}' --preview-window=down:3:wrap"
+
 # zoxide's `cdi` (and any internal zoxide fzf invocation) reads this.
-# Use a tmux popup when inside tmux; fall back to inline (--height) outside.
-# fzf 0.70's --tmux fallback behavior outside tmux is unreliable, hence
-# the explicit branch rather than relying on it to gracefully fall back.
+# fzf 0.70's --tmux fallback outside tmux is unreliable, hence the
+# explicit branch rather than relying on it to gracefully fall back.
 if [[ -n "$TMUX" ]]; then
   export _ZO_FZF_OPTS="--tmux center,80%,40% --reverse --info=inline --border --no-sort"
 else
@@ -381,6 +405,7 @@ setopt MULTIOS                # Allow multiple redirections
 
 alias c='clear'
 alias d='dirs -v'  # Show numbered AUTO_PUSHD stack; jump with `cd -N`
+alias z='cdi'      # Launch zoxide's interactive fzf picker
 
 # Utility aliases
 alias mkdir='mkdir -p'
@@ -407,16 +432,17 @@ else
 fi
 
 if command_exists task; then
-  taskwarrior_data_dir="${HOME}/.local/share/task"
-  if [[ -d "${HOME}/Documents/taskwarrior" ]]; then
-    taskwarrior_data_dir="${HOME}/Documents/taskwarrior"
-    export TASKWARRIOR_DATA="${taskwarrior_data_dir}"
-    export TASKRC="${HOME}/.config/taskwarrior/taskrc"
+  # Point task at its XDG-style config (not at ~/.taskrc which it would
+  # otherwise default to and fail to find).
+  export TASKRC="${XDG_CONFIG_HOME:-$HOME/.config}/taskwarrior/taskrc"
 
-    if command_exists taskwarrior-tui; then
-      alias taskui="taskwarrior-tui"
-    fi
+  # If the data dir lives under Documents (e.g. iCloud-synced), override
+  # taskrc's data.location for this shell.
+  if [[ -d "${HOME}/Documents/taskwarrior" ]]; then
+    export TASKDATA="${HOME}/Documents/taskwarrior"
   fi
+
+  command_exists taskwarrior-tui && alias taskui="taskwarrior-tui"
 fi
 
 if command_exists bat; then
