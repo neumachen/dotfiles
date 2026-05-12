@@ -1,6 +1,5 @@
 [
   "obsidian-linter",
-  "obsidian-minimal-settings",
   "obsidian-doubleshift",
   "table-editor-obsidian",
   "nldates-obsidian",
@@ -17,5 +16,6 @@
   "mononote",
   "cmdr",
   "obsidian-meta-bind-plugin",
-  "obsidian-vimrc-support"
+  "obsidian-vimrc-support",
+  "shiki-highlighter"
 ]

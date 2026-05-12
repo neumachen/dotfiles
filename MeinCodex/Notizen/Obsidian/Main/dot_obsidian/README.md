@@ -244,12 +244,12 @@ Examples:
 | Plugin ID | Purpose |
 |---|---|
 | `obsidian-linter` | Auto-formats markdown on save — enforces heading style, spacing, tag format, timestamps |
-| `obsidian-minimal-settings` | Minimal theme controls — Ayu Dark scheme, colorful headings, 45-char line width |
 | `obsidian-doubleshift` | Double-Shift → Quick Switcher |
 | `table-editor-obsidian` | Tab/Enter navigation in markdown tables |
 | `nldates-obsidian` | Natural language date autocomplete via `@` trigger |
 | `omnisearch` | Replaces built-in search — vault-wide and in-file, Vim navigation |
-| `obsidian-style-settings` | UI controls for Minimal theme styling |
+| `obsidian-style-settings` | UI controls for `/* @settings */` blocks in CSS snippets and themes |
+| `shiki-highlighter` | Replaces Obsidian's built-in Prism syntax highlighter with Shiki (the highlighter VS Code uses). Bundles Tokyo Night Storm — see `THEME.md` |
 | `mysnippets-plugin` | CSS snippet manager in status bar |
 | `obsidian-editor-shortcuts` | VS Code-style editor shortcuts |
 | `obsidian-plugin-update-tracker` | Checks for plugin updates every 30 minutes |
@@ -265,11 +265,16 @@ Examples:
 
 ## Appearance
 
-- **Theme:** Minimal (Ayu Dark)
-- **Accent:** `#872ac6`
+- **Theme:** Tokyo Night Storm (in-repo theme — see [`THEME.md`](THEME.md))
+- **Accent:** `#7aa2f7` (Tokyo Night Storm blue)
 - **Base font size:** 16px
-- **Line width:** 45 chars (readable line length on)
 - **Mode:** Dark
+
+The theme is a self-contained `theme.css` at
+`dot_obsidian/themes/tokyo-night-storm/`, version-controlled with the rest of
+the vault config. `THEME.md` documents the palette tokens, semantic-variable
+mappings, and per-component selectors — consult it before changing any
+visual setting.
 
 ### Active CSS Snippets
 
@@ -279,7 +284,6 @@ Examples:
 | `editor-tables.css` | Table borders, alternating rows |
 | `plugin-mysnippets.css` | MySnippets status bar menu tweaks |
 | `ui-compact-tab-header.css` | Compact tab bar |
-| `ui-default-style-settings.css` | Default Style Settings overrides |
 | `ui-hide-system-frontmatter.css` | Hides `id`-adjacent system frontmatter (`filename`, `path`, `type`, `created_at.*`, `modified_at.*`) from the Properties view; data stays in the file |
 | `ui-statusbar-tweaks.css` | Status bar layout tweaks |
 
@@ -320,4 +324,5 @@ date-folder + sortable-ID convention as Zakki. Its directory name will be German
 
 ## See Also
 
+- [`THEME.md`](THEME.md) — Tokyo Night Storm theme architecture, palette tokens, variable map, and quick-lookup table
 - `REFERENCE.md` — keyboard shortcuts and service accounts

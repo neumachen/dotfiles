@@ -1,0 +1,562 @@
+/*
+ * Tokyo Night Storm
+ *
+ * Local Obsidian theme owned in chezmoi at:
+ *   dot_obsidian/themes/tokyo-night-storm/theme.css
+ *
+ * Palette is the widely-published Tokyo Night Storm palette
+ * (see https://github.com/enkia/tokyo-night-vscode-theme).
+ *
+ * Architecture:
+ *   1. Style Settings schema — palette tokens are exposed as UI controls.
+ *   2. Palette tokens (--tn-*) on .theme-dark / .theme-light.
+ *   3. Mapping to Obsidian's semantic variables.
+ *   4. Per-component overrides grouped by surface area.
+ *
+ * Companion reference: dot_obsidian/THEME.md
+ */
+
+/* @settings
+
+name: tokyo-night-storm
+id: tokyo-night-storm
+settings:
+  -
+    id: heading-palette
+    title: Palette
+    type: heading
+    level: 1
+    collapsed: true
+  -
+    id: tn-bg
+    title: Background
+    type: variable-themed-color
+    opacity: false
+    format: hex
+    default-light: '#d5d6db'
+    default-dark: '#24283b'
+  -
+    id: tn-bg-alt
+    title: Background (deeper)
+    type: variable-themed-color
+    opacity: false
+    format: hex
+    default-light: '#cbccd1'
+    default-dark: '#1f2335'
+  -
+    id: tn-bg-highlight
+    title: Background (highlight)
+    type: variable-themed-color
+    opacity: false
+    format: hex
+    default-light: '#dfe0e5'
+    default-dark: '#292e42'
+  -
+    id: tn-bg-popup
+    title: Background (popup / modal)
+    type: variable-themed-color
+    opacity: false
+    format: hex
+    default-light: '#cbccd1'
+    default-dark: '#1d202f'
+  -
+    id: tn-fg
+    title: Foreground (normal text)
+    type: variable-themed-color
+    opacity: false
+    format: hex
+    default-light: '#343b58'
+    default-dark: '#c0caf5'
+  -
+    id: tn-fg-dim
+    title: Foreground (muted)
+    type: variable-themed-color
+    opacity: false
+    format: hex
+    default-light: '#565a6e'
+    default-dark: '#a9b1d6'
+  -
+    id: tn-fg-faint
+    title: Foreground (faint / comments)
+    type: variable-themed-color
+    opacity: false
+    format: hex
+    default-light: '#9699a3'
+    default-dark: '#565f89'
+  -
+    id: tn-blue
+    title: Blue (accent / links)
+    type: variable-themed-color
+    opacity: false
+    format: hex
+    default-light: '#34548a'
+    default-dark: '#7aa2f7'
+  -
+    id: tn-cyan
+    title: Cyan (external links)
+    type: variable-themed-color
+    opacity: false
+    format: hex
+    default-light: '#0f4b6e'
+    default-dark: '#7dcfff'
+  -
+    id: tn-purple
+    title: Purple (headings)
+    type: variable-themed-color
+    opacity: false
+    format: hex
+    default-light: '#5a3e8e'
+    default-dark: '#bb9af7'
+  -
+    id: tn-magenta
+    title: Magenta
+    type: variable-themed-color
+    opacity: false
+    format: hex
+    default-light: '#a8124b'
+    default-dark: '#ff007c'
+  -
+    id: tn-green
+    title: Green (strings / success)
+    type: variable-themed-color
+    opacity: false
+    format: hex
+    default-light: '#33635c'
+    default-dark: '#9ece6a'
+  -
+    id: tn-yellow
+    title: Yellow (warning)
+    type: variable-themed-color
+    opacity: false
+    format: hex
+    default-light: '#8f5e15'
+    default-dark: '#e0af68'
+  -
+    id: tn-orange
+    title: Orange (numbers / bug)
+    type: variable-themed-color
+    opacity: false
+    format: hex
+    default-light: '#965027'
+    default-dark: '#ff9e64'
+  -
+    id: tn-red
+    title: Red (errors)
+    type: variable-themed-color
+    opacity: false
+    format: hex
+    default-light: '#8c4351'
+    default-dark: '#f7768e'
+  -
+    id: tn-line
+    title: Borders / dividers
+    type: variable-themed-color
+    opacity: false
+    format: hex
+    default-light: '#a8aecb'
+    default-dark: '#3b4261'
+
+*/
+
+/* === Palette tokens === */
+
+.theme-dark {
+	--tn-bg: #24283b;
+	--tn-bg-alt: #1f2335;
+	--tn-bg-highlight: #292e42;
+	--tn-bg-popup: #1d202f;
+	--tn-fg: #c0caf5;
+	--tn-fg-dim: #a9b1d6;
+	--tn-fg-faint: #565f89;
+	--tn-blue: #7aa2f7;
+	--tn-cyan: #7dcfff;
+	--tn-purple: #bb9af7;
+	--tn-magenta: #ff007c;
+	--tn-green: #9ece6a;
+	--tn-yellow: #e0af68;
+	--tn-orange: #ff9e64;
+	--tn-red: #f7768e;
+	--tn-line: #3b4261;
+	--tn-selection: rgba(40, 52, 87, 0.85);
+	--tn-highlight: rgba(224, 175, 104, 0.32);
+}
+
+.theme-light {
+	--tn-bg: #d5d6db;
+	--tn-bg-alt: #cbccd1;
+	--tn-bg-highlight: #dfe0e5;
+	--tn-bg-popup: #cbccd1;
+	--tn-fg: #343b58;
+	--tn-fg-dim: #565a6e;
+	--tn-fg-faint: #9699a3;
+	--tn-blue: #34548a;
+	--tn-cyan: #0f4b6e;
+	--tn-purple: #5a3e8e;
+	--tn-magenta: #a8124b;
+	--tn-green: #33635c;
+	--tn-yellow: #8f5e15;
+	--tn-orange: #965027;
+	--tn-red: #8c4351;
+	--tn-line: #a8aecb;
+	--tn-selection: rgba(122, 162, 247, 0.28);
+	--tn-highlight: rgba(143, 94, 21, 0.22);
+}
+
+/* === Surfaces === */
+
+.theme-dark,
+.theme-light {
+	--background-primary: var(--tn-bg);
+	--background-primary-alt: var(--tn-bg-alt);
+	--background-secondary: var(--tn-bg-alt);
+	--background-secondary-alt: var(--tn-bg-popup);
+	--background-modifier-border: var(--tn-line);
+	--background-modifier-border-hover: var(--tn-blue);
+	--background-modifier-border-focus: var(--tn-blue);
+	--background-modifier-hover: var(--tn-bg-highlight);
+	--background-modifier-active-hover: var(--tn-bg-highlight);
+	--background-modifier-form-field: var(--tn-bg-alt);
+	--background-modifier-form-field-highlighted: var(--tn-bg-highlight);
+	--background-modifier-box-shadow: rgba(0, 0, 0, 0.45);
+	--background-modifier-cover: rgba(15, 17, 26, 0.6);
+	--background-modifier-success: var(--tn-green);
+	--background-modifier-error: var(--tn-red);
+	--background-modifier-error-hover: var(--tn-red);
+	--background-modifier-error-rgb: 247, 118, 142;
+}
+
+/* === Text & Links === */
+
+.theme-dark,
+.theme-light {
+	--text-normal: var(--tn-fg);
+	--text-muted: var(--tn-fg-dim);
+	--text-faint: var(--tn-fg-faint);
+	--text-on-accent: #1a1b26;
+	--text-error: var(--tn-red);
+	--text-success: var(--tn-green);
+	--text-warning: var(--tn-yellow);
+	--text-accent: var(--tn-blue);
+	--text-accent-hover: var(--tn-cyan);
+	--text-highlight-bg: var(--tn-highlight);
+	--text-highlight-bg-active: rgba(255, 158, 100, 0.42);
+	--text-selection: var(--tn-selection);
+
+	--interactive-normal: var(--tn-bg-alt);
+	--interactive-hover: var(--tn-bg-highlight);
+	--interactive-accent: var(--tn-blue);
+	--interactive-accent-hover: var(--tn-cyan);
+	--interactive-accent-rgb: 122, 162, 247;
+	--interactive-success: var(--tn-green);
+
+	--link-color: var(--tn-blue);
+	--link-color-hover: var(--tn-cyan);
+	--link-external-color: var(--tn-cyan);
+	--link-external-color-hover: var(--tn-blue);
+	--link-unresolved-color: var(--tn-red);
+	--link-unresolved-opacity: 0.85;
+	--link-unresolved-filter: none;
+	--link-unresolved-decoration-style: dashed;
+}
+
+.cm-hmd-internal-link,
+.internal-link {
+	color: var(--link-color);
+	text-decoration-color: var(--link-color);
+}
+
+.cm-link,
+.external-link {
+	color: var(--link-external-color);
+	text-decoration-color: var(--link-external-color);
+}
+
+.is-unresolved {
+	color: var(--link-unresolved-color);
+}
+
+/* === Headings === */
+
+.theme-dark,
+.theme-light {
+	--h1-color: var(--tn-purple);
+	--h2-color: var(--tn-blue);
+	--h3-color: var(--tn-cyan);
+	--h4-color: var(--tn-green);
+	--h5-color: var(--tn-yellow);
+	--h6-color: var(--tn-orange);
+}
+
+.markdown-rendered h1, .HyperMD-header-1 { color: var(--h1-color); }
+.markdown-rendered h2, .HyperMD-header-2 { color: var(--h2-color); }
+.markdown-rendered h3, .HyperMD-header-3 { color: var(--h3-color); }
+.markdown-rendered h4, .HyperMD-header-4 { color: var(--h4-color); }
+.markdown-rendered h5, .HyperMD-header-5 { color: var(--h5-color); }
+.markdown-rendered h6, .HyperMD-header-6 { color: var(--h6-color); }
+
+/* === Code === */
+
+.theme-dark,
+.theme-light {
+	/* Inline code uses a lighter surface so it pops off the page;
+	   fenced blocks sit on the deeper alt surface like sidebars.
+	   Token colors inside fenced blocks are owned by the Shiki
+	   Highlighter community plugin — see THEME.md. */
+	--code-inline-background: var(--tn-bg-highlight);
+	--code-inline-color: var(--tn-orange);
+	--code-background: var(--tn-bg-alt);
+	--code-normal: var(--tn-fg);
+
+	--inline-title-color: var(--tn-fg);
+	--pre-code-line-number-color: var(--tn-fg-faint);
+}
+
+/* Inline code (single backticks). `pre code` overrides further down. */
+code,
+.cm-inline-code {
+	background-color: var(--code-inline-background);
+	color: var(--code-inline-color);
+	border-radius: 4px;
+	padding: 0.1em 0.4em;
+	font-size: 0.92em;
+	font-weight: 500;
+}
+
+/* Fenced code blocks — outer surface */
+pre,
+.HyperMD-codeblock-bg,
+.markdown-rendered pre {
+	background-color: var(--code-background);
+	color: var(--code-normal);
+	border: 1px solid var(--tn-line);
+	border-radius: 6px;
+}
+
+/* Default text inside a fenced block — wins over inline rule above */
+pre code,
+.markdown-rendered pre code,
+.HyperMD-codeblock {
+	background-color: transparent;
+	color: var(--code-normal);
+	padding: 0;
+	font-size: 0.92em;
+	font-weight: 400;
+}
+
+/* Syntax-highlighting note: fenced code-block tokens are owned by the
+   Shiki Highlighter community plugin (id: shiki-highlighter). The theme
+   does not define .token.* / .cm-* / .tok-* rules — they'd fight Shiki. */
+
+/* === Callouts === */
+
+.theme-dark,
+.theme-light {
+	--callout-radius: 8px;
+	--callout-border-width: 1px;
+	--callout-blend-mode: normal;
+	--callout-padding: 0.75em 1em;
+
+	--callout-info: 122, 162, 247;       /* blue */
+	--callout-note: 122, 162, 247;
+	--callout-todo: 122, 162, 247;
+	--callout-abstract: 187, 154, 247;   /* purple */
+	--callout-summary: 187, 154, 247;
+	--callout-tldr: 187, 154, 247;
+	--callout-tip: 158, 206, 106;        /* green */
+	--callout-hint: 158, 206, 106;
+	--callout-important: 158, 206, 106;
+	--callout-success: 158, 206, 106;
+	--callout-check: 158, 206, 106;
+	--callout-done: 158, 206, 106;
+	--callout-question: 125, 207, 255;   /* cyan */
+	--callout-help: 125, 207, 255;
+	--callout-faq: 125, 207, 255;
+	--callout-warning: 224, 175, 104;    /* yellow */
+	--callout-caution: 224, 175, 104;
+	--callout-attention: 224, 175, 104;
+	--callout-failure: 247, 118, 142;    /* red */
+	--callout-fail: 247, 118, 142;
+	--callout-missing: 247, 118, 142;
+	--callout-danger: 247, 118, 142;
+	--callout-error: 247, 118, 142;
+	--callout-bug: 255, 158, 100;        /* orange */
+	--callout-example: 255, 0, 124;      /* magenta */
+	--callout-quote: 86, 95, 137;        /* fg-faint */
+	--callout-cite: 86, 95, 137;
+	--callout-default: 122, 162, 247;
+}
+
+/* === Tags === */
+
+.theme-dark,
+.theme-light {
+	--tag-color: var(--tn-cyan);
+	--tag-color-hover: var(--tn-blue);
+	--tag-background: rgba(125, 207, 255, 0.12);
+	--tag-background-hover: rgba(122, 162, 247, 0.18);
+	--tag-border-color: rgba(125, 207, 255, 0.35);
+	--tag-radius: 12px;
+	--tag-padding-x: 0.55em;
+	--tag-padding-y: 0.12em;
+	--tag-weight: 500;
+}
+
+.tag {
+	border: 1px solid var(--tag-border-color);
+}
+
+/* === Tables === */
+
+.theme-dark,
+.theme-light {
+	--table-border-color: var(--tn-line);
+	--table-header-color: var(--tn-fg);
+	--table-header-background: var(--tn-bg-alt);
+	--table-row-background-hover: var(--tn-bg-highlight);
+	--table-row-alt-background: var(--tn-bg-alt);
+}
+
+/* === Blockquotes === */
+
+.theme-dark,
+.theme-light {
+	--blockquote-color: var(--tn-fg-dim);
+	--blockquote-border-color: var(--tn-purple);
+	--blockquote-background-color: transparent;
+	--blockquote-border-thickness: 3px;
+}
+
+.markdown-rendered blockquote,
+.cm-blockquote {
+	border-left: var(--blockquote-border-thickness) solid var(--blockquote-border-color);
+	color: var(--blockquote-color);
+	background-color: var(--blockquote-background-color);
+	padding-left: 1em;
+}
+
+/* === Navigation (file explorer, outline, sidebars) === */
+
+.theme-dark,
+.theme-light {
+	--nav-item-color: var(--tn-fg-dim);
+	--nav-item-color-hover: var(--tn-fg);
+	--nav-item-color-active: var(--tn-fg);
+	--nav-item-color-selected: var(--tn-fg);
+	--nav-item-background-hover: var(--tn-bg-highlight);
+	--nav-item-background-active: rgba(122, 162, 247, 0.18);
+	--nav-item-background-selected: rgba(122, 162, 247, 0.12);
+	--nav-collapse-icon-color: var(--tn-fg-faint);
+	--nav-collapse-icon-color-collapsed: var(--tn-fg-faint);
+	--nav-file-title-color-active: var(--tn-blue);
+	--nav-indentation-guide-color: var(--tn-line);
+}
+
+.nav-file-title.is-active {
+	color: var(--nav-file-title-color-active);
+	font-weight: 600;
+}
+
+/* === Tabs & Title Bar === */
+
+.theme-dark,
+.theme-light {
+	--tab-background-active: var(--tn-bg);
+	--tab-background: var(--tn-bg-alt);
+	--tab-background-focused: var(--tn-bg);
+	--tab-outline-color: var(--tn-line);
+	--tab-outline-width: 1px;
+	--tab-text-color: var(--tn-fg-faint);
+	--tab-text-color-focused: var(--tn-fg-dim);
+	--tab-text-color-focused-active: var(--tn-fg);
+	--tab-text-color-focused-active-current: var(--tn-fg);
+	--titlebar-background: var(--tn-bg-alt);
+	--titlebar-background-focused: var(--tn-bg-alt);
+	--titlebar-text-color: var(--tn-fg-dim);
+	--titlebar-text-color-focused: var(--tn-fg);
+	--titlebar-text-color-highlighted: var(--tn-blue);
+	--header-tab-divider-color: var(--tn-line);
+}
+
+/* === Checkboxes & Lists === */
+
+.theme-dark,
+.theme-light {
+	--checkbox-color: var(--tn-blue);
+	--checkbox-color-hover: var(--tn-cyan);
+	--checkbox-marker-color: var(--text-on-accent);
+	--checkbox-border-color: var(--tn-line);
+	--checkbox-border-color-hover: var(--tn-blue);
+	--checkbox-radius: 4px;
+	--checklist-done-color: var(--tn-fg-faint);
+	--checklist-done-decoration: line-through;
+}
+
+/* === Graph view === */
+
+.theme-dark,
+.theme-light {
+	--graph-line: var(--tn-line);
+	--graph-node: var(--tn-fg-dim);
+	--graph-node-tag: var(--tn-cyan);
+	--graph-node-attachment: var(--tn-yellow);
+	--graph-node-unresolved: var(--tn-red);
+	--graph-node-focused: var(--tn-blue);
+	--graph-text: var(--tn-fg);
+}
+
+/* === Status bar / minor chrome === */
+
+.theme-dark,
+.theme-light {
+	--status-bar-background: var(--tn-bg-alt);
+	--status-bar-text-color: var(--tn-fg-dim);
+	--status-bar-border-color: var(--tn-line);
+	--divider-color: var(--tn-line);
+	--divider-color-hover: var(--tn-blue);
+	--workspace-background-translucent: rgba(36, 40, 59, 0.85);
+
+	--scrollbar-bg: transparent;
+	--scrollbar-thumb-bg: rgba(192, 202, 245, 0.12);
+	--scrollbar-active-thumb-bg: rgba(122, 162, 247, 0.4);
+}
+
+/* === Modal / suggester === */
+
+.suggestion-container,
+.prompt,
+.modal {
+	background-color: var(--tn-bg-popup);
+	border: 1px solid var(--tn-line);
+}
+
+.suggestion-item.is-selected {
+	background-color: var(--nav-item-background-active);
+	color: var(--tn-fg);
+}
+
+/* === Plugin-specific overrides === */
+
+/* Tasks plugin — task status pills */
+.task-list-item-checkbox {
+	border-color: var(--checkbox-border-color);
+}
+
+/* Tag wrangler / tag pane */
+.tag-pane-tag .tag-pane-tag-text {
+	color: var(--tn-cyan);
+}
+
+/* Properties view */
+.metadata-property-key-input,
+.metadata-property-value {
+	color: var(--tn-fg);
+}
+.metadata-property-key {
+	color: var(--tn-fg-dim);
+}
+
+/* Frontmatter (HyperMD) — palette-only nudge; the heavy lifting is in
+   snippets/editor-frontmatter.css */
+.cm-hmd-frontmatter {
+	color: var(--tn-fg-faint);
+}

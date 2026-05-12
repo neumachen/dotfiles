@@ -63,3 +63,12 @@ refreshPeriod = "48h"
 url = "https://github.com/MLFlexer/smart_workspace_switcher.wezterm"
 type = "git-repo"
 refreshPeriod = "48h"
+["MeinCodex/Notizen/Obsidian/Main/.obsidian/shiki-themes/tokyo-night-storm.json"]
+url = "https://raw.githubusercontent.com/enkia/tokyo-night-vscode-theme/master/themes/tokyo-night-storm-color-theme.json"
+type = "file"
+exact = true
+refreshPeriod = "48h"
+# Upstream ships VS Code JSONC (line comments + trailing commas); Shiki needs
+# strict JSON. Filter strips // line-comments and any trailing comma before } or ].
+filter.command = "python3"
+filter.args = ["-c", 'import sys, re; c = sys.stdin.read(); c = re.sub(r"//[^\n]*", "", c); c = re.sub(r",(\s*[}\]])", r"\1", c); sys.stdout.write(c)']
