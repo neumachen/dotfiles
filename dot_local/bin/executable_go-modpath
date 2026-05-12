@@ -1,0 +1,82 @@
+#!/bin/sh
+
+# Infer a Go module path from PWD relative to $CODEBASIS_DIR.
+# Expects the standard $CODEBASIS_DIR/<host>/<owner>/<repo>/... layout.
+#
+# Usage: go-modpath [-N]
+#   -N   drop N directories from immediately above the basename, preserving
+#        both the basename and <host>/<owner>. Maximum N equals the number of
+#        intermediate directories between <owner> and the basename.
+#
+# Examples (PWD = $CODEBASIS_DIR/github.com/instinctscience/build-tooling/tobi):
+#   go-modpath        github.com/instinctscience/build-tooling/tobi
+#   go-modpath -1     github.com/instinctscience/tobi
+#   go mod init "$(go-modpath)"
+
+set -eu
+
+usage_err() {
+  echo-err "go-modpath: $1"
+  echo-err "usage: go-modpath [-N]   (N >= 0; drops parents of basename while keeping <host>/<owner>)"
+  exit 1
+}
+
+strip=0
+if [ "$#" -gt 1 ]; then
+  usage_err "too many arguments"
+fi
+if [ "$#" -eq 1 ]; then
+  case "$1" in
+    -*)
+      n="${1#-}"
+      case "$n" in
+        ''|*[!0-9]*) usage_err "invalid argument '$1'" ;;
+      esac
+      strip="$n"
+      ;;
+    *) usage_err "invalid argument '$1'" ;;
+  esac
+fi
+
+if [ -z "${CODEBASIS_DIR:-}" ] || [ "${PWD#"$CODEBASIS_DIR"/}" = "$PWD" ]; then
+  echo-err "go-modpath: not inside \$CODEBASIS_DIR (PWD=$PWD)"
+  exit 1
+fi
+
+rel="${PWD#"$CODEBASIS_DIR"/}"
+
+case "$rel" in
+  */*/*) ;;
+  *)
+    echo-err "go-modpath: PWD must be at least \$CODEBASIS_DIR/<host>/<owner>/<repo> (got: $rel)"
+    exit 1
+    ;;
+esac
+
+n_components=1
+tmp="$rel"
+while [ "${tmp#*/}" != "$tmp" ]; do
+  tmp="${tmp#*/}"
+  n_components=$((n_components + 1))
+done
+
+max_strip=$((n_components - 3))
+if [ "$strip" -gt "$max_strip" ]; then
+  echo-err "go-modpath: cannot drop $strip parent dir(s) from '$rel' (would drop the owner; max is $max_strip)"
+  exit 1
+fi
+
+if [ "$strip" -eq 0 ]; then
+  printf '%s\n' "$rel"
+  exit 0
+fi
+
+basename="${rel##*/}"
+prefix="${rel%/*}"
+i=0
+while [ "$i" -lt "$strip" ]; do
+  prefix="${prefix%/*}"
+  i=$((i + 1))
+done
+
+printf '%s\n' "$prefix/$basename"
