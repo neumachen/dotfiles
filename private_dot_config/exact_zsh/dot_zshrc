@@ -248,11 +248,6 @@ if [[ -f "${HOME}/.config/broot/launcher/bash/br" ]]; then
   source "${HOME}/.config/broot/launcher/bash/br"
 fi
 
-# zoxide
-if command_exists zoxide; then
-  znap eval zoxide 'zoxide init --cmd cd zsh'
-fi
-
 # starship
 if command_exists starship; then
   znap eval starship 'starship init zsh'
@@ -276,6 +271,29 @@ zstyle ':completion:*' menu no
 zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza --color=always --icons -1 $realpath 2>/dev/null || ls --color=always $realpath 2>/dev/null'
 zstyle ':fzf-tab:complete:ls:*' fzf-preview 'eza --color=always --icons -1 $realpath 2>/dev/null || ls --color=always $realpath 2>/dev/null'
 zstyle ':fzf-tab:complete:*:*' fzf-preview 'if [[ -d $realpath ]]; then eza --color=always --icons -1 $realpath 2>/dev/null || ls --color=always $realpath 2>/dev/null; elif [[ -f $realpath ]]; then bat --color=always --style=numbers --line-range=:100 $realpath 2>/dev/null || head -100 $realpath 2>/dev/null; else echo $realpath; fi'
+
+#############################
+# zoxide (load last per zoxide doctor guidance; after fzf-tab so its
+# compdef for `cd` is the final writer of _comps[cd])
+#############################
+
+if command_exists zoxide; then
+  znap eval zoxide 'zoxide init --cmd cd zsh'
+
+  # Register a completion for `cd` so zsh-autocomplete auto-shows the
+  # zoxide directory list inline the moment you hit Space after `cd`
+  # (no Tab, no Enter required). Press Tab on the inline menu to hand off
+  # to fzf-tab for the tmux-popup picker with preview. `cdi` remains for
+  # explicit full-screen interactive selection.
+  _cd_zoxide() {
+    local -a zdirs
+    zdirs=("${(@f)$(zoxide query --list 2>/dev/null)}")
+    _alternative \
+      'local-directories:local dir:_path_files -/' \
+      'zoxide-directories:zoxide dir:compadd -V zoxide -d zdirs -a zdirs'
+  }
+  compdef _cd_zoxide cd
+fi
 
 #############################
 # FZF keybindings (must be in zvm_after_init to survive zsh-vi-mode)
@@ -302,6 +320,11 @@ export FORGIT_STASH_FZF_OPTS="--bind='ctrl-d:reload(git stash drop $(cut -d: -f1
 export FORGIT_LOG_FZF_OPTS="--bind='ctrl-e:execute(echo {} |grep -Eo [a-f0-9]+ |head -1 |xargs git show |vim -)'"
 
 export RIPGREP_CONFIG_PATH="${HOME}/.config/rg/.ripgreprc"
+
+# zoxide's `cdi` (and any internal zoxide fzf invocation) reads this.
+# --tmux makes the picker a tmux popup; harmless outside tmux thanks to
+# the --height fallback.
+export _ZO_FZF_OPTS="--tmux center,80%,40% --height=40% --reverse --info=inline --border --no-sort"
 
 # Pager configuration - prefer ov over less
 if command_exists ov; then
