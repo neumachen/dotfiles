@@ -117,12 +117,6 @@ _local_sbin="${HOME}/.local/sbin"
 [[ ! -d "${_local_sbin}" ]] && mkdir -p "${_local_sbin}"
 export LOCAL_SBIN="${_local_sbin}"
 
-# fzf bin
-_fzf_bin="${HOME}/.local/share/fzf/bin"
-if [[ -d "${_fzf_bin}" ]]; then
-  pathmunge "${_fzf_bin}" after
-fi
-
 # Local bins go after system and Homebrew paths
 pathmunge "${LOCAL_BIN}" after
 pathmunge "${LOCAL_SBIN}" after
@@ -132,11 +126,6 @@ if command_exists go; then
   _gopath="${HOME}/.local/share/go"
   [[ ! -d "${_gopath}" ]] && mkdir -p "${_gopath}"
   export GOPATH="${_gopath}"
-fi
-
-# Taskwarrior config
-if [[ ! -d "${XDG_CONFIG_HOME}/taskwarrior" ]] && command_exists task; then
-  export TASKWARRIOR_CONFIG="${XDG_CONFIG_HOME}/taskwarrior"
 fi
 
 {{- if (hasKey . "envvars") }}
