@@ -273,26 +273,11 @@ zstyle ':fzf-tab:complete:ls:*' fzf-preview 'eza --color=always --icons -1 $real
 zstyle ':fzf-tab:complete:*:*' fzf-preview 'if [[ -d $realpath ]]; then eza --color=always --icons -1 $realpath 2>/dev/null || ls --color=always $realpath 2>/dev/null; elif [[ -f $realpath ]]; then bat --color=always --style=numbers --line-range=:100 $realpath 2>/dev/null || head -100 $realpath 2>/dev/null; else echo $realpath; fi'
 
 #############################
-# zoxide (load last per zoxide doctor guidance; after fzf-tab so its
-# compdef for `cd` is the final writer of _comps[cd])
+# zoxide (load last per zoxide doctor guidance)
 #############################
 
 if command_exists zoxide; then
   znap eval zoxide 'zoxide init --cmd cd zsh'
-
-  # Register a completion for `cd` so zsh-autocomplete auto-shows the
-  # zoxide directory list inline the moment you hit Space after `cd`
-  # (no Tab, no Enter required). Press Tab on the inline menu to hand off
-  # to fzf-tab for the tmux-popup picker with preview. `cdi` remains for
-  # explicit full-screen interactive selection.
-  _cd_zoxide() {
-    local -a zdirs
-    zdirs=("${(@f)$(zoxide query --list 2>/dev/null)}")
-    _alternative \
-      'local-directories:local dir:_path_files -/' \
-      'zoxide-directories:zoxide dir:compadd -V zoxide -d zdirs -a zdirs'
-  }
-  compdef _cd_zoxide cd
 fi
 
 #############################
@@ -306,17 +291,6 @@ function zvm_after_init() {
   else
     echo-warn "fzf keybindings file: $fzf_key_bindings_path not found"
   fi
-
-  # Prefix-aware history navigation. Rebound here so zsh-vi-mode doesn't
-  # stomp them. ↑/↓ and Ctrl-P/Ctrl-N walk history filtered by what's
-  # already typed at the prompt (e.g. `git st<↑>` only cycles `git st…`).
-  autoload -Uz up-line-or-beginning-search down-line-or-beginning-search
-  zle -N up-line-or-beginning-search
-  zle -N down-line-or-beginning-search
-  bindkey '^[[A' up-line-or-beginning-search
-  bindkey '^[[B' down-line-or-beginning-search
-  bindkey '^P'   up-line-or-beginning-search
-  bindkey '^N'   down-line-or-beginning-search
 }
 
 #############################
@@ -333,9 +307,14 @@ export FORGIT_LOG_FZF_OPTS="--bind='ctrl-e:execute(echo {} |grep -Eo [a-f0-9]+ |
 export RIPGREP_CONFIG_PATH="${HOME}/.config/rg/.ripgreprc"
 
 # zoxide's `cdi` (and any internal zoxide fzf invocation) reads this.
-# --tmux makes the picker a tmux popup; harmless outside tmux thanks to
-# the --height fallback.
-export _ZO_FZF_OPTS="--tmux center,80%,40% --height=40% --reverse --info=inline --border --no-sort"
+# Use a tmux popup when inside tmux; fall back to inline (--height) outside.
+# fzf 0.70's --tmux fallback behavior outside tmux is unreliable, hence
+# the explicit branch rather than relying on it to gracefully fall back.
+if [[ -n "$TMUX" ]]; then
+  export _ZO_FZF_OPTS="--tmux center,80%,40% --reverse --info=inline --border --no-sort"
+else
+  export _ZO_FZF_OPTS="--height=40% --reverse --info=inline --border --no-sort"
+fi
 
 # Pager configuration - prefer ov over less
 if command_exists ov; then
