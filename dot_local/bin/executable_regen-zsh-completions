@@ -49,6 +49,84 @@ have kubectl  && generate _kubectl  kubectl completion zsh
 have minikube && generate _minikube minikube completion zsh
 have skaffold && generate _skaffold skaffold completion zsh
 
+# Custom script completions (inline heredocs)
+generate_inline() {
+  local name="$1"
+  local out="${ZSH_COMP_DIR}/${name}"
+  cat > "$out"
+  printf '  generated  %s\n' "$out"
+}
+
+have fz-brew && generate_inline _fz-brew <<'EOF'
+#compdef fz-brew
+_fz-brew() {
+  local -a commands=(
+    'install:Select one or more formulae to install'
+    'uninstall:Select one or more installed formulae to uninstall'
+    'update:Select one or more installed formulae to upgrade'
+  )
+  _describe -t commands 'fz-brew command' commands
+}
+_fz-brew "$@"
+EOF
+
+have fz-docker && generate_inline _fz-docker <<'EOF'
+#compdef fz-docker
+_fz-docker() {
+  local -a commands=(
+    'attach:Select a stopped container to start and attach to'
+    'rm:Select one or more containers to remove'
+    'image-rm:Select one or more images to remove'
+    'stop:Select a running container to stop'
+  )
+  _describe -t commands 'fz-docker command' commands
+}
+_fz-docker "$@"
+EOF
+
+have dots && generate_inline _dots <<'EOF'
+#compdef dots
+_dots() {
+  local -a commands=(
+    'apply:Show diff and apply changes locally'
+    'update:Pull updates and apply changes'
+    'init:Initialize chezmoi (first-time setup)'
+    'diff:Show pending changes'
+    'status:Show chezmoi status'
+    'verify:Verify dotfiles are up to date'
+    'add:Add files to chezmoi'
+    'edit:Edit a chezmoi-managed file'
+    'cd:Change to chezmoi source directory'
+  )
+  local -a options=(
+    '--noconfirm[Skip confirmation prompt]'
+    '--yes[Skip confirmation prompt]'
+    '--override[Override all safety checks]'
+    '--no-force[Do not use --force flag]'
+    '--no-keep-going[Do not use --keep-going flag]'
+    '--no-recursive[Do not use --recursive flag]'
+    '--force[Use --force flag]'
+    '--keep-going[Use --keep-going flag]'
+    '--recursive[Use --recursive flag]'
+    '-h[Show help]'
+    '--help[Show help]'
+  )
+  _arguments -s \
+    '1:command:->commands' \
+    '*:options:->options'
+  
+  case "$state" in
+    commands)
+      _describe -t commands 'dots command' commands
+      ;;
+    options)
+      _describe -t options 'dots option' options
+      ;;
+  esac
+}
+_dots "$@"
+EOF
+
 # Pre-compile to .zwc so the first compinit doesn't pay the parse cost.
 if have zsh; then
   zsh -fc "for f in ${ZSH_COMP_DIR}/_*(.); do zcompile -U \"\$f\" 2>/dev/null || true; done" || true
