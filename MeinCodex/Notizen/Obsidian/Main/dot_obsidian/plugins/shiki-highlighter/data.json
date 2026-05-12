@@ -1,0 +1,12 @@
+{
+  "disabledLanguages": [],
+  "customThemeFolder": ".obsidian/shiki-themes",
+  "customLanguageFolder": "",
+  "darkTheme": "tokyo-night-storm.json",
+  "lightTheme": "tokyo-night-storm.json",
+  "preferThemeColors": false,
+  "inlineHighlighting": true,
+  "ecDefaultShowLineNumbers": false,
+  "ecDefaultWrap": false,
+  "ecDefaultFrame": "auto"
+}

@@ -1,15 +1,22 @@
 #!/bin/bash
-# Creates required Obsidian vault reference directories that are NOT managed by Chezmoi.
+# Creates Obsidian vault directories that must exist before Chezmoi applies
+# file contents into them.
 #
-# These directories are part of the vault structure expected by the configured plugins
-# and hotkey-driven note creation templates, but their contents are runtime-generated
-# (notes, attachments) and must never be tracked by Chezmoi.
+# Two categories:
 #
-# Directories created:
-#   akten/    — project/case notes (Templater new-akten-note template, Cmd+Shift+N)
-#   zakki/    — general notes, daily journal (default new-note location, Cmd+N)
-#   kadai/    — task notes (Templater kadai template)
-#   assets/   — attachments (images, PDFs); Obsidian writes here on first drag-drop
+#   Runtime content dirs — created so plugins/templates have somewhere to write.
+#   Their contents are runtime-generated (notes, attachments) and must never be
+#   tracked by Chezmoi.
+#     akten/   — project/case notes (Templater new-akten-note template, Cmd+Shift+N)
+#     zakki/   — general notes, daily journal (default new-note location, Cmd+N)
+#     kadai/   — task notes (Templater kadai template)
+#     assets/  — attachments (images, PDFs); Obsidian writes here on first drag-drop
+#
+#   Parent dirs for Chezmoi-managed externals — these directories themselves are
+#   not tracked in source, but Chezmoi-managed files (via .chezmoiexternal.toml)
+#   need them to exist. Listed here so externals apply cleanly on a fresh machine.
+#     .obsidian/shiki-themes/  — holds custom Shiki theme JSON files; the
+#                                Tokyo Night Storm theme is fetched here.
 
 set -e
 
@@ -18,7 +25,15 @@ VAULT_DIR="${HOME}/MeinCodex/Notizen/Obsidian/Main"
 _log_info()  { echo "[INFO] --- $*"; }
 _log_ok()    { echo "[OK] --- $*"; }
 
-for dir in akten zakki kadai assets; do
+content_dirs=(
+  akten
+  zakki
+  kadai
+  assets
+  .obsidian/shiki-themes
+)
+
+for dir in "${content_dirs[@]}"; do
   target="${VAULT_DIR}/${dir}"
   if [ ! -d "${target}" ]; then
     mkdir -p "${target}"
