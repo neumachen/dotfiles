@@ -1,10 +1,21 @@
 # vim:ft=bash
 {{- if eq .chezmoi.os "darwin" }}
 #!/bin/bash
-
-# https://github.com/fabiomaia/linuxify
-# removed bash conversion prompt
-# used the echo-* commands
+#
+# linuxify - Install GNU tools on macOS to replace BSD equivalents
+#
+# This script installs GNU versions of common command-line tools via Homebrew,
+# making macOS behave more like Linux. Useful for cross-platform shell scripts
+# that expect GNU options/behavior.
+#
+# Usage:
+#   linuxify install   - Install GNU tools and add them to PATH
+#   linuxify uninstall - Remove GNU tools
+#   linuxify info      - Show installed GNU tools
+#
+# Based on: https://github.com/fabiomaia/linuxify
+# Modified: removed bash conversion prompt, uses echo-* commands
+#
 set -euo pipefail
 
 export CPU_BRAND_STRING="$(sysctl -a | /usr/bin/awk '/machdep.cpu.brand_string/{print $2}')"
