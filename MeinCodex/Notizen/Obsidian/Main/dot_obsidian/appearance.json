@@ -1,13 +1,12 @@
 {
-  "accentColor": "#872ac6",
-  "cssTheme": "Minimal",
+  "accentColor": "#7aa2f7",
+  "cssTheme": "tokyo-night-storm",
   "theme": "obsidian",
   "enabledCssSnippets": [
     "editor-frontmatter",
     "editor-tables",
     "plugin-mysnippets",
     "ui-compact-tab-header",
-    "ui-default-style-settings",
     "ui-hide-system-frontmatter",
     "ui-statusbar-tweaks"
   ],
