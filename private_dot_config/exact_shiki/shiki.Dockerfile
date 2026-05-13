@@ -41,10 +41,12 @@ RUN git config --system --add safe.directory "*" \
 # ── 2) Use bash + pipefail for safer RUN steps ────────────────────────
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# ── 3) Install SSH client + mise bootstrap dependencies ───────────────
+# ── 3) Install SSH client + mise bootstrap + Claude SDK runtime deps ──
 #    openssh-client provides ssh-keygen (git SSH signing) and ssh-add
 #    (agent check). curl/ca-certificates/xz-utils/unzip are needed for
-#    the official mise installer and common tool archives.
+#    the official mise installer and common tool archives. ripgrep
+#    (rg) backs Claude SDK's Grep tool; bubblewrap (bwrap) backs its
+#    sandbox; git check-ignore comes from the already-installed git.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         openssh-client \
@@ -52,6 +54,8 @@ RUN apt-get update \
         ca-certificates \
         xz-utils \
         unzip \
+        ripgrep \
+        bubblewrap \
     && rm -rf /var/lib/apt/lists/*
 
 # ── 4) Install mise ───────────────────────────────────────────────────
@@ -63,7 +67,8 @@ ENV PATH=/usr/local/share/mise/shims:/root/.local/share/mise/shims:${PATH}
 
 RUN mkdir -p "${MISE_CONFIG_DIR}" "${MISE_DATA_DIR}" "${MISE_CACHE_DIR}" \
     && curl -fsSL https://mise.run | sh \
-    && mise --version
+    && mise --version \
+    && echo 'eval "$(mise activate bash)"' >> /root/.bashrc
 
 # ── 5) Preinstall AiderDesk extensions into the image ─────────────────
 #    Default extensions are baked into the image. At build time you can
