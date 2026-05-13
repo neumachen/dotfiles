@@ -227,6 +227,48 @@ znap source joke/zim-mise
 # Load zsh-vi-mode early to avoid rewriting fzf opts
 znap source jeffreytse/zsh-vi-mode
 
+# Diagnostic wrapper: zsh-vi-mode's deferred init runs in precmd and
+# can fail silently (returning 0 but leaving zvm_init still queued in
+# precmd_functions, breaking Tab/completion). This wrapper logs every
+# invocation to a file so we can see exit code, duration, pwd, and
+# whether self-removal happened. Also prints a loud stderr line on
+# non-zero exit. Safe to remove once the cause is found.
+zmodload zsh/datetime  # for EPOCHREALTIME
+() {
+  local log_dir="${XDG_STATE_HOME:-$HOME/.local/state}/zsh"
+  [[ -d "$log_dir" ]] || mkdir -p "$log_dir"
+  export ZVM_INIT_LOG="$log_dir/zvm_init.log"
+
+  print -r -- "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] wrapper-installed pid=$$ zshrc-load" >> "$ZVM_INIT_LOG"
+
+  (( ${+functions[zvm_init]} )) || {
+    print -r -- "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] ERROR: zvm_init not defined at wrapper-install time" >> "$ZVM_INIT_LOG"
+    return 0
+  }
+
+  eval "function _zvm_init_orig() $functions[zvm_init]"
+  function zvm_init() {
+    local _t0=$EPOCHREALTIME
+    local _pwd=$PWD
+    local _pre_idx=${precmd_functions[(I)zvm_init]}
+    local _rc
+    {
+      _zvm_init_orig "$@"
+      _rc=$?
+    } always {
+      local _post_idx=${precmd_functions[(I)zvm_init]}
+      local _dt
+      _dt=$(printf "%.3fs" $((EPOCHREALTIME - _t0)))
+      print -r -- "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] zvm_init rc=$_rc dt=$_dt pwd=$_pwd pre_idx=$_pre_idx post_idx=$_post_idx" >> "$ZVM_INIT_LOG"
+      (( _rc )) && print -u2 "[zvm_init] failed (exit=$_rc) -- see $ZVM_INIT_LOG"
+      # Healthy zvm_init self-removes from precmd_functions. If it
+      # didn't, that's the silent failure we're chasing.
+      (( _post_idx )) && print -u2 "[zvm_init] still queued after run (idx=$_post_idx) -- see $ZVM_INIT_LOG"
+    }
+    return $_rc
+  }
+}
+
 # Syntax highlighting must load BEFORE zsh-autocomplete to avoid
 # "unhandled ZLE widget" warnings for menu-search/recent-paths
 znap source zdharma-continuum/fast-syntax-highlighting
