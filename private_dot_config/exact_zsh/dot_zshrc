@@ -235,68 +235,6 @@ znap source joke/zim-mise
 # Load zsh-vi-mode early to avoid rewriting fzf opts
 znap source jeffreytse/zsh-vi-mode
 
-# Diagnostic wrapper: zsh-vi-mode's deferred init runs in precmd and
-# can fail silently (returning 0 but leaving zvm_init still queued in
-# precmd_functions, breaking Tab/completion). This wrapper logs every
-# invocation to a file so we can see exit code, duration, pwd, and
-# whether self-removal happened. Also prints a loud stderr line on
-# non-zero exit. Safe to remove once the cause is found.
-zmodload zsh/datetime  # for EPOCHREALTIME + strftime
-() {
-  local log_dir="${XDG_STATE_HOME:-$HOME/.local/state}/zsh"
-  [[ -d "$log_dir" ]] || mkdir -p "$log_dir"
-  export ZVM_INIT_LOG="$log_dir/zvm_init.log"
-
-  # Rotate: cap at 2000 lines, truncate to last 1000 when exceeded.
-  # Runs once per zshrc load (cheap, single wc -l + maybe one tail).
-  if [[ -f "$ZVM_INIT_LOG" ]]; then
-    local _lines
-    _lines=$(wc -l < "$ZVM_INIT_LOG" 2>/dev/null || print 0)
-    if (( _lines > 2000 )); then
-      tail -n 1000 "$ZVM_INIT_LOG" > "$ZVM_INIT_LOG.tmp" \
-        && mv "$ZVM_INIT_LOG.tmp" "$ZVM_INIT_LOG"
-    fi
-  fi
-
-  # Local-time ISO-8601 with TZ offset — easy to correlate with shell
-  # session timing without doing timezone math.
-  local _ts
-  strftime -s _ts "%Y-%m-%dT%H:%M:%S%z" "$EPOCHSECONDS"
-
-  print -r -- "[$_ts] wrapper-installed pid=$$ zshrc-load" >> "$ZVM_INIT_LOG"
-
-  (( ${+functions[zvm_init]} )) || {
-    print -r -- "[$_ts] ERROR: zvm_init not defined at wrapper-install time" >> "$ZVM_INIT_LOG"
-    return 0
-  }
-
-  eval "function _zvm_init_orig() $functions[zvm_init]"
-  function zvm_init() {
-    local _t0=$EPOCHREALTIME
-    local _pwd=$PWD
-    local _pre_idx=${precmd_functions[(I)zvm_init]}
-    local _rc _ts
-    strftime -s _ts "%Y-%m-%dT%H:%M:%S%z" "$EPOCHSECONDS"
-    {
-      _zvm_init_orig "$@"
-      _rc=$?
-    } always {
-      local _post_idx=${precmd_functions[(I)zvm_init]}
-      local _dt
-      _dt=$(printf "%.3fs" $((EPOCHREALTIME - _t0)))
-      print -r -- "[$_ts] zvm_init rc=$_rc dt=$_dt pwd=$_pwd pre_idx=$_pre_idx post_idx=$_post_idx" >> "$ZVM_INIT_LOG"
-      # Stderr message carries the same timestamp so you can grep the
-      # log file for the exact entry when sharing terminal output.
-      (( _rc )) && print -u2 "[$_ts zvm_init] failed (exit=$_rc) -- see $ZVM_INIT_LOG"
-      # Note: zvm_init not self-removing (post_idx > 0) used to print
-      # to stderr too, but we confirmed it's a harmless quirk — zvm
-      # stays queued every prompt without affecting functionality.
-      # File log still captures it for forensic use.
-    }
-    return $_rc
-  }
-}
-
 # Syntax highlighting must load BEFORE zsh-autocomplete to avoid
 # "unhandled ZLE widget" warnings for menu-search/recent-paths
 znap source zdharma-continuum/fast-syntax-highlighting
@@ -594,6 +532,25 @@ function y() {
 
 function reload-shell() {
   exec zsh -il
+}
+
+# Targeted recovery when Tab completion silently dies — usually after
+# a TUI exits (vim, git commit, etc.) and fzf-tab's widget chain ends
+# up referencing a stale revision in the wrapping stack
+# (zsh-vi-mode → fast-syntax-highlighting → zsh-autocomplete → fzf-tab).
+# Lighter than `reload-shell`: keeps your shell session, history, and
+# variables; just resets fzf-tab and re-asserts the Tab binding.
+function heal-tab() {
+  if (( ${+functions[disable-fzf-tab]} )) && (( ${+functions[enable-fzf-tab]} )); then
+    disable-fzf-tab
+    enable-fzf-tab
+    bindkey -M viins '^I' fzf-tab-complete
+    bindkey -M main  '^I' fzf-tab-complete
+    echo-info "fzf-tab reset; Tab re-bound"
+  else
+    echo-warn "fzf-tab functions not available; falling back to reload-shell"
+    reload-shell
+  fi
 }
 
 # Report cwd via OSC 7 so terminals (Wezterm, etc.) can show it in tabs when
