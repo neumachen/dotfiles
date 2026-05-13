@@ -173,12 +173,24 @@ Mounts (automatic):
   SSH agent socket         → auto-detected container path (when available)
 
 Per-session mise:
-  The container has ripgrep + bubblewrap baked in for Claude SDK. To add a
-  language toolchain (Node, Go, Python, ...) for a session, exec in and run:
+  The container has ripgrep + bubblewrap + socat baked in for Claude SDK,
+  plus a shiki-managed mise config (gh, jq, fzf, vim, delta) auto-installed
+  on first start. To add language toolchains (Node, Go, Python, ...) for a
+  session, exec in and run:
     docker exec -it <session> bash
     mise use node@24    # or whichever tool/version
   Tools install under /root/.local/share/mise/ (persisted on the host)
   and are available on subsequent container starts of the same session.
+  Set SHIKI_SKIP_MISE_INSTALL=1 on the container to skip the entrypoint
+  auto-install (debugging / fast restart).
+
+Claude SDK sandbox inside Docker:
+  bubblewrap's user-namespace isolation can fail inside Docker depending
+  on the host AppArmor profile. If Claude Code reports sandbox errors,
+  set enableWeakerNestedSandbox in the session's ~/.claude/settings.json:
+    { "sandbox": { "enableWeakerNestedSandbox": true } }
+  This file is bind-mounted from
+  ~/.local/share/aider-desk/<session>/claude/settings.json on the host.
 
 Host localhost access:
   Bridge mode (default):
