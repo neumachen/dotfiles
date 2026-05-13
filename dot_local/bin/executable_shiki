@@ -1,15 +1,20 @@
 #!/usr/bin/env bash
 # shiki: launch AiderDesk in a container with per-session persistent data
 #
-# This script wraps AiderDesk in a container with persistent sessions, SSH agent
-# forwarding for 1Password commit signing, and sensible mounts.
+# Wraps AiderDesk in a container with persistent sessions, SSH agent forwarding
+# for 1Password commit signing, and sensible mounts. The static container shape
+# (build args, env, base volumes, port publish, network aliases) is declared in
+# ~/.config/shiki/compose.yaml; this script handles the per-invocation parts
+# (session naming, project dir resolution, SSH socket detection, session
+# restore, runtime overlay generation) and shells out to `docker compose`.
 #
 # Usage:
-#   shiki [wrapper-opts] -- [docker run opts ...]
+#   shiki [wrapper-opts] [-- -e KEY=VAL -v HOST:CONT ...]
 #
 # Behavior:
 #   • Args BEFORE `--` are wrapper options.
-#   • Args AFTER  `--` are passed directly to `docker run`.
+#   • Args AFTER  `--` are docker-style passthrough flags (-e/--env,
+#     -v/--volume) merged into the per-session compose overlay.
 #   • Git identity and signing config are injected via env vars.
 #   • AiderDesk runs as a headless web server (detached).
 #   • Use --rebuild to (re)build the local image from the Dockerfile,
@@ -50,20 +55,21 @@ BUILD_PULL=1
 SESSION_NAME=""
 HOST_PORT="$DEFAULT_PORT"
 PROJECT_DIRS=()
-DOCKER_EXTRAS=()
+EXTRA_ENV=()
+EXTRA_VOLUMES=()
 EXTENSIONS_VOLUME_SUFFIX="extensions"
 
 SHIKI_ABOUT=$'Shiki — AiderDesk in a container with persistent sessions.\nThis tool wraps AiderDesk with SSH agent forwarding for 1Password commit\nsigning and sensible mounts for your project.'
 
 die() {
-  printf 'error: %s\n' "$*" >&2
+  echo-fatal "$*" >&2
   exit 1
 }
 
 usage() {
   cat <<'USAGE'
 Usage:
-  shiki [wrapper-opts] -- [docker run opts ...]
+  shiki [wrapper-opts] [-- -e KEY=VAL -v HOST:CONT ...]
 
 Wrapper options (before --):
   -n, --name         Session/container name (default: shiki-<project>).
@@ -95,6 +101,17 @@ Wrapper options (before --):
       --about        Show a short description of Shiki.
   -h, --help         Show this help and exit.
 
+Docker passthrough (after --):
+  -e, --env KEY=VAL  Append an environment variable to the container.
+                     May be repeated. Values containing spaces or shell
+                     metacharacters should be quoted on the command line.
+  -v, --volume HOST:CONT[:MODE]
+                     Append a bind mount or named volume to the container.
+                     May be repeated. MODE is the standard docker mode
+                     suffix (e.g. `ro`, `rw`, `z`).
+  For other docker-compose tweaks, point SHIKI_COMPOSE_EXTRA_FILES at a
+  compose override file.
+
 Required environment variables:
   GIT_USER_NAME      Git identity: user name.
   GIT_USER_EMAIL     Git identity: user email.
@@ -106,6 +123,13 @@ Optional environment variables:
                      Comma-separated extension IDs/URLs to append to defaults at build time.
   AIDER_DESK_EXTENSIONS_OVERRIDE
                      Comma-separated extension IDs/URLs that fully replace defaults at build time.
+  SHIKI_DIR          Override the shiki bundle directory
+                     (default: $XDG_CONFIG_HOME/shiki or ~/.config/shiki).
+                     Must contain compose.yaml, shiki.Dockerfile, entrypoint.sh,
+                     and install-aiderdesk-extensions.sh.
+  SHIKI_COMPOSE_EXTRA_FILES
+                     Colon-separated list of extra compose files merged after the
+                     base + host-network override + runtime overlay.
   SHIKI_NETWORK_MODE
                      Container network mode: bridge (default) or host.
   SHIKI_HOST_LOCALHOST_ALIAS
@@ -175,6 +199,8 @@ Examples:
   shiki -n my-session --update-extensions       # refresh extensions volume only
   shiki -n my-session --rebuild --update-extensions
                                                    # rebuild image and refresh extensions only
+  shiki -- -e OPENAI_API_KEY="$OPENAI_API_KEY"  # extra env var
+  shiki -- -e FOO=bar -v ~/data:/data:ro         # extra env + read-only bind
 USAGE
 }
 
@@ -200,6 +226,40 @@ make_default_session_name() {
 
 print_about() { printf '%s\n' "$SHIKI_ABOUT"; }
 
+parse_docker_extras() {
+  while [ $# -gt 0 ]; do
+    case "$1" in
+    -e | --env)
+      [ $# -ge 2 ] || die "-e/--env requires a KEY=VALUE argument"
+      [ "${2#*=}" != "$2" ] || die "-e/--env value must be KEY=VALUE (got: $2)"
+      EXTRA_ENV+=("$2")
+      shift 2
+      ;;
+    --env=*)
+      _kv="${1#--env=}"
+      [ "${_kv#*=}" != "$_kv" ] || die "--env=KEY=VALUE: value must be KEY=VALUE (got: $_kv)"
+      EXTRA_ENV+=("$_kv")
+      shift
+      ;;
+    -v | --volume)
+      [ $# -ge 2 ] || die "-v/--volume requires a HOST:CONTAINER[:MODE] argument"
+      [ "${2#*:}" != "$2" ] || die "-v/--volume value must be HOST:CONTAINER[:MODE] (got: $2)"
+      EXTRA_VOLUMES+=("$2")
+      shift 2
+      ;;
+    --volume=*)
+      _v="${1#--volume=}"
+      [ "${_v#*:}" != "$_v" ] || die "--volume=HOST:CONTAINER[:MODE]: missing colon (got: $_v)"
+      EXTRA_VOLUMES+=("$_v")
+      shift
+      ;;
+    *)
+      die "Unsupported passthrough flag: $1 (supported: -e/--env KEY=VAL, -v/--volume HOST:CONT[:MODE]). For other compose tweaks, set SHIKI_COMPOSE_EXTRA_FILES."
+      ;;
+    esac
+  done
+}
+
 parse_rebuild_modifiers() {
   local modifiers="${1:-}"
   local modifier
@@ -212,43 +272,26 @@ parse_rebuild_modifiers() {
     modifier="$(printf '%s' "$modifier" | xargs)"
     [ -n "$modifier" ] || continue
     case "$modifier" in
-    pull)
-      BUILD_PULL=1
-      ;;
-    no-pull)
-      BUILD_PULL=0
-      ;;
-    cache)
-      BUILD_USE_CACHE=1
-      ;;
-    no-cache)
-      BUILD_USE_CACHE=0
-      ;;
-    *)
-      die "Unknown --rebuild modifier: $modifier (supported: pull,no-pull,cache,no-cache)"
-      ;;
+    pull) BUILD_PULL=1 ;;
+    no-pull) BUILD_PULL=0 ;;
+    cache) BUILD_USE_CACHE=1 ;;
+    no-cache) BUILD_USE_CACHE=0 ;;
+    *) die "Unknown --rebuild modifier: $modifier (supported: pull,no-pull,cache,no-cache)" ;;
     esac
   done
 }
 
 # ---------- parse args ----------
 parse_args() {
-  local after_delim=0
   while [ $# -gt 0 ]; do
     case "$1" in
     --)
-      after_delim=1
       shift
-      break
+      parse_docker_extras "$@"
+      return 0
       ;;
-    -h | --help)
-      usage
-      exit 0
-      ;;
-    --about)
-      print_about
-      exit 0
-      ;;
+    -h | --help) usage; exit 0 ;;
+    --about) print_about; exit 0 ;;
     -n | --name)
       [ $# -ge 2 ] || die "--name requires an argument"
       SESSION_NAME="$(sanitize_docker_name "${DEFAULT_PREFIX}-$2")"
@@ -269,12 +312,7 @@ parse_args() {
       local added=0
       while [ $# -gt 0 ]; do
         case "$1" in
-        --)
-          break
-          ;;
-        -*)
-          break
-          ;;
+        -*) break ;;
         *)
           PROJECT_DIRS+=("$1")
           added=1
@@ -284,18 +322,9 @@ parse_args() {
       done
       [ "$added" -eq 1 ] || die "--dir requires at least one directory argument"
       ;;
-    --host-network)
-      NETWORK_MODE="host"
-      shift
-      ;;
-    --bridge-network)
-      NETWORK_MODE="bridge"
-      shift
-      ;;
-    --pull)
-      PULL_IMAGE=1
-      shift
-      ;;
+    --host-network) NETWORK_MODE="host"; shift ;;
+    --bridge-network) NETWORK_MODE="bridge"; shift ;;
+    --pull) PULL_IMAGE=1; shift ;;
     --rebuild)
       REBUILD_IMAGE=1
       if [ $# -ge 2 ] && [ "${2#-}" = "$2" ]; then
@@ -310,28 +339,13 @@ parse_args() {
       parse_rebuild_modifiers "${1#--rebuild=}"
       shift
       ;;
-    --update-extensions)
-      UPDATE_EXTENSIONS=1
-      shift
-      ;;
-    *) die "Unknown option: $1 (use -- to pass extra flags to docker run)" ;;
+    --update-extensions) UPDATE_EXTENSIONS=1; shift ;;
+    *) die "Unknown option: $1" ;;
     esac
   done
-
-  if [ "$after_delim" -eq 1 ]; then
-    while [ $# -gt 0 ]; do
-      DOCKER_EXTRAS+=("$1")
-      shift
-    done
-  fi
 }
 
 parse_args "$@"
-
-# ---------- defaults for dirs ----------
-if [ ${#PROJECT_DIRS[@]} -eq 0 ]; then
-  PROJECT_DIRS=("$PWD")
-fi
 
 # ---------- preflight ----------
 have docker || die "docker not found in PATH."
@@ -347,6 +361,11 @@ case "$NETWORK_MODE" in
 bridge | host) ;;
 *) die "Invalid SHIKI_NETWORK_MODE/--network mode: ${NETWORK_MODE} (expected: bridge or host)" ;;
 esac
+
+# ---------- defaults for dirs ----------
+if [ ${#PROJECT_DIRS[@]} -eq 0 ]; then
+  PROJECT_DIRS=("$PWD")
+fi
 
 # Resolve and validate all project dirs; primary dir is first entry
 PROJECT_DIRS_ABS=()
@@ -364,7 +383,18 @@ AIDER_CONFIG="${HOME}/.config/aider/aider.conf.yml"
 CODEX_AUTH_HOST_PATH="${CODEX_AUTH_HOST_PATH:-${HOME}/.codex}"
 CODEX_AUTH_CONTAINER_PATH="${CODEX_AUTH_CONTAINER_PATH:-/root/.codex}"
 
-# SSH agent socket setup
+SHIKI_DIR="${SHIKI_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/shiki}"
+SHIKI_COMPOSE_BASE="${SHIKI_DIR}/compose.yaml"
+SHIKI_COMPOSE_HOST_NETWORK="${SHIKI_DIR}/compose.host-network.yaml"
+SHIKI_DOCKERFILE="${SHIKI_DIR}/shiki.Dockerfile"
+SHIKI_ENTRYPOINT="${SHIKI_DIR}/entrypoint.sh"
+SHIKI_EXTENSIONS_INSTALLER="${SHIKI_DIR}/install-aiderdesk-extensions.sh"
+
+for _f in "$SHIKI_COMPOSE_BASE" "$SHIKI_COMPOSE_HOST_NETWORK" "$SHIKI_DOCKERFILE" "$SHIKI_ENTRYPOINT" "$SHIKI_EXTENSIONS_INSTALLER"; do
+  [ -f "$_f" ] || die "Missing shiki bundle file: $_f (set SHIKI_DIR or sync your dotfiles)."
+done
+
+# ---------- SSH agent socket ----------
 # Preference order:
 #   1. Container runtime host-services socket, when available
 #   2. Active host SSH_AUTH_SOCK
@@ -392,54 +422,27 @@ have_container_ssh_auth_sock() {
   if [ "${USE_HOST_SERVICES_SSH_AUTH_SOCK:-0}" -eq 1 ]; then
     return 0
   fi
-
   [ -n "${HOST_SSH_AUTH_SOCK:-}" ] && [ -S "${HOST_SSH_AUTH_SOCK}" ]
 }
 
-docker_supports_host_gateway() {
-  local version major minor remainder
-
-  version="$(docker version --format '{{.Server.Version}}' 2>/dev/null || true)"
-  version="${version%%-*}"
-  major="${version%%.*}"
-  remainder="${version#*.}"
-  if [ "$remainder" = "$version" ]; then
-    minor=0
-  else
-    minor="${remainder%%.*}"
+# ---------- signing key fallback ----------
+if [ -z "${GIT_SIGNING_KEY:-}" ]; then
+  host_gpg_format="$(git config gpg.format 2>/dev/null || true)"
+  if [ "$host_gpg_format" = "ssh" ]; then
+    : "${GIT_SIGNING_KEY:=$(git config user.signingkey 2>/dev/null || true)}"
   fi
+fi
 
-  case "$major" in
-  '' | *[!0-9]*)
-    return 1
-    ;;
-  esac
+if [ -n "${GIT_SIGNING_KEY:-}" ] && ! have_container_ssh_auth_sock; then
+  echo-warn "GIT_SIGNING_KEY is set but no usable SSH agent socket was found."
+  echo-warn "  Checked: ${HOST_SSH_AUTH_SOCK:-<unset>}"
+  echo-warn "  Commit signing will fail without agent forwarding."
+fi
 
-  case "$minor" in
-  '' | *[!0-9]*)
-    minor=0
-    ;;
-  esac
-
-  [ "$major" -gt 20 ] || { [ "$major" -eq 20 ] && [ "$minor" -ge 10 ]; }
-}
-
-container_network_mode() {
-  docker inspect --format '{{.HostConfig.NetworkMode}}' "$1" 2>/dev/null || true
-}
-
-container_aider_desk_port() {
-  local env_line port
-
-  env_line="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$1" 2>/dev/null | grep '^AIDER_DESK_PORT=' | tail -n 1 || true)"
-  port="${env_line#AIDER_DESK_PORT=}"
-  [ -n "$port" ] || port="$DEFAULT_PORT"
-  printf '%s\n' "$port"
-}
-
-# Build per-directory container paths — each dir is mounted AS a named
-# subdirectory inside /projects (e.g. host /home/user/a-1 → /projects/a-1).
-# If basenames collide, append a numeric suffix to keep targets unique.
+# ---------- container path collision handling ----------
+# Each dir is mounted AS a named subdirectory inside /projects
+# (e.g. host /home/user/a-1 → /projects/a-1). If basenames collide,
+# append a numeric suffix to keep targets unique.
 PROJECT_CONTAINER_PATHS=()
 for _d in "${PROJECT_DIRS_ABS[@]}"; do
   _base="$(basename -- "$_d")"
@@ -459,7 +462,7 @@ for _d in "${PROJECT_DIRS_ABS[@]}"; do
   done
   PROJECT_CONTAINER_PATHS+=("/projects/${_name}")
 done
-# Colon-separated list for AIDER_DESK_PROJECTS env var
+
 PROJECT_CONTAINER_PATH_LIST=""
 for _cp in "${PROJECT_CONTAINER_PATHS[@]}"; do
   if [ -z "$PROJECT_CONTAINER_PATH_LIST" ]; then
@@ -468,6 +471,7 @@ for _cp in "${PROJECT_CONTAINER_PATHS[@]}"; do
     PROJECT_CONTAINER_PATH_LIST="${PROJECT_CONTAINER_PATH_LIST}:${_cp}"
   fi
 done
+
 mkdir -p \
   "${AIDER_DESK_GLOBAL}/hooks" \
   "${AIDER_DESK_GLOBAL}/skills" \
@@ -478,177 +482,186 @@ mkdir -p \
   "${CODEX_AUTH_HOST_PATH}"
 
 # ---------- session resolution ----------
-# Returns:
-#   0 = new session
-#   1 = resume existing container (stopped or running)
-#   2 = restore from data directory (container removed)
+# 0 = new session, 1 = resume container (running or stopped), 2 = restore from data
 SESSION_ACTION=0
 
 if [ -z "$SESSION_NAME" ]; then
-  # Default session name is based on the current working directory basename
-  default_name="$(make_default_session_name)"
-  SESSION_NAME="$default_name"
-  if docker ps -a --format '{{.Names}}' | grep -qx "$default_name"; then
-    SESSION_ACTION=1 # container exists
-  elif [ -d "${AIDER_DESK_DATA_ROOT}/${default_name}/data" ]; then
-    SESSION_ACTION=2 # data exists, no container
-  else
-    SESSION_ACTION=0 # fresh new session
-  fi
-else
-  # Name was provided explicitly
-  if docker ps -a --format '{{.Names}}' | grep -qx "$SESSION_NAME"; then
-    SESSION_ACTION=1 # container exists
-  elif [ -d "${AIDER_DESK_DATA_ROOT}/${SESSION_NAME}/data" ]; then
-    SESSION_ACTION=2 # data exists, no container
-  else
-    SESSION_ACTION=0 # fresh
-  fi
+  SESSION_NAME="$(make_default_session_name)"
 fi
 
-# Session data directory on host
+if docker ps -a --format '{{.Names}}' | grep -qx "$SESSION_NAME"; then
+  SESSION_ACTION=1
+elif [ -d "${AIDER_DESK_DATA_ROOT}/${SESSION_NAME}/data" ]; then
+  SESSION_ACTION=2
+fi
+
 SESSION_DATA="${AIDER_DESK_DATA_ROOT}/${SESSION_NAME}/data"
 # Per-session Claude Code home (~/.claude inside the container).
 # Persists conversation files at ~/.claude/projects/<cwd>/<session-id>.jsonl
 # across container removal so resume-by-session-id keeps working.
 SESSION_CLAUDE="${AIDER_DESK_DATA_ROOT}/${SESSION_NAME}/claude"
+SESSION_RUNTIME_DIR="${AIDER_DESK_DATA_ROOT}/${SESSION_NAME}/runtime"
+RUNTIME_OVERLAY="${SESSION_RUNTIME_DIR}/compose.runtime.yaml"
+EXTENSIONS_VOLUME="${SESSION_NAME}-${EXTENSIONS_VOLUME_SUFFIX}"
 
-# ---------- locate Dockerfile (for --rebuild / --pull on local image) ----------
-has_complete_devcontainer() {
-  local dockerfile="${1:-}"
-  local devcontainer_dir
+# Compose project name strips the "shiki-" prefix from the container name so
+# OrbStack auto-domains read as "<service>.<project>.orb.local" — i.e.
+# shiki.codex.orb.local rather than shiki.shiki-codex.orb.local.
+PROJECT_NAME="${SESSION_NAME#${DEFAULT_PREFIX}-}"
+[ -n "$PROJECT_NAME" ] || PROJECT_NAME="$SESSION_NAME"
 
-  [ -n "$dockerfile" ] || return 1
-  [ -f "$dockerfile" ] || return 1
+# ---------- env exports for docker compose ----------
+export SHIKI_IMAGE="$IMAGE"
+export SESSION_NAME
+export UPSTREAM_IMAGE
+export AIDER_DESK_EXTENSIONS_APPEND="${AIDER_DESK_EXTENSIONS_APPEND:-}"
+export AIDER_DESK_EXTENSIONS_OVERRIDE="${AIDER_DESK_EXTENSIONS_OVERRIDE:-}"
+export GIT_USER_NAME GIT_USER_EMAIL
+export GIT_SIGNING_KEY="${GIT_SIGNING_KEY:-}"
+export GIT_SIGN_COMMITS="${GIT_SIGN_COMMITS:-}"
+export AIDER_DESK_PROJECTS="$PROJECT_CONTAINER_PATH_LIST"
+export SHIKI_NETWORK_MODE="$NETWORK_MODE"
+if [ "$NETWORK_MODE" = "host" ]; then
+  export SHIKI_HOST_LOCALHOST="localhost"
+  export SHIKI_HOST_GATEWAY="localhost"
+else
+  export SHIKI_HOST_LOCALHOST="$HOST_LOCALHOST_ALIAS"
+  export SHIKI_HOST_GATEWAY="$HOST_GATEWAY_ALIAS"
+fi
+export SESSION_DATA SESSION_CLAUDE
+export AIDER_DESK_GLOBAL
+export CODEX_AUTH_HOST_PATH CODEX_AUTH_CONTAINER_PATH
+export EXTENSIONS_VOLUME
+export HOST_PORT
 
-  devcontainer_dir="$(dirname "$dockerfile")"
-  [ -f "$devcontainer_dir/entrypoint.sh" ] || return 1
-  [ -f "$devcontainer_dir/install-aiderdesk-extensions.sh" ] || return 1
-}
+# ---------- compose command assembly ----------
+compose_cmd=(
+  docker compose
+  --project-directory "$SHIKI_DIR"
+  --project-name "$PROJECT_NAME"
+  --env-file /dev/null
+  -f "$SHIKI_COMPOSE_BASE"
+)
+if [ "$NETWORK_MODE" = "host" ]; then
+  compose_cmd+=(-f "$SHIKI_COMPOSE_HOST_NETWORK")
+fi
+compose_cmd+=(-f "$RUNTIME_OVERLAY")
 
-SHIKI_SCRIPT_DIR="$(cd "$(dirname "$(realpath "${BASH_SOURCE[0]}")")" && pwd)"
-SHIKI_DOCKERFILE="${SHIKI_DOCKERFILE:-}"
-if [ -z "$SHIKI_DOCKERFILE" ]; then
-  local_search_dir="$PWD"
-  while [ "$local_search_dir" != "/" ]; do
-    candidate="${local_search_dir}/devcontainer/shiki.Dockerfile"
-    candidate="$(realpath -m "$candidate")"
-    if has_complete_devcontainer "$candidate"; then
-      SHIKI_DOCKERFILE="$candidate"
-      break
-    fi
-    local_search_dir="$(dirname "$local_search_dir")"
+if [ -n "${SHIKI_COMPOSE_EXTRA_FILES:-}" ]; then
+  IFS=':' read -ra _extra_files <<<"$SHIKI_COMPOSE_EXTRA_FILES"
+  for _f in "${_extra_files[@]}"; do
+    [ -n "$_f" ] || continue
+    [ -f "$_f" ] || die "SHIKI_COMPOSE_EXTRA_FILES references missing file: $_f"
+    compose_cmd+=(-f "$_f")
   done
 fi
-if [ -z "$SHIKI_DOCKERFILE" ]; then
-  for candidate in \
-    "${SHIKI_SCRIPT_DIR}/../../devcontainer/shiki.Dockerfile" \
-    "${SHIKI_SCRIPT_DIR}/../../../devcontainer/shiki.Dockerfile" \
-    "${HOME}/.local/share/chezmoi/devcontainer/shiki.Dockerfile"; do
-    candidate="$(realpath -m "$candidate")"
-    if has_complete_devcontainer "$candidate"; then
-      SHIKI_DOCKERFILE="$candidate"
-      break
+
+# Compose subcommands that don't need the runtime overlay can use this base.
+compose_base_cmd=(
+  docker compose
+  --project-directory "$SHIKI_DIR"
+  --project-name "$PROJECT_NAME"
+  --env-file /dev/null
+  -f "$SHIKI_COMPOSE_BASE"
+)
+
+# ---------- runtime overlay generation ----------
+yaml_escape_dq() {
+  local v="${1:-}"
+  v="${v//\\/\\\\}"
+  v="${v//\"/\\\"}"
+  printf '%s' "$v"
+}
+
+write_runtime_overlay() {
+  mkdir -p "$SESSION_RUNTIME_DIR"
+
+  {
+    printf 'services:\n'
+    printf '  shiki:\n'
+    printf '    volumes:\n'
+    local _i=0
+    while [ "$_i" -lt "${#PROJECT_DIRS_ABS[@]}" ]; do
+      printf '      - "%s:%s"\n' "${PROJECT_DIRS_ABS[$_i]}" "${PROJECT_CONTAINER_PATHS[$_i]}"
+      _i=$((_i + 1))
+    done
+    if have_container_ssh_auth_sock; then
+      printf '      - "%s:%s"\n' "$HOST_SSH_AUTH_SOCK" "$CONTAINER_SSH_AUTH_SOCK"
     fi
-  done
-fi
+    if [ -f "$AIDER_CONFIG" ]; then
+      printf '      - "%s:/root/.aider.conf.yml:ro"\n' "$AIDER_CONFIG"
+    fi
+    if [ ${#EXTRA_VOLUMES[@]} -gt 0 ]; then
+      for _v in "${EXTRA_VOLUMES[@]}"; do
+        printf '      - "%s"\n' "$(yaml_escape_dq "$_v")"
+      done
+    fi
 
-# Legacy name from an earlier shiki revision that used a dedicated
-# docker-container driver builder. Kept here so the cleanup trap can remove
-# any stale instance from prior runs.
-SHIKI_LEGACY_BUILDER_NAME="shiki-builder"
-_shiki_build_in_flight=0
+    if have_container_ssh_auth_sock || [ ${#EXTRA_ENV[@]} -gt 0 ]; then
+      printf '    environment:\n'
+      if have_container_ssh_auth_sock; then
+        printf '      SSH_AUTH_SOCK: "%s"\n' "$CONTAINER_SSH_AUTH_SOCK"
+      fi
+      if [ ${#EXTRA_ENV[@]} -gt 0 ]; then
+        for _kv in "${EXTRA_ENV[@]}"; do
+          local _key="${_kv%%=*}"
+          local _val="${_kv#*=}"
+          printf '      %s: "%s"\n' "$_key" "$(yaml_escape_dq "$_val")"
+        done
+      fi
+    fi
 
-cleanup_shiki_build() {
-  if [ "${_shiki_build_in_flight}" -eq 1 ]; then
-    # Stops the BuildKit daemon container the active builder may have
-    # spawned. No-op when BuildKit is embedded in the Docker daemon
-    # (docker driver) since there is no separate container.
-    docker buildx stop >/dev/null 2>&1 || true
-    docker buildx rm "${SHIKI_LEGACY_BUILDER_NAME}" >/dev/null 2>&1 || true
-  fi
+    # Bridge-mode host aliases — emitted here (not in compose.yaml) because
+    # mapping keys aren't interpolated by some compose versions.
+    if [ "$NETWORK_MODE" = "bridge" ]; then
+      printf '    extra_hosts:\n'
+      printf '      %s: host-gateway\n' "$HOST_LOCALHOST_ALIAS"
+      if [ "$HOST_GATEWAY_ALIAS" != "$HOST_LOCALHOST_ALIAS" ]; then
+        printf '      %s: host-gateway\n' "$HOST_GATEWAY_ALIAS"
+      fi
+    fi
+  } >"$RUNTIME_OVERLAY"
 }
 
-mark_shiki_build_in_flight() {
-  _shiki_build_in_flight=1
-  trap cleanup_shiki_build EXIT
-}
-
+# ---------- image build / pull ----------
 build_image() {
-  if ! has_complete_devcontainer "$SHIKI_DOCKERFILE"; then
-    die "Cannot find a complete shiki devcontainer (shiki.Dockerfile, entrypoint.sh, install-aiderdesk-extensions.sh). Set SHIKI_DOCKERFILE=/path/to/shiki.Dockerfile or sync your dotfiles source tree."
-  fi
-  local build_context
-  local -a build_args
-  build_context="$(dirname "$SHIKI_DOCKERFILE")"
-  build_args=(
-    --build-arg "UPSTREAM_IMAGE=${UPSTREAM_IMAGE}"
-    --build-arg "AIDER_DESK_EXTENSIONS_APPEND=${AIDER_DESK_EXTENSIONS_APPEND:-}"
-    --build-arg "AIDER_DESK_EXTENSIONS_OVERRIDE=${AIDER_DESK_EXTENSIONS_OVERRIDE:-}"
-  )
+  local -a build_args=()
+  [ "$BUILD_PULL" -eq 1 ] && build_args+=(--pull)
+  [ "$BUILD_USE_CACHE" -eq 0 ] && build_args+=(--no-cache)
 
-  echo "Building image '${IMAGE}' from ${SHIKI_DOCKERFILE} ..."
+  echo-info "Building image '${IMAGE}' from ${SHIKI_DOCKERFILE} ..."
   if [ "$BUILD_PULL" -eq 1 ]; then
-    echo "  Pulling latest upstream AiderDesk base image: ${UPSTREAM_IMAGE}"
-    build_args+=(--pull)
+    echo-info "  Pulling latest upstream AiderDesk base image: ${UPSTREAM_IMAGE}"
   else
-    echo "  Using local upstream AiderDesk base image: ${UPSTREAM_IMAGE}"
+    echo-info "  Using local upstream AiderDesk base image: ${UPSTREAM_IMAGE}"
   fi
   if [ "$BUILD_USE_CACHE" -eq 1 ]; then
-    echo "  Docker build cache: enabled"
+    echo-info "  Docker build cache: enabled"
   else
-    echo "  Docker build cache: disabled"
-    build_args+=(--no-cache)
+    echo-info "  Docker build cache: disabled"
   fi
   if [ -n "${AIDER_DESK_EXTENSIONS_OVERRIDE:-}" ]; then
-    echo "  Overriding default extensions at build time: ${AIDER_DESK_EXTENSIONS_OVERRIDE}"
+    echo-info "  Overriding default extensions at build time: ${AIDER_DESK_EXTENSIONS_OVERRIDE}"
   elif [ -n "${AIDER_DESK_EXTENSIONS_APPEND:-}" ]; then
-    echo "  Appending extensions at build time: ${AIDER_DESK_EXTENSIONS_APPEND}"
+    echo-info "  Appending extensions at build time: ${AIDER_DESK_EXTENSIONS_APPEND}"
   else
-    echo "  Using default built-in extensions"
+    echo-info "  Using default built-in extensions"
   fi
-  mark_shiki_build_in_flight
-  docker build \
-    "${build_args[@]}" \
-    --file "$SHIKI_DOCKERFILE" \
-    --tag "$IMAGE" \
-    "$build_context"
-  echo "Image '${IMAGE}' built successfully."
-  echo ""
+
+  "${compose_base_cmd[@]}" build "${build_args[@]}" shiki
+  echo-ok "Image '${IMAGE}' built successfully."
 }
 
 pull_upstream_image() {
-  echo "Pulling upstream AiderDesk base image: ${UPSTREAM_IMAGE}"
+  echo-info "Pulling upstream AiderDesk base image: ${UPSTREAM_IMAGE}"
   docker pull "${UPSTREAM_IMAGE}"
-  echo "Upstream base image pulled successfully."
-  echo ""
+  echo-ok "Upstream base image pulled successfully."
 }
 
-# ---------- image pull / build ----------
-if [ "$PULL_IMAGE" -eq 1 ] && { [ "$REBUILD_IMAGE" -eq 0 ] || [ "$BUILD_PULL" -eq 0 ]; }; then
-  pull_upstream_image
-fi
-
-if [ "$REBUILD_IMAGE" -eq 1 ]; then
-  build_image
-else
-  docker image inspect "$IMAGE" >/dev/null 2>&1 || {
-    echo "Image '${IMAGE}' not found locally — building from Dockerfile ..."
-    build_image
-  }
-fi
-
-# ---------- helper: build docker run command ----------
-extensions_volume_name() {
-  printf '%s\n' "${SESSION_NAME}-${EXTENSIONS_VOLUME_SUFFIX}"
-}
-
+# ---------- extensions volume ----------
 recreate_extensions_volume() {
-  local extensions_volume
-  extensions_volume="$(extensions_volume_name)"
-
   if docker ps -a --format '{{.Names}}' | grep -qx "$SESSION_NAME"; then
-    echo "Removing existing container '$SESSION_NAME' so extensions can be refreshed."
+    echo-info "Removing existing container '$SESSION_NAME' so extensions can be refreshed."
     docker rm -f "$SESSION_NAME" >/dev/null
     if [ -d "${SESSION_DATA}" ]; then
       SESSION_ACTION=2
@@ -657,139 +670,30 @@ recreate_extensions_volume() {
     fi
   fi
 
-  echo "Refreshing extensions volume: ${extensions_volume}"
-  docker volume rm -f "${extensions_volume}" >/dev/null 2>&1 || true
-  docker volume create "${extensions_volume}" >/dev/null
+  echo-info "Refreshing extensions volume: ${EXTENSIONS_VOLUME}"
+  docker volume rm -f "${EXTENSIONS_VOLUME}" >/dev/null 2>&1 || true
+  docker volume create "${EXTENSIONS_VOLUME}" >/dev/null
 
   docker run --rm \
     --entrypoint sh \
-    -v "${extensions_volume}:/extensions-volume" \
+    -v "${EXTENSIONS_VOLUME}:/extensions-volume" \
     "$IMAGE" \
     -lc 'mkdir -p /extensions-volume && if [ -d /usr/local/share/aider-desk/extensions-seed ]; then cp -a /usr/local/share/aider-desk/extensions-seed/. /extensions-volume/; fi && if ! find /extensions-volume -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then echo "FATAL: extensions volume was not populated from image seed" >&2; exit 1; fi'
 }
 
-run_new_container() {
-  # Ensure session directories exist
-  mkdir -p "$SESSION_DATA" "$SESSION_CLAUDE"
+# ---------- maintenance branches (exit without starting a container) ----------
+if [ "$PULL_IMAGE" -eq 1 ] && { [ "$REBUILD_IMAGE" -eq 0 ] || [ "$BUILD_PULL" -eq 0 ]; }; then
+  pull_upstream_image
+fi
 
-  # --- Environment ---
-  local container_host_localhost="${HOST_LOCALHOST_ALIAS}"
-  local container_host_gateway="${HOST_GATEWAY_ALIAS}"
-  if [ "$NETWORK_MODE" = "host" ]; then
-    container_host_localhost="localhost"
-    container_host_gateway="localhost"
-  fi
-
-  local -a docker_env=(
-    -e "GIT_USER_NAME=${GIT_USER_NAME}"
-    -e "GIT_USER_EMAIL=${GIT_USER_EMAIL}"
-    -e "AIDER_DESK_PROJECTS=${PROJECT_CONTAINER_PATH_LIST}"
-    -e "AIDER_DESK_DATA_DIR=/app/state"
-    -e "SHIKI_NETWORK_MODE=${NETWORK_MODE}"
-    -e "SHIKI_HOST_LOCALHOST=${container_host_localhost}"
-    -e "SHIKI_HOST_GATEWAY=${container_host_gateway}"
-  )
-
-  # Signing key (fall back to host git config)
-  if [ -z "${GIT_SIGNING_KEY:-}" ]; then
-    local host_gpg_format
-    host_gpg_format="$(git config gpg.format 2>/dev/null || true)"
-    if [ "$host_gpg_format" = "ssh" ]; then
-      : "${GIT_SIGNING_KEY:=$(git config user.signingkey 2>/dev/null || true)}"
-    fi
-  fi
-  if [ -n "${GIT_SIGNING_KEY:-}" ]; then
-    docker_env+=(-e "GIT_SIGNING_KEY=${GIT_SIGNING_KEY}")
-  fi
-  if [ -n "${GIT_SIGN_COMMITS:-}" ]; then
-    docker_env+=(-e "GIT_SIGN_COMMITS=${GIT_SIGN_COMMITS}")
-  fi
-
-  # SSH agent
-  if have_container_ssh_auth_sock; then
-    docker_env+=(-e "SSH_AUTH_SOCK=${CONTAINER_SSH_AUTH_SOCK}")
-  elif [ -n "${GIT_SIGNING_KEY:-}" ]; then
-    echo "WARNING: GIT_SIGNING_KEY is set but no usable SSH agent socket was found." >&2
-    echo "         Checked: ${HOST_SSH_AUTH_SOCK:-<unset>}" >&2
-    echo "         Commit signing will fail without agent forwarding." >&2
-  fi
-
-  # --- Volumes ---
-  # Each project dir is mounted as /projects/<basename>, so the named directory
-  # appears inside /projects rather than its contents being merged into /projects.
-  local -a docker_volumes=()
-  local extensions_volume
-  extensions_volume="$(extensions_volume_name)"
-  if ! docker volume inspect "${extensions_volume}" >/dev/null 2>&1; then
-    recreate_extensions_volume
-  fi
-  local _vi=0
-  while [ "$_vi" -lt "${#PROJECT_DIRS_ABS[@]}" ]; do
-    docker_volumes+=(-v "${PROJECT_DIRS_ABS[$_vi]}:${PROJECT_CONTAINER_PATHS[$_vi]}")
-    _vi=$((_vi + 1))
-  done
-  docker_volumes+=(
-    -v "${SESSION_DATA}:/app/state"
-    -v "${SESSION_CLAUDE}:/root/.claude"
-    -v "${extensions_volume}:/root/.aider-desk/extensions"
-    -v "${AIDER_DESK_GLOBAL}/agents:/root/.aider-desk/agents"
-    -v "${AIDER_DESK_GLOBAL}/commands:/root/.aider-desk/commands"
-    -v "${AIDER_DESK_GLOBAL}/hooks:/root/.aider-desk/hooks"
-    -v "${AIDER_DESK_GLOBAL}/prompts:/root/.aider-desk/prompts"
-    -v "${AIDER_DESK_GLOBAL}/rules:/root/.aider-desk/rules"
-    -v "${AIDER_DESK_GLOBAL}/skills:/root/.aider-desk/skills"
-    -v "${CODEX_AUTH_HOST_PATH}:${CODEX_AUTH_CONTAINER_PATH}"
-  )
-
-  if [ -f "$AIDER_CONFIG" ]; then
-    docker_volumes+=(-v "${AIDER_CONFIG}:/root/.aider.conf.yml:ro")
-  fi
-
-  if have_container_ssh_auth_sock; then
-    docker_volumes+=(-v "${HOST_SSH_AUTH_SOCK}:${CONTAINER_SSH_AUTH_SOCK}")
-  fi
-
-  # --- Networking ---
-  local -a docker_network_args=()
-  local -a docker_ports=()
-  if [ "$NETWORK_MODE" = "host" ]; then
-    docker_network_args+=(--network host)
-    docker_env+=(-e "AIDER_DESK_PORT=${HOST_PORT}")
-  else
-    if docker_supports_host_gateway; then
-      docker_network_args+=(--add-host "${HOST_LOCALHOST_ALIAS}:host-gateway")
-      if [ "${HOST_GATEWAY_ALIAS}" != "${HOST_LOCALHOST_ALIAS}" ]; then
-        docker_network_args+=(--add-host "${HOST_GATEWAY_ALIAS}:host-gateway")
-      fi
-    else
-      echo "WARNING: Docker server does not report host-gateway support; skipping explicit host localhost aliases." >&2
-      echo "         If host.docker.internal is unavailable inside the container, upgrade Docker or pass a manual --add-host after --." >&2
-    fi
-
-    # --- Port ---
-    docker_ports=(-p "${HOST_PORT}:24337")
-  fi
-
-  echo "DEBUG: docker run volumes:" >&2
-  for _v in "${docker_volumes[@]}"; do echo "  $_v" >&2; done
-  echo "DEBUG: AIDER_DESK_PROJECTS=${PROJECT_CONTAINER_PATH_LIST}" >&2
-  echo "DEBUG: host SSH_AUTH_SOCK source: ${HOST_SSH_AUTH_SOCK:-<unset>}" >&2
-  echo "DEBUG: container SSH_AUTH_SOCK target: ${CONTAINER_SSH_AUTH_SOCK:-<unset>}" >&2
-  echo "DEBUG: using host-services SSH socket: ${USE_HOST_SERVICES_SSH_AUTH_SOCK}" >&2
-  echo "DEBUG: network mode: ${NETWORK_MODE}" >&2
-  echo "DEBUG: host localhost target: ${container_host_localhost}" >&2
-  echo "DEBUG: host gateway target: ${container_host_gateway}" >&2
-
-  docker run \
-    -d \
-    --name "$SESSION_NAME" \
-    "${docker_volumes[@]}" \
-    "${docker_env[@]}" \
-    "${docker_network_args[@]}" \
-    "${docker_ports[@]}" \
-    ${DOCKER_EXTRAS[@]+"${DOCKER_EXTRAS[@]}"} \
-    "$IMAGE"
-}
+if [ "$REBUILD_IMAGE" -eq 1 ]; then
+  build_image
+else
+  docker image inspect "$IMAGE" >/dev/null 2>&1 || {
+    echo-info "Image '${IMAGE}' not found locally — building from Dockerfile ..."
+    build_image
+  }
+fi
 
 if [ "$UPDATE_EXTENSIONS" -eq 1 ]; then
   recreate_extensions_volume
@@ -797,135 +701,115 @@ fi
 
 if [ "$REBUILD_IMAGE" -eq 1 ] || [ "$UPDATE_EXTENSIONS" -eq 1 ] || [ "$PULL_IMAGE" -eq 1 ]; then
   if [ "$PULL_IMAGE" -eq 1 ] && [ "$REBUILD_IMAGE" -eq 1 ] && [ "$UPDATE_EXTENSIONS" -eq 1 ]; then
-    echo "Maintenance complete: upstream image pulled, local image rebuilt, and extensions refreshed."
+    echo-ok "Maintenance complete: upstream image pulled, local image rebuilt, and extensions refreshed."
   elif [ "$PULL_IMAGE" -eq 1 ] && [ "$REBUILD_IMAGE" -eq 1 ]; then
-    echo "Maintenance complete: upstream image pulled and local image rebuilt."
+    echo-ok "Maintenance complete: upstream image pulled and local image rebuilt."
   elif [ "$REBUILD_IMAGE" -eq 1 ] && [ "$UPDATE_EXTENSIONS" -eq 1 ]; then
-    echo "Maintenance complete: image rebuilt and extensions refreshed."
+    echo-ok "Maintenance complete: image rebuilt and extensions refreshed."
   elif [ "$REBUILD_IMAGE" -eq 1 ]; then
-    echo "Maintenance complete: image rebuilt."
+    echo-ok "Maintenance complete: image rebuilt."
   elif [ "$UPDATE_EXTENSIONS" -eq 1 ]; then
-    echo "Maintenance complete: extensions refreshed."
+    echo-ok "Maintenance complete: extensions refreshed."
   else
-    echo "Maintenance complete: upstream image pulled."
+    echo-ok "Maintenance complete: upstream image pulled."
   fi
   exit 0
 fi
 
-# ---------- run ----------
+# ---------- ensure extensions volume + session dirs + runtime overlay ----------
+docker volume inspect "${EXTENSIONS_VOLUME}" >/dev/null 2>&1 || recreate_extensions_volume
+
+mkdir -p "$SESSION_DATA" "$SESSION_CLAUDE"
+write_runtime_overlay
+
+print_mount_banner() {
+  local _i=0
+  while [ "$_i" -lt "${#PROJECT_DIRS_ABS[@]}" ]; do
+    echo-info "  Project:  ${PROJECT_DIRS_ABS[$_i]} → ${PROJECT_CONTAINER_PATHS[$_i]}"
+    _i=$((_i + 1))
+  done
+  echo-info "  Config:   ${AIDER_DESK_GLOBAL}/{agents,commands,hooks,prompts,rules,skills} → /root/.aider-desk/<subdir>"
+  echo-info "  Exts:     volume ${EXTENSIONS_VOLUME} → /root/.aider-desk/extensions"
+  echo-info "  Codex:    ${CODEX_AUTH_HOST_PATH} → ${CODEX_AUTH_CONTAINER_PATH}"
+  if [ -f "$AIDER_CONFIG" ]; then
+    echo-info "  Aider:    ${AIDER_CONFIG} → /root/.aider.conf.yml (ro)"
+  fi
+  echo-info "  Data:     ${SESSION_DATA} → /app/state${1:+ ($1)}"
+  echo-info "  Claude:   ${SESSION_CLAUDE} → /root/.claude"
+  echo-info "  UI:       http://localhost:${HOST_PORT}"
+  if [ "$NETWORK_MODE" = "host" ]; then
+    echo-info "  Network:  host (localhost inside container = host localhost)"
+    echo-info "  Host:     localhost:<port> → host machine localhost"
+  else
+    echo-info "  Network:  bridge"
+    echo-info "  Host:     ${HOST_LOCALHOST_ALIAS}:<port> → host machine localhost"
+  fi
+}
+
+print_run_hints() {
+  echo-info "  UI:   http://localhost:${1:-$HOST_PORT}"
+  echo-info "  Logs: docker logs -f $SESSION_NAME"
+  echo-info "  Stop: docker stop $SESSION_NAME"
+}
+
+container_network_mode() {
+  docker inspect --format '{{.HostConfig.NetworkMode}}' "$1" 2>/dev/null || true
+}
+
+container_aider_desk_port() {
+  local env_line port
+  env_line="$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$1" 2>/dev/null | grep '^AIDER_DESK_PORT=' | tail -n 1 || true)"
+  port="${env_line#AIDER_DESK_PORT=}"
+  [ -n "$port" ] || port="$DEFAULT_PORT"
+  printf '%s\n' "$port"
+}
+
+echo-debug "compose runtime overlay: $RUNTIME_OVERLAY"
+echo-debug "AIDER_DESK_PROJECTS=${PROJECT_CONTAINER_PATH_LIST}"
+echo-debug "host SSH_AUTH_SOCK source: ${HOST_SSH_AUTH_SOCK:-<unset>}"
+echo-debug "container SSH_AUTH_SOCK target: ${CONTAINER_SSH_AUTH_SOCK:-<unset>}"
+echo-debug "using host-services SSH socket: ${USE_HOST_SERVICES_SSH_AUTH_SOCK}"
+echo-debug "network mode: ${NETWORK_MODE}"
+
+# ---------- dispatch ----------
 case "$SESSION_ACTION" in
 0)
-  # New session
-  echo "Creating new session: $SESSION_NAME"
-  _pi=0
-  while [ "$_pi" -lt "${#PROJECT_DIRS_ABS[@]}" ]; do
-    echo "  Project:  ${PROJECT_DIRS_ABS[$_pi]} → ${PROJECT_CONTAINER_PATHS[$_pi]}"
-    _pi=$((_pi + 1))
-  done
-  echo "  Config:   ${AIDER_DESK_GLOBAL}/{agents,commands,hooks,prompts,rules,skills} → /root/.aider-desk/<subdir>"
-  echo "  Exts:     volume $(extensions_volume_name) → /root/.aider-desk/extensions"
-  echo "  Codex:    ${CODEX_AUTH_HOST_PATH} → ${CODEX_AUTH_CONTAINER_PATH}"
-  if [ -f "$AIDER_CONFIG" ]; then
-    echo "  Aider:    ${AIDER_CONFIG} → /root/.aider.conf.yml (ro)"
-  fi
-  echo "  Data:     ${SESSION_DATA} → /app/state"
-  echo "  Claude:   ${SESSION_CLAUDE} → /root/.claude"
-  echo "  UI:       http://localhost:${HOST_PORT}"
-  if [ "$NETWORK_MODE" = "host" ]; then
-    echo "  Network:  host (localhost inside container = host localhost)"
-    echo "  Host:     localhost:<port> → host machine localhost"
-  else
-    echo "  Network:  bridge"
-    echo "  Host:     ${HOST_LOCALHOST_ALIAS}:<port> → host machine localhost"
-  fi
-  echo ""
-
-  run_new_container
-
-  echo ""
-  echo "Session '$SESSION_NAME' started."
-  echo "  UI:   http://localhost:${HOST_PORT}"
-  echo "  Logs: docker logs -f $SESSION_NAME"
-  echo "  Stop: docker stop $SESSION_NAME"
+  echo-info "Creating new session: $SESSION_NAME"
+  print_mount_banner
+  "${compose_cmd[@]}" up -d shiki
+  echo-ok "Session '$SESSION_NAME' started."
+  print_run_hints
   ;;
 
 1)
-  # Existing container (running or stopped)
   container_status="$(docker inspect --format '{{.State.Status}}' "$SESSION_NAME" 2>/dev/null || echo "unknown")"
   container_network="$(container_network_mode "$SESSION_NAME")"
   if [ "$container_network" = "host" ]; then
     bound_port="$(container_aider_desk_port "$SESSION_NAME")"
   else
-    # Retrieve the host port the container was originally created with
     bound_port="$(docker inspect --format '{{range $p, $b := .HostConfig.PortBindings}}{{range $b}}{{.HostPort}}{{end}}{{end}}' "$SESSION_NAME" 2>/dev/null || echo "$HOST_PORT")"
     [ -n "$bound_port" ] || bound_port="$HOST_PORT"
   fi
 
   if [ "$container_status" = "running" ]; then
-    echo "Session '$SESSION_NAME' is already running."
-    echo "  UI:   http://localhost:${bound_port}"
-    if [ "$container_network" = "host" ]; then
-      echo "  Host: localhost:<port> → host machine localhost"
-    else
-      echo "  Host: ${HOST_LOCALHOST_ALIAS}:<port> → host machine localhost"
-    fi
-    echo "  Logs: docker logs -f $SESSION_NAME"
-    echo "  Stop: docker stop $SESSION_NAME"
+    echo-info "Session '$SESSION_NAME' is already running."
+    print_run_hints "$bound_port"
   else
-    echo "Resuming session: $SESSION_NAME"
-    if [ "$container_network" = "host" ]; then
-      if [ "$bound_port" != "$HOST_PORT" ]; then
-        echo "  NOTE: Container was created with host network port ${bound_port}, ignoring -p ${HOST_PORT}."
-      fi
-    elif [ "$bound_port" != "$HOST_PORT" ]; then
-      echo "  NOTE: Container was created with port ${bound_port}, ignoring -p ${HOST_PORT}."
+    echo-info "Resuming session: $SESSION_NAME"
+    if [ "$bound_port" != "$HOST_PORT" ]; then
+      echo-warn "  Container was created with port ${bound_port}, ignoring -p ${HOST_PORT}."
     fi
-    docker start "$SESSION_NAME"
-    echo ""
-    echo "Session '$SESSION_NAME' resumed."
-    echo "  UI:   http://localhost:${bound_port}"
-    if [ "$container_network" = "host" ]; then
-      echo "  Host: localhost:<port> → host machine localhost"
-    else
-      echo "  Host: ${HOST_LOCALHOST_ALIAS}:<port> → host machine localhost"
-    fi
-    echo "  Logs: docker logs -f $SESSION_NAME"
-    echo "  Stop: docker stop $SESSION_NAME"
+    "${compose_base_cmd[@]}" start shiki
+    echo-ok "Session '$SESSION_NAME' resumed."
+    print_run_hints "$bound_port"
   fi
   ;;
 
 2)
-  # Data exists but container was removed — restore
-  echo "Restoring session: $SESSION_NAME (container was removed, data preserved)"
-  _pi=0
-  while [ "$_pi" -lt "${#PROJECT_DIRS_ABS[@]}" ]; do
-    echo "  Project:  ${PROJECT_DIRS_ABS[$_pi]} → ${PROJECT_CONTAINER_PATHS[$_pi]}"
-    _pi=$((_pi + 1))
-  done
-  echo "  Config:   ${AIDER_DESK_GLOBAL}/{agents,commands,hooks,prompts,rules,skills} → /root/.aider-desk/<subdir>"
-  echo "  Exts:     volume $(extensions_volume_name) → /root/.aider-desk/extensions"
-  echo "  Codex:    ${CODEX_AUTH_HOST_PATH} → ${CODEX_AUTH_CONTAINER_PATH}"
-  if [ -f "$AIDER_CONFIG" ]; then
-    echo "  Aider:    ${AIDER_CONFIG} → /root/.aider.conf.yml (ro)"
-  fi
-  echo "  Data:     ${SESSION_DATA} → /app/state (existing)"
-  echo "  Claude:   ${SESSION_CLAUDE} → /root/.claude"
-  echo "  UI:       http://localhost:${HOST_PORT}"
-  if [ "$NETWORK_MODE" = "host" ]; then
-    echo "  Network:  host (localhost inside container = host localhost)"
-    echo "  Host:     localhost:<port> → host machine localhost"
-  else
-    echo "  Network:  bridge"
-    echo "  Host:     ${HOST_LOCALHOST_ALIAS}:<port> → host machine localhost"
-  fi
-  echo ""
-
-  run_new_container
-
-  echo ""
-  echo "Session '$SESSION_NAME' restored."
-  echo "  UI:   http://localhost:${HOST_PORT}"
-  echo "  Logs: docker logs -f $SESSION_NAME"
-  echo "  Stop: docker stop $SESSION_NAME"
+  echo-info "Restoring session: $SESSION_NAME (container was removed, data preserved)"
+  print_mount_banner "existing"
+  "${compose_cmd[@]}" up -d shiki
+  echo-ok "Session '$SESSION_NAME' restored."
+  print_run_hints
   ;;
 esac
