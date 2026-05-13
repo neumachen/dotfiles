@@ -1,5 +1,5 @@
 services:
-  shiki:
+  __SERVICE__:
     image: ${SHIKI_IMAGE}
     container_name: ${SESSION_NAME}
     build:
