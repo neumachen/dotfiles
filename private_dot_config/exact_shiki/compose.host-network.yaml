@@ -1,0 +1,6 @@
+services:
+  shiki:
+    network_mode: host
+    ports: !reset []
+    environment:
+      AIDER_DESK_PORT: ${HOST_PORT}
