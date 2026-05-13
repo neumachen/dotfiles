@@ -241,16 +241,32 @@ znap source jeffreytse/zsh-vi-mode
 # invocation to a file so we can see exit code, duration, pwd, and
 # whether self-removal happened. Also prints a loud stderr line on
 # non-zero exit. Safe to remove once the cause is found.
-zmodload zsh/datetime  # for EPOCHREALTIME
+zmodload zsh/datetime  # for EPOCHREALTIME + strftime
 () {
   local log_dir="${XDG_STATE_HOME:-$HOME/.local/state}/zsh"
   [[ -d "$log_dir" ]] || mkdir -p "$log_dir"
   export ZVM_INIT_LOG="$log_dir/zvm_init.log"
 
-  print -r -- "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] wrapper-installed pid=$$ zshrc-load" >> "$ZVM_INIT_LOG"
+  # Rotate: cap at 2000 lines, truncate to last 1000 when exceeded.
+  # Runs once per zshrc load (cheap, single wc -l + maybe one tail).
+  if [[ -f "$ZVM_INIT_LOG" ]]; then
+    local _lines
+    _lines=$(wc -l < "$ZVM_INIT_LOG" 2>/dev/null || print 0)
+    if (( _lines > 2000 )); then
+      tail -n 1000 "$ZVM_INIT_LOG" > "$ZVM_INIT_LOG.tmp" \
+        && mv "$ZVM_INIT_LOG.tmp" "$ZVM_INIT_LOG"
+    fi
+  fi
+
+  # Local-time ISO-8601 with TZ offset — easy to correlate with shell
+  # session timing without doing timezone math.
+  local _ts
+  strftime -s _ts "%Y-%m-%dT%H:%M:%S%z" "$EPOCHSECONDS"
+
+  print -r -- "[$_ts] wrapper-installed pid=$$ zshrc-load" >> "$ZVM_INIT_LOG"
 
   (( ${+functions[zvm_init]} )) || {
-    print -r -- "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] ERROR: zvm_init not defined at wrapper-install time" >> "$ZVM_INIT_LOG"
+    print -r -- "[$_ts] ERROR: zvm_init not defined at wrapper-install time" >> "$ZVM_INIT_LOG"
     return 0
   }
 
@@ -259,7 +275,8 @@ zmodload zsh/datetime  # for EPOCHREALTIME
     local _t0=$EPOCHREALTIME
     local _pwd=$PWD
     local _pre_idx=${precmd_functions[(I)zvm_init]}
-    local _rc
+    local _rc _ts
+    strftime -s _ts "%Y-%m-%dT%H:%M:%S%z" "$EPOCHSECONDS"
     {
       _zvm_init_orig "$@"
       _rc=$?
@@ -267,11 +284,14 @@ zmodload zsh/datetime  # for EPOCHREALTIME
       local _post_idx=${precmd_functions[(I)zvm_init]}
       local _dt
       _dt=$(printf "%.3fs" $((EPOCHREALTIME - _t0)))
-      print -r -- "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] zvm_init rc=$_rc dt=$_dt pwd=$_pwd pre_idx=$_pre_idx post_idx=$_post_idx" >> "$ZVM_INIT_LOG"
-      (( _rc )) && print -u2 "[zvm_init] failed (exit=$_rc) -- see $ZVM_INIT_LOG"
-      # Healthy zvm_init self-removes from precmd_functions. If it
-      # didn't, that's the silent failure we're chasing.
-      (( _post_idx )) && print -u2 "[zvm_init] still queued after run (idx=$_post_idx) -- see $ZVM_INIT_LOG"
+      print -r -- "[$_ts] zvm_init rc=$_rc dt=$_dt pwd=$_pwd pre_idx=$_pre_idx post_idx=$_post_idx" >> "$ZVM_INIT_LOG"
+      # Stderr message carries the same timestamp so you can grep the
+      # log file for the exact entry when sharing terminal output.
+      (( _rc )) && print -u2 "[$_ts zvm_init] failed (exit=$_rc) -- see $ZVM_INIT_LOG"
+      # Note: zvm_init not self-removing (post_idx > 0) used to print
+      # to stderr too, but we confirmed it's a harmless quirk — zvm
+      # stays queued every prompt without affecting functionality.
+      # File log still captures it for forensic use.
     }
     return $_rc
   }
