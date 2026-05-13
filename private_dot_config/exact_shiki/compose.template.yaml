@@ -22,6 +22,9 @@ services:
     volumes:
       - ${SESSION_DATA}:/app/state
       - ${SESSION_CLAUDE}:/root/.claude
+      - ${SESSION_MISE_CONFIG}:/root/.config/mise
+      - ${SESSION_MISE_DATA}:/root/.local/share/mise
+      - ${SESSION_MISE_CACHE}:/root/.cache/mise
       - extensions:/root/.aider-desk/extensions
       - ${AIDER_DESK_GLOBAL}/agents:/root/.aider-desk/agents
       - ${AIDER_DESK_GLOBAL}/commands:/root/.aider-desk/commands

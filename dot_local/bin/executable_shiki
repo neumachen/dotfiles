@@ -164,7 +164,21 @@ Mounts (automatic):
   ~/.config/aider/aider.conf.yml
                            → /root/.aider.conf.yml (aider config, read-only)
   ~/.codex/                → /root/.codex/         (Codex auth, auto-created/mounted)
+  ~/.local/share/aider-desk/<session>/mise/config
+                           → /root/.config/mise    (per-session mise config)
+  ~/.local/share/aider-desk/<session>/mise/data
+                           → /root/.local/share/mise (mise-installed toolchains)
+  ~/.local/share/aider-desk/<session>/mise/cache
+                           → /root/.cache/mise     (mise downloads cache)
   SSH agent socket         → auto-detected container path (when available)
+
+Per-session mise:
+  The container has ripgrep + bubblewrap baked in for Claude SDK. To add a
+  language toolchain (Node, Go, Python, ...) for a session, exec in and run:
+    docker exec -it <session> bash
+    mise use node@24    # or whichever tool/version
+  Tools install under /root/.local/share/mise/ (persisted on the host)
+  and are available on subsequent container starts of the same session.
 
 Host localhost access:
   Bridge mode (default):
@@ -511,6 +525,13 @@ RENDERED_COMPOSE_HOST_NETWORK="${SESSION_RUNTIME_DIR}/compose.host-network.yaml"
 EXTENSIONS_VOLUME="${SESSION_NAME}-${EXTENSIONS_VOLUME_SUFFIX}"
 SERVICE_NAME="$SESSION_NAME"
 
+# Per-session mise dirs. Each session keeps its own toolchain installs so
+# pinning differs per project. The container env (set in the Dockerfile)
+# already points MISE_CONFIG_DIR/MISE_DATA_DIR/MISE_CACHE_DIR at these.
+SESSION_MISE_CONFIG="${AIDER_DESK_DATA_ROOT}/${SESSION_NAME}/mise/config"
+SESSION_MISE_DATA="${AIDER_DESK_DATA_ROOT}/${SESSION_NAME}/mise/data"
+SESSION_MISE_CACHE="${AIDER_DESK_DATA_ROOT}/${SESSION_NAME}/mise/cache"
+
 # Legacy-data migration hint: if a prior `shiki-<name>` data dir exists but
 # the un-prefixed dir does not, refuse to start and tell the user how to
 # migrate. (One-shot, deliberate opt-in — no silent rename of preserved data.)
@@ -544,6 +565,7 @@ else
   export SHIKI_HOST_GATEWAY="$HOST_GATEWAY_ALIAS"
 fi
 export SESSION_DATA SESSION_CLAUDE
+export SESSION_MISE_CONFIG SESSION_MISE_DATA SESSION_MISE_CACHE
 export AIDER_DESK_GLOBAL
 export CODEX_AUTH_HOST_PATH CODEX_AUTH_CONTAINER_PATH
 export EXTENSIONS_VOLUME
@@ -744,7 +766,7 @@ fi
 # ---------- ensure extensions volume + session dirs + runtime overlay ----------
 docker volume inspect "${EXTENSIONS_VOLUME}" >/dev/null 2>&1 || recreate_extensions_volume
 
-mkdir -p "$SESSION_DATA" "$SESSION_CLAUDE"
+mkdir -p "$SESSION_DATA" "$SESSION_CLAUDE" "$SESSION_MISE_CONFIG" "$SESSION_MISE_DATA" "$SESSION_MISE_CACHE"
 write_runtime_overlay
 
 print_mount_banner() {
@@ -761,6 +783,7 @@ print_mount_banner() {
   fi
   echo-info "  Data:     ${SESSION_DATA} → /app/state${1:+ ($1)}"
   echo-info "  Claude:   ${SESSION_CLAUDE} → /root/.claude"
+  echo-info "  Mise:     ${AIDER_DESK_DATA_ROOT}/${SESSION_NAME}/mise/{config,data,cache}"
   echo-info "  UI:       http://localhost:${HOST_PORT}"
   if [ "$NETWORK_MODE" = "host" ]; then
     echo-info "  Network:  host (localhost inside container = host localhost)"
