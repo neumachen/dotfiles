@@ -215,6 +215,14 @@ function zvm_config() {
   ZVM_KEYTIMEOUT=0.15
   ZVM_INSERT_MODE_CURSOR=$ZVM_CURSOR_BEAM
   ZVM_NORMAL_MODE_CURSOR=$ZVM_CURSOR_BLOCK
+
+  # Force every new prompt to start in INSERT mode. Without this, zvm
+  # defaults to "mode of last line" — which, after an external TUI like
+  # vim exits, sometimes resolves to NORMAL mode. In normal mode Tab
+  # (and most completion keys) are unbound, so completion silently dies
+  # until you press `i`. This made it look like completion was randomly
+  # broken; it was actually just a mode-tracking artifact.
+  ZVM_LINE_INIT_MODE=$ZVM_MODE_INSERT
 }
 
 #############################
