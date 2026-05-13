@@ -135,5 +135,21 @@ if [ "${errors}" -gt 0 ]; then
 fi
 
 echo ""
+
+# ── Install shiki's baseline mise toolchain (gh, jq, fzf, vim, delta) ─
+#    /etc/mise/config.toml is baked into the image; the per-session
+#    MISE_DATA_DIR bind mount makes installs persistent across container
+#    restarts of the same session. Non-fatal — a flaky first install
+#    shouldn't block the container; rerun `mise install` interactively
+#    if needed. Opt out with SHIKI_SKIP_MISE_INSTALL=1.
+if [ "${SHIKI_SKIP_MISE_INSTALL:-0}" != "1" ] && command -v mise >/dev/null 2>&1; then
+  echo "→ mise install (system + per-session config)"
+  if ! mise install --yes; then
+    echo "WARNING: mise install failed; continuing without baseline tools." >&2
+    echo "         Re-run \`mise install\` inside the container when ready." >&2
+  fi
+  echo ""
+fi
+
 echo "Preflight OK — launching: $*"
 exec "$@"
