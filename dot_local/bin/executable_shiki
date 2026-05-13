@@ -779,6 +779,16 @@ fi
 docker volume inspect "${EXTENSIONS_VOLUME}" >/dev/null 2>&1 || recreate_extensions_volume
 
 mkdir -p "$SESSION_DATA" "$SESSION_CLAUDE" "$SESSION_MISE_CONFIG" "$SESSION_MISE_DATA" "$SESSION_MISE_CACHE"
+
+# Seed Claude Code's settings.json so bwrap's user-namespace setup doesn't
+# trip Docker's default AppArmor profile (otherwise sandboxed subprocesses
+# die with "bwrap: Creating new namespace failed: Operation not permitted").
+# Only write if absent — never clobber a user-authored settings.json.
+if [ ! -e "$SESSION_CLAUDE/settings.json" ]; then
+  printf '%s\n' '{"sandbox":{"enableWeakerNestedSandbox":true}}' \
+    > "$SESSION_CLAUDE/settings.json"
+fi
+
 write_runtime_overlay
 
 print_mount_banner() {
