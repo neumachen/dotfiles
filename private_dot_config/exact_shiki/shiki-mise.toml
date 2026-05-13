@@ -1,0 +1,9 @@
+[settings]
+pin = true
+
+[tools]
+fzf = "latest"
+github-cli = "latest"
+jq = "latest"
+vim = "latest"
+delta = "latest"

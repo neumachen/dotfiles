@@ -45,8 +45,12 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 #    openssh-client provides ssh-keygen (git SSH signing) and ssh-add
 #    (agent check). curl/ca-certificates/xz-utils/unzip are needed for
 #    the official mise installer and common tool archives. ripgrep
-#    (rg) backs Claude SDK's Grep tool; bubblewrap (bwrap) backs its
-#    sandbox.
+#    (rg), bubblewrap (bwrap), and socat are required by Claude Code's
+#    sandbox. The remaining packages mirror Anthropic's claude-code
+#    devcontainer Dockerfile so the agent has the same operational
+#    surface (shell utilities, optional outbound-firewall tooling). Tools
+#    that are better managed by mise — gh, jq, fzf, vim, delta — are
+#    omitted here and shipped via shiki-mise.toml below.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         openssh-client \
@@ -56,6 +60,19 @@ RUN apt-get update \
         unzip \
         ripgrep \
         bubblewrap \
+        socat \
+        less \
+        procps \
+        sudo \
+        zsh \
+        man-db \
+        gnupg2 \
+        iptables \
+        ipset \
+        iproute2 \
+        dnsutils \
+        aggregate \
+        nano \
     && rm -rf /var/lib/apt/lists/*
 
 # Claude SDK invokes `check-ignore` as a bare command (not `git check-ignore`),
@@ -70,10 +87,15 @@ ENV MISE_DATA_DIR=/root/.local/share/mise
 ENV MISE_CACHE_DIR=/root/.cache/mise
 ENV PATH=/usr/local/share/mise/shims:/root/.local/share/mise/shims:${PATH}
 
-RUN mkdir -p "${MISE_CONFIG_DIR}" "${MISE_DATA_DIR}" "${MISE_CACHE_DIR}" \
+RUN mkdir -p "${MISE_CONFIG_DIR}" "${MISE_DATA_DIR}" "${MISE_CACHE_DIR}" /etc/mise \
     && curl -fsSL https://mise.run | sh \
     && mise --version \
     && echo 'eval "$(mise activate bash)"' >> /root/.bashrc
+
+# System-wide mise config: the baseline tools every shiki session gets
+# (gh, jq, fzf, vim, delta). Installed on first container start by
+# entrypoint.sh into the per-session MISE_DATA_DIR bind mount.
+COPY shiki-mise.toml /etc/mise/config.toml
 
 # ── 5) Preinstall AiderDesk extensions into the image ─────────────────
 #    Default extensions are baked into the image. At build time you can
