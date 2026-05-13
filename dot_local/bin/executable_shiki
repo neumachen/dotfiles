@@ -36,7 +36,10 @@ set -Eeuo pipefail
 # ---------- defaults ----------
 DEFAULT_IMAGE="shiki:latest"
 DEFAULT_AIDER_DESK_IMAGE="ghcr.io/hotovo/aider-desk:local"
-DEFAULT_PREFIX="shiki"
+# Compose project name is fixed so OrbStack auto-domains read as
+# "<session>.shiki.orb.local". The session name itself becomes the compose
+# service + container name.
+PROJECT_NAME="shiki"
 DEFAULT_PORT=24337
 DEFAULT_NETWORK_MODE="bridge"
 DEFAULT_HOST_LOCALHOST_ALIAS="host.docker.internal"
@@ -72,7 +75,8 @@ Usage:
   shiki [wrapper-opts] [-- -e KEY=VAL -v HOST:CONT ...]
 
 Wrapper options (before --):
-  -n, --name         Session/container name (default: shiki-<project>).
+  -n, --name         Session name; doubles as the compose service and
+                     container name (default: basename of the first --dir).
                      Deterministic names allow restoring sessions even
                      after the container has been removed.
   -i, --image        Image to run (default: shiki:latest).
@@ -221,7 +225,7 @@ make_default_session_name() {
   local base
   base="$(basename "$PROJECT_DIR" | sanitize_docker_name)"
   [ -n "$base" ] || base="workspace"
-  sanitize_docker_name "${DEFAULT_PREFIX}-${base}"
+  printf '%s\n' "$base"
 }
 
 print_about() { printf '%s\n' "$SHIKI_ABOUT"; }
@@ -294,7 +298,7 @@ parse_args() {
     --about) print_about; exit 0 ;;
     -n | --name)
       [ $# -ge 2 ] || die "--name requires an argument"
-      SESSION_NAME="$(sanitize_docker_name "${DEFAULT_PREFIX}-$2")"
+      SESSION_NAME="$(sanitize_docker_name "$2")"
       shift 2
       ;;
     -i | --image)
@@ -384,13 +388,13 @@ CODEX_AUTH_HOST_PATH="${CODEX_AUTH_HOST_PATH:-${HOME}/.codex}"
 CODEX_AUTH_CONTAINER_PATH="${CODEX_AUTH_CONTAINER_PATH:-/root/.codex}"
 
 SHIKI_DIR="${SHIKI_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/shiki}"
-SHIKI_COMPOSE_BASE="${SHIKI_DIR}/compose.yaml"
-SHIKI_COMPOSE_HOST_NETWORK="${SHIKI_DIR}/compose.host-network.yaml"
+SHIKI_COMPOSE_TEMPLATE="${SHIKI_DIR}/compose.template.yaml"
+SHIKI_COMPOSE_HOST_NETWORK_TEMPLATE="${SHIKI_DIR}/compose.host-network.template.yaml"
 SHIKI_DOCKERFILE="${SHIKI_DIR}/shiki.Dockerfile"
 SHIKI_ENTRYPOINT="${SHIKI_DIR}/entrypoint.sh"
 SHIKI_EXTENSIONS_INSTALLER="${SHIKI_DIR}/install-aiderdesk-extensions.sh"
 
-for _f in "$SHIKI_COMPOSE_BASE" "$SHIKI_COMPOSE_HOST_NETWORK" "$SHIKI_DOCKERFILE" "$SHIKI_ENTRYPOINT" "$SHIKI_EXTENSIONS_INSTALLER"; do
+for _f in "$SHIKI_COMPOSE_TEMPLATE" "$SHIKI_COMPOSE_HOST_NETWORK_TEMPLATE" "$SHIKI_DOCKERFILE" "$SHIKI_ENTRYPOINT" "$SHIKI_EXTENSIONS_INSTALLER"; do
   [ -f "$_f" ] || die "Missing shiki bundle file: $_f (set SHIKI_DIR or sync your dotfiles)."
 done
 
@@ -502,13 +506,24 @@ SESSION_DATA="${AIDER_DESK_DATA_ROOT}/${SESSION_NAME}/data"
 SESSION_CLAUDE="${AIDER_DESK_DATA_ROOT}/${SESSION_NAME}/claude"
 SESSION_RUNTIME_DIR="${AIDER_DESK_DATA_ROOT}/${SESSION_NAME}/runtime"
 RUNTIME_OVERLAY="${SESSION_RUNTIME_DIR}/compose.runtime.yaml"
+RENDERED_COMPOSE="${SESSION_RUNTIME_DIR}/compose.yaml"
+RENDERED_COMPOSE_HOST_NETWORK="${SESSION_RUNTIME_DIR}/compose.host-network.yaml"
 EXTENSIONS_VOLUME="${SESSION_NAME}-${EXTENSIONS_VOLUME_SUFFIX}"
+SERVICE_NAME="$SESSION_NAME"
 
-# Compose project name strips the "shiki-" prefix from the container name so
-# OrbStack auto-domains read as "<service>.<project>.orb.local" — i.e.
-# shiki.codex.orb.local rather than shiki.shiki-codex.orb.local.
-PROJECT_NAME="${SESSION_NAME#${DEFAULT_PREFIX}-}"
-[ -n "$PROJECT_NAME" ] || PROJECT_NAME="$SESSION_NAME"
+# Legacy-data migration hint: if a prior `shiki-<name>` data dir exists but
+# the un-prefixed dir does not, refuse to start and tell the user how to
+# migrate. (One-shot, deliberate opt-in — no silent rename of preserved data.)
+LEGACY_DATA_DIR="${AIDER_DESK_DATA_ROOT}/shiki-${SESSION_NAME}/data"
+if [ -d "$LEGACY_DATA_DIR" ] && [ ! -d "$SESSION_DATA" ]; then
+  echo-warn "Legacy session data detected at ${AIDER_DESK_DATA_ROOT}/shiki-${SESSION_NAME}/."
+  echo-warn "shiki now stores sessions without the 'shiki-' prefix. To migrate:"
+  echo-warn "  docker rm -f shiki-${SESSION_NAME} 2>/dev/null || true"
+  echo-warn "  docker volume rm shiki-${SESSION_NAME}-extensions 2>/dev/null || true"
+  echo-warn "  mv ${AIDER_DESK_DATA_ROOT}/shiki-${SESSION_NAME} ${AIDER_DESK_DATA_ROOT}/${SESSION_NAME}"
+  echo-warn "Then re-run: shiki -n ${SESSION_NAME}"
+  exit 1
+fi
 
 # ---------- env exports for docker compose ----------
 export SHIKI_IMAGE="$IMAGE"
@@ -534,16 +549,26 @@ export CODEX_AUTH_HOST_PATH CODEX_AUTH_CONTAINER_PATH
 export EXTENSIONS_VOLUME
 export HOST_PORT
 
+# ---------- render compose templates ----------
+# Compose can't interpolate mapping keys, so the service name is substituted
+# into a private copy of each template here.
+render_compose_templates() {
+  mkdir -p "$SESSION_RUNTIME_DIR"
+  sed "s/__SERVICE__:/${SERVICE_NAME}:/" "$SHIKI_COMPOSE_TEMPLATE" >"$RENDERED_COMPOSE"
+  sed "s/__SERVICE__:/${SERVICE_NAME}:/" "$SHIKI_COMPOSE_HOST_NETWORK_TEMPLATE" >"$RENDERED_COMPOSE_HOST_NETWORK"
+}
+render_compose_templates
+
 # ---------- compose command assembly ----------
 compose_cmd=(
   docker compose
   --project-directory "$SHIKI_DIR"
   --project-name "$PROJECT_NAME"
   --env-file /dev/null
-  -f "$SHIKI_COMPOSE_BASE"
+  -f "$RENDERED_COMPOSE"
 )
 if [ "$NETWORK_MODE" = "host" ]; then
-  compose_cmd+=(-f "$SHIKI_COMPOSE_HOST_NETWORK")
+  compose_cmd+=(-f "$RENDERED_COMPOSE_HOST_NETWORK")
 fi
 compose_cmd+=(-f "$RUNTIME_OVERLAY")
 
@@ -562,7 +587,7 @@ compose_base_cmd=(
   --project-directory "$SHIKI_DIR"
   --project-name "$PROJECT_NAME"
   --env-file /dev/null
-  -f "$SHIKI_COMPOSE_BASE"
+  -f "$RENDERED_COMPOSE"
 )
 
 # ---------- runtime overlay generation ----------
@@ -578,7 +603,7 @@ write_runtime_overlay() {
 
   {
     printf 'services:\n'
-    printf '  shiki:\n'
+    printf '  %s:\n' "$SERVICE_NAME"
     printf '    volumes:\n'
     local _i=0
     while [ "$_i" -lt "${#PROJECT_DIRS_ABS[@]}" ]; do
@@ -648,7 +673,7 @@ build_image() {
     echo-info "  Using default built-in extensions"
   fi
 
-  "${compose_base_cmd[@]}" build "${build_args[@]}" shiki
+  "${compose_base_cmd[@]}" build "${build_args[@]}" "$SERVICE_NAME"
   echo-ok "Image '${IMAGE}' built successfully."
 }
 
@@ -776,7 +801,7 @@ case "$SESSION_ACTION" in
 0)
   echo-info "Creating new session: $SESSION_NAME"
   print_mount_banner
-  "${compose_cmd[@]}" up -d shiki
+  "${compose_cmd[@]}" up -d "$SERVICE_NAME"
   echo-ok "Session '$SESSION_NAME' started."
   print_run_hints
   ;;
@@ -799,7 +824,7 @@ case "$SESSION_ACTION" in
     if [ "$bound_port" != "$HOST_PORT" ]; then
       echo-warn "  Container was created with port ${bound_port}, ignoring -p ${HOST_PORT}."
     fi
-    "${compose_base_cmd[@]}" start shiki
+    "${compose_base_cmd[@]}" start "$SERVICE_NAME"
     echo-ok "Session '$SESSION_NAME' resumed."
     print_run_hints "$bound_port"
   fi
@@ -808,7 +833,7 @@ case "$SESSION_ACTION" in
 2)
   echo-info "Restoring session: $SESSION_NAME (container was removed, data preserved)"
   print_mount_banner "existing"
-  "${compose_cmd[@]}" up -d shiki
+  "${compose_cmd[@]}" up -d "$SERVICE_NAME"
   echo-ok "Session '$SESSION_NAME' restored."
   print_run_hints
   ;;
