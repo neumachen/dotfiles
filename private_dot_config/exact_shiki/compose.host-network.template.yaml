@@ -1,5 +1,5 @@
 services:
-  shiki:
+  __SERVICE__:
     network_mode: host
     ports: !reset []
     environment:
