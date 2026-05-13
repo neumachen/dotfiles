@@ -46,7 +46,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 #    (agent check). curl/ca-certificates/xz-utils/unzip are needed for
 #    the official mise installer and common tool archives. ripgrep
 #    (rg) backs Claude SDK's Grep tool; bubblewrap (bwrap) backs its
-#    sandbox; git check-ignore comes from the already-installed git.
+#    sandbox.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         openssh-client \
@@ -57,6 +57,11 @@ RUN apt-get update \
         ripgrep \
         bubblewrap \
     && rm -rf /var/lib/apt/lists/*
+
+# Claude SDK invokes `check-ignore` as a bare command (not `git check-ignore`),
+# so provide a PATH shim that forwards to the git subcommand.
+RUN printf '#!/bin/sh\nexec git check-ignore "$@"\n' >/usr/local/bin/check-ignore \
+    && chmod +x /usr/local/bin/check-ignore
 
 # ── 4) Install mise ───────────────────────────────────────────────────
 ENV MISE_INSTALL_PATH=/usr/local/bin/mise
