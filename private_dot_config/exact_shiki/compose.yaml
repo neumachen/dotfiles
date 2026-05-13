@@ -1,0 +1,40 @@
+services:
+  shiki:
+    image: ${SHIKI_IMAGE}
+    container_name: ${SESSION_NAME}
+    build:
+      context: .
+      dockerfile: shiki.Dockerfile
+      args:
+        UPSTREAM_IMAGE: ${UPSTREAM_IMAGE}
+        AIDER_DESK_EXTENSIONS_APPEND: ${AIDER_DESK_EXTENSIONS_APPEND:-}
+        AIDER_DESK_EXTENSIONS_OVERRIDE: ${AIDER_DESK_EXTENSIONS_OVERRIDE:-}
+    environment:
+      GIT_USER_NAME: ${GIT_USER_NAME}
+      GIT_USER_EMAIL: ${GIT_USER_EMAIL}
+      GIT_SIGNING_KEY: ${GIT_SIGNING_KEY:-}
+      GIT_SIGN_COMMITS: ${GIT_SIGN_COMMITS:-}
+      AIDER_DESK_PROJECTS: ${AIDER_DESK_PROJECTS}
+      AIDER_DESK_DATA_DIR: /app/state
+      SHIKI_NETWORK_MODE: ${SHIKI_NETWORK_MODE}
+      SHIKI_HOST_LOCALHOST: ${SHIKI_HOST_LOCALHOST}
+      SHIKI_HOST_GATEWAY: ${SHIKI_HOST_GATEWAY}
+    volumes:
+      - ${SESSION_DATA}:/app/state
+      - ${SESSION_CLAUDE}:/root/.claude
+      - extensions:/root/.aider-desk/extensions
+      - ${AIDER_DESK_GLOBAL}/agents:/root/.aider-desk/agents
+      - ${AIDER_DESK_GLOBAL}/commands:/root/.aider-desk/commands
+      - ${AIDER_DESK_GLOBAL}/hooks:/root/.aider-desk/hooks
+      - ${AIDER_DESK_GLOBAL}/prompts:/root/.aider-desk/prompts
+      - ${AIDER_DESK_GLOBAL}/rules:/root/.aider-desk/rules
+      - ${AIDER_DESK_GLOBAL}/skills:/root/.aider-desk/skills
+      - ${CODEX_AUTH_HOST_PATH}:${CODEX_AUTH_CONTAINER_PATH}
+    ports:
+      - "${HOST_PORT}:24337"
+    restart: "no"
+
+volumes:
+  extensions:
+    name: ${EXTENSIONS_VOLUME}
+    external: true
