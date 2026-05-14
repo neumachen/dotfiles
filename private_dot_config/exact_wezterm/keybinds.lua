@@ -185,6 +185,48 @@ M.default_keybinds = {
     action = workspace_switcher.switch_workspace(),
   },
   {
+    key = 'w',
+    mods = 'LEADER|CTRL',
+    action = wezterm.action_callback(function(window, pane)
+      local mux = wezterm.mux
+      local choices = {}
+      for _, ws_name in ipairs(mux.get_workspace_names()) do
+        table.insert(choices, { label = ws_name, id = ws_name })
+      end
+      table.insert(choices, { label = '+ New workspace…', id = '__wzw_new__' })
+      window:perform_action(
+        act.InputSelector({
+          title = 'Open new window in workspace',
+          choices = choices,
+          fuzzy = true,
+          action = wezterm.action_callback(function(w, p, id, _label)
+            if not id then return end
+            if id == '__wzw_new__' then
+              w:perform_action(
+                act.PromptInputLine({
+                  description = wezterm.format({
+                    { Attribute = { Intensity = 'Bold' } },
+                    { Foreground = { AnsiColor = 'Fuchsia' } },
+                    { Text = 'Enter name for new workspace' },
+                  }),
+                  action = wezterm.action_callback(function(_w, _p, line)
+                    if line and line ~= '' then
+                      mux.spawn_window({ workspace = line })
+                    end
+                  end),
+                }),
+                p
+              )
+            else
+              mux.spawn_window({ workspace = id })
+            end
+          end),
+        }),
+        pane
+      )
+    end),
+  },
+  {
     key = 'z',
     mods = 'LEADER',
     action = wezterm.action.TogglePaneZoomState,
