@@ -285,6 +285,10 @@ return {
         Snacks.toggle.inlay_hints():map('<leader>uh')
         Snacks.toggle.indent():map('<leader>ug')
         Snacks.toggle.dim():map('<leader>uD')
+        Snacks.toggle.option('number'):map('yon')
+        Snacks.toggle.option('relativenumber'):map('yor')
+        Snacks.toggle.option('wrap'):map('yow')
+        Snacks.toggle.option('cursorline'):map('yo-')
       end,
     })
   end,
