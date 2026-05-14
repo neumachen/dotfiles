@@ -12,7 +12,7 @@ return {
       pauseFoldsOnSearch = true,
       foldtext = {
         enabled = true,
-        padding = 3,
+        padding = { width = 3 },
         lineCount = {
           template = '%d lines', -- `%d` is replaced with the number of folded lines
           hlgroup = 'Comment',
@@ -27,7 +27,7 @@ return {
       },
       foldKeymaps = {
         setup = true, -- modifies `h`, `l`, and `$`
-        hOnlyOpensOnFirstColumn = false,
+        closeOnlyOnFirstColumn = false,
       },
     })
 
