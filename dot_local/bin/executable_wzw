@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+#
+# wzw — open a new WezTerm window attached to a chosen workspace.
+#
+# Usage:
+#   wzw            # fzf-pick an existing workspace or type a new name
+#   wzw <name>     # spawn directly into <name> (creates the workspace if needed)
+
+set -o pipefail
+if [[ -n "${DEBUG:-}" ]]; then
+  set -x
+fi
+
+for cmd in wezterm fzf jq; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo-err "wzw: required command not found: $cmd"
+    exit 1
+  fi
+done
+
+gui_running() {
+  wezterm cli list >/dev/null 2>&1
+}
+
+pick_workspace() {
+  if gui_running; then
+    local names out query match
+    names="$(wezterm cli list --format json 2>/dev/null \
+      | jq -r '.[].workspace' \
+      | sort -u)"
+    out="$(printf '%s\n' "$names" \
+      | fzf --print-query \
+            --prompt='workspace> ' \
+            --header='enter to pick / type a new name' \
+      || true)"
+    query="$(printf '%s\n' "$out" | sed -n '1p')"
+    match="$(printf '%s\n' "$out" | sed -n '2p')"
+    if [[ -n "$match" ]]; then
+      printf '%s' "$match"
+    else
+      printf '%s' "$query"
+    fi
+  else
+    printf 'workspace name: ' >&2
+    local name
+    IFS= read -r name
+    printf '%s' "$name"
+  fi
+}
+
+name="${1:-}"
+if [[ -z "$name" ]]; then
+  name="$(pick_workspace)"
+fi
+
+if [[ -z "$name" ]]; then
+  echo-err "wzw: no workspace name provided"
+  exit 1
+fi
+
+if gui_running; then
+  exec wezterm cli spawn --new-window --workspace "$name"
+else
+  (nohup wezterm start --workspace "$name" >/dev/null 2>&1 &)
+fi
