@@ -1,4 +1,10 @@
+sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+
 [projects."/Users/kareemh/MeinCodex/Codekiste/instinct-science/dirty-frag-exploit"]
+trust_level = "trusted"
+
+[projects."/"]
 trust_level = "trusted"
 
 [tui.model_availability_nux]
