@@ -211,6 +211,15 @@ function clippaste() {
 #############################
 
 function zvm_config() {
+  # Initialize synchronously at sourcing time instead of deferring to
+  # the first precmd. This makes zvm wrap ZLE widgets BEFORE
+  # fast-syntax-highlighting / zsh-autocomplete / fzf-tab layer on top,
+  # producing a stable widget chain instead of a deferred re-wrap that
+  # was the root cause of our intermittent Tab failures (the wrapping
+  # revision drift that left fzf-tab calling into stale widget refs).
+  # Documented escape hatch for this class of plugin-ordering race.
+  ZVM_INIT_MODE=sourcing
+
   ZVM_VI_INSERT_ESCAPE_BINDKEY=jk
   ZVM_KEYTIMEOUT=0.15
   ZVM_INSERT_MODE_CURSOR=$ZVM_CURSOR_BEAM
