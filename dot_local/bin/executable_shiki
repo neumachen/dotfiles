@@ -785,7 +785,7 @@ mkdir -p "$SESSION_DATA" "$SESSION_CLAUDE" "$SESSION_MISE_CONFIG" "$SESSION_MISE
 # die with "bwrap: Creating new namespace failed: Operation not permitted").
 # Only write if absent — never clobber a user-authored settings.json.
 if [ ! -e "$SESSION_CLAUDE/settings.json" ]; then
-  printf '%s\n' '{"sandbox":{"enableWeakerNestedSandbox":true}}' \
+  printf '%s\n' '{"sandbox":{"enabled":true,"enableWeakerNestedSandbox":true}}' \
     > "$SESSION_CLAUDE/settings.json"
 fi
 
