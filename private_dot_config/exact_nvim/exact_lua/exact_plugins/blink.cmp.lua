@@ -12,7 +12,6 @@ return {
   -- version = "v0.13.1",
   dependencies = {
     'saghen/blink.lib',
-    'moyiz/blink-emoji.nvim',
     'ribru17/blink-cmp-spell',
     'mikavilpas/blink-ripgrep.nvim',
     'archie-judd/blink-cmp-words',
@@ -39,7 +38,6 @@ return {
         'spell',
         'dictionary',
         'thesaurus',
-        'emoji',
         'ripgrep',
       },
       providers = {
@@ -123,13 +121,6 @@ return {
           module = 'vim_dadbod_completion.blink',
           min_keyword_length = 2,
           score_offset = 85, -- the higher the number, the higher the priority
-        },
-        emoji = {
-          module = 'blink-emoji',
-          name = 'Emoji',
-          score_offset = 93, -- the higher the number, the higher the priority
-          min_keyword_length = 2,
-          opts = { insert = true }, -- Insert emoji (default) or complete its name
         },
         spell = {
           name = 'Spell',
