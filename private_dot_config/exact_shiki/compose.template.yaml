@@ -22,6 +22,12 @@ services:
     volumes:
       - ${SESSION_DATA}:/app/state
       - ${SESSION_CLAUDE}:/root/.claude
+      # Layer the host's user-level Claude Code settings on top of the
+      # per-session .claude home. The directory mount above keeps projects/,
+      # sessions/, todos/, history.jsonl isolated per session; this file
+      # mount makes the chezmoi-managed settings.json visible inside the
+      # container. Read-only — settings.json is canonical on the host.
+      - ${CLAUDE_HOST}/settings.json:/root/.claude/settings.json:ro
       - ${SESSION_MISE_CONFIG}:/root/.config/mise
       - ${SESSION_MISE_DATA}:/root/.local/share/mise
       - ${SESSION_MISE_CACHE}:/root/.cache/mise
@@ -36,6 +42,15 @@ services:
     ports:
       - "${HOST_PORT}:24337"
     restart: "no"
+    # Allow nested sandboxing tools (bwrap for Claude Code, Landlock for
+    # Codex) to create user namespaces. Docker's default seccomp profile
+    # filters unshare()/clone() with CLONE_NEWUSER, which kills bwrap with
+    # "Operation not permitted" before any sandboxed subprocess runs.
+    # AppArmor=unconfined is a no-op on macOS hosts but covers Ubuntu hosts
+    # whose default profile also intercepts these syscalls.
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
 
 volumes:
   extensions:
