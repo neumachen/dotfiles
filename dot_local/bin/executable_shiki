@@ -155,7 +155,11 @@ Mounts (automatic):
   ~/.local/share/aider-desk/<session>/data
                            → /app/state            (persistent data, survives container removal)
   ~/.local/share/aider-desk/<session>/claude
-                           → /root/.claude         (Claude Code home; persists conversation files)
+                           → /root/.claude         (per-session Claude Code home; conversations,
+                                                    projects/, sessions/, todos/ — isolated per session)
+  ~/.claude/settings.json  → /root/.claude/settings.json (ro)
+                                                   (user-level Claude config, layered on top of the
+                                                    per-session mount; chezmoi-managed on the host)
   Docker volume            → /root/.aider-desk/extensions
                            (extensions cache seeded from image on first run)
   ~/.config/aider-desk/<subdir>
@@ -185,12 +189,13 @@ Per-session mise:
   auto-install (debugging / fast restart).
 
 Claude SDK sandbox inside Docker:
-  bubblewrap's user-namespace isolation can fail inside Docker depending
-  on the host AppArmor profile. If Claude Code reports sandbox errors,
-  set enableWeakerNestedSandbox in the session's ~/.claude/settings.json:
-    { "sandbox": { "enableWeakerNestedSandbox": true } }
-  This file is bind-mounted from
-  ~/.local/share/aider-desk/<session>/claude/settings.json on the host.
+  Docker's default seccomp/AppArmor profiles block bubblewrap's
+  unshare()/clone()-with-CLONE_NEWUSER call. The compose template grants
+  the shiki service `seccomp=unconfined` + `apparmor=unconfined` so the
+  strong nested sandbox works without the weaker-mode fallback. Sandboxing
+  itself is enabled via "sandbox": { "enabled": true } in the host's
+  chezmoi-managed ~/.claude/settings.json (bind-mounted read-only into
+  each session at /root/.claude/settings.json).
 
 Host localhost access:
   Bridge mode (default):
@@ -577,6 +582,11 @@ else
   export SHIKI_HOST_GATEWAY="$HOST_GATEWAY_ALIAS"
 fi
 export SESSION_DATA SESSION_CLAUDE
+# Host's user-level Claude Code config. The compose template layers
+# ${CLAUDE_HOST}/settings.json on top of the per-session /root/.claude
+# mount so chezmoi-managed permissions/model/env policy applies inside
+# every session.
+export CLAUDE_HOST="${HOME}/.claude"
 export SESSION_MISE_CONFIG SESSION_MISE_DATA SESSION_MISE_CACHE
 export AIDER_DESK_GLOBAL
 export CODEX_AUTH_HOST_PATH CODEX_AUTH_CONTAINER_PATH
@@ -780,13 +790,13 @@ docker volume inspect "${EXTENSIONS_VOLUME}" >/dev/null 2>&1 || recreate_extensi
 
 mkdir -p "$SESSION_DATA" "$SESSION_CLAUDE" "$SESSION_MISE_CONFIG" "$SESSION_MISE_DATA" "$SESSION_MISE_CACHE"
 
-# Seed Claude Code's settings.json so bwrap's user-namespace setup doesn't
-# trip Docker's default AppArmor profile (otherwise sandboxed subprocesses
-# die with "bwrap: Creating new namespace failed: Operation not permitted").
-# Only write if absent — never clobber a user-authored settings.json.
-if [ ! -e "$SESSION_CLAUDE/settings.json" ]; then
-  printf '%s\n' '{"sandbox":{"enabled":true,"enableWeakerNestedSandbox":true}}' \
-    > "$SESSION_CLAUDE/settings.json"
+# Refuse to start if the host's Claude Code settings file is missing — the
+# compose template bind-mounts it read-only into the container, and Docker
+# would otherwise auto-create an empty directory at that path.
+if [ ! -f "$CLAUDE_HOST/settings.json" ]; then
+  echo-err "Missing ${CLAUDE_HOST}/settings.json (bind-mounted into the container)."
+  echo-err "Run \`chezmoi apply ~/.claude/settings.json\` to materialize it, then re-run shiki."
+  exit 1
 fi
 
 write_runtime_overlay
@@ -805,6 +815,7 @@ print_mount_banner() {
   fi
   echo-info "  Data:     ${SESSION_DATA} → /app/state${1:+ ($1)}"
   echo-info "  Claude:   ${SESSION_CLAUDE} → /root/.claude"
+  echo-info "            ${CLAUDE_HOST}/settings.json → /root/.claude/settings.json (ro)"
   echo-info "  Mise:     ${AIDER_DESK_DATA_ROOT}/${SESSION_NAME}/mise/{config,data,cache}"
   echo-info "  UI:       http://localhost:${HOST_PORT}"
   if [ "$NETWORK_MODE" = "host" ]; then

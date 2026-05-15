@@ -80,6 +80,18 @@ RUN apt-get update \
 RUN printf '#!/bin/sh\nexec git check-ignore "$@"\n' >/usr/local/bin/check-ignore \
     && chmod +x /usr/local/bin/check-ignore
 
+# Enterprise-managed Claude Code settings. The compose template bind-mounts
+# the host's user-level ~/.claude/settings.json (permissions, model, env)
+# into the container, but the sandbox toggle MUST live here so it only
+# applies inside shiki containers — never on the host. Managed settings
+# have higher precedence than user settings, so this enforces the strong
+# nested bwrap sandbox without leaking sandbox=true into the host's
+# chezmoi-managed settings.json (which would break Claude Code on macOS
+# where Seatbelt init has different requirements).
+RUN mkdir -p /etc/claude-code \
+    && printf '%s\n' '{"sandbox":{"enabled":true}}' \
+        > /etc/claude-code/managed-settings.json
+
 # ── 4) Install mise ───────────────────────────────────────────────────
 ENV MISE_INSTALL_PATH=/usr/local/bin/mise
 ENV MISE_CONFIG_DIR=/root/.config/mise
