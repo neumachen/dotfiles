@@ -1,0 +1,91 @@
+# Go Rule: Concurrency and Resource Management
+
+Use goroutines, channels, locks, and resources carefully.
+
+## Concurrency
+
+Do not start goroutines without a clear lifecycle.
+
+Every goroutine should have an understood:
+
+- Owner.
+- Cancellation path.
+- Error handling path, if relevant.
+- Shutdown behavior.
+
+Guidance:
+
+- Avoid goroutine leaks.
+- Avoid unbounded goroutine creation.
+- Respect `context.Context` cancellation.
+- Prefer `errgroup.Group` or equivalent patterns for coordinated concurrent work when appropriate.
+- Protect shared mutable state with mutexes, channels, or other synchronization.
+- Avoid data races.
+- Make channel ownership clear.
+- Usually, the sender should close the channel.
+- Do not close a channel from the receiver unless ownership is explicit.
+
+## Resource management
+
+Always close resources correctly.
+
+Resources include:
+
+- Files.
+- HTTP response bodies.
+- Database rows.
+- Database statements.
+- Network connections.
+- Streams.
+- Locks.
+- Temporary resources.
+
+Use `defer` where appropriate.
+
+HTTP response example:
+
+```go
+resp, err := client.Do(req)
+if err != nil {
+    return err
+}
+defer resp.Body.Close()
+```
+
+Database rows example:
+
+```go
+rows, err := db.QueryContext(ctx, query)
+if err != nil {
+    return err
+}
+defer rows.Close()
+
+for rows.Next() {
+    // ...
+}
+
+if err := rows.Err(); err != nil {
+    return err
+}
+```
+
+For write operations, consider whether close errors matter.
+
+Example:
+
+```go
+if err := w.Close(); err != nil {
+    return fmt.Errorf("close writer: %w", err)
+}
+```
+
+Testing concurrent code:
+
+- Avoid brittle `time.Sleep`-based tests.
+- Prefer synchronization primitives, contexts, fake clocks, or channels.
+- Run race-sensitive changes with the race detector when possible:
+
+```sh
+go test -race ./...
+```
