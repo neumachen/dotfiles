@@ -1,0 +1,82 @@
+# Go Rule: Packages and API Boundaries
+
+Use Go package boundaries intentionally.
+
+Do not expose code unless it is intended to be part of a public or cross-package API.
+
+Go has two important visibility mechanisms:
+
+1. Lowercase identifiers are package-private.
+2. Packages under an `internal/` directory cannot be imported from outside the allowed parent tree.
+
+Do not assume that every unexported helper must live in `internal/`. Use lowercase identifiers for package-private symbols. Use `internal/` to restrict package imports.
+
+## Exported identifiers
+
+- Export only types, functions, constants, variables, and methods that are intentionally part of the package API.
+- Prefer unexported identifiers by default.
+- Exported identifiers should have clear documentation comments when they are part of a public or reusable package.
+- Avoid exposing implementation details.
+- Avoid global mutable state.
+
+Example:
+
+```go
+// Store persists and retrieves customer records.
+type Store struct {
+    // ...
+}
+```
+
+## `internal/`
+
+Use `internal/` for implementation packages that should not be imported outside the module area or parent tree.
+
+Good examples:
+
+```txt
+/cmd/myservice
+/internal/config
+/internal/httpapi
+/internal/service
+/internal/store
+/internal/platform/postgres
+```
+
+Implementation details, application services, infrastructure adapters, private API clients, internal config loading, and database implementations usually belong under `internal/`.
+
+## `pkg/`
+
+Use `pkg/` only when the code is intentionally public and importable by other modules or external consumers.
+
+Do not place code in `pkg/` by default.
+
+Public packages should have:
+
+- Stable APIs.
+- Good documentation.
+- Tests.
+- Minimal dependencies.
+- Clear ownership of compatibility guarantees.
+
+## `cmd/`
+
+Use `cmd/<name>` for executable entry points.
+
+Code in `cmd` should mainly:
+
+- Parse configuration.
+- Initialize logging.
+- Wire dependencies.
+- Start the application.
+- Call into application logic.
+
+Business logic should generally not live in `cmd`. It should usually live under `internal/`.
+
+## Interfaces
+
+- Do not define interfaces prematurely.
+- Prefer accepting interfaces and returning concrete types only when it improves decoupling or testability.
+- In Go, interfaces are often best defined by the consumer, not the producer.
+- Keep interfaces small.
+- Avoid broad interfaces such as `Manager`, `Handler`, or `Service` unless the existing codebase already has that convention.

@@ -1,0 +1,32 @@
+# Go Rule: Context
+
+Use `context.Context` correctly.
+
+This rule is intentionally separate from error handling so it can be toggled independently.
+
+## Context usage
+
+Functions that perform I/O, network calls, database work, blocking operations, or long-running work should usually accept a `context.Context`.
+
+The context should be the first parameter:
+
+```go
+func (s *Service) GetUser(ctx context.Context, id string) (*User, error)
+```
+
+Rules:
+
+- Do not pass `nil` contexts.
+- Use `context.Background()` or `context.TODO()` when necessary.
+- Do not store contexts in structs unless there is a very specific reason.
+- Respect cancellation and deadlines.
+- Propagate context to downstream calls.
+- Do not create detached background work without a clear lifecycle.
+- Do not use context values as a substitute for explicit parameters except for request-scoped metadata such as tracing, auth, or logging data when the project convention supports it.
+- Keep context value keys private to the defining package to avoid collisions.
+
+## Cancellation and cleanup
+
+- Call cancellation functions when a derived context is no longer needed.
+- Ensure goroutines and blocking operations can exit when the context is canceled.
+- Prefer context-aware APIs such as `QueryContext`, `ExecContext`, and `http.NewRequestWithContext` when available.
