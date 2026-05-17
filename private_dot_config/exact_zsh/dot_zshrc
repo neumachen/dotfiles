@@ -298,17 +298,20 @@ if command_exists zoxide; then
 fi
 
 #############################
-# FZF keybindings (must be in zvm_after_init to survive zsh-vi-mode)
+# FZF keybindings — sourced last so they win against zsh-autocomplete
+# rebinding ^R, etc. With ZVM_INIT_MODE=sourcing, zsh-vi-mode finishes
+# init the moment its plugin is sourced (line ~236), so the previous
+# `zvm_after_init`-wrapped sourcing no longer fires here. Direct source
+# at end-of-plugin-load is the correct placement.
 #############################
 
-function zvm_after_init() {
-  local fzf_key_bindings_path="${HOME}/.local/share/fzf/shell/key-bindings.zsh"
-  if [[ -f "$fzf_key_bindings_path" ]]; then
-    source "$fzf_key_bindings_path"
-  else
-    echo-warn "fzf keybindings file: $fzf_key_bindings_path not found"
-  fi
-}
+_fzf_key_bindings_path="${HOME}/.local/share/fzf/shell/key-bindings.zsh"
+if [[ -f "$_fzf_key_bindings_path" ]]; then
+  source "$_fzf_key_bindings_path"
+else
+  echo-warn "fzf keybindings file: $_fzf_key_bindings_path not found"
+fi
+unset _fzf_key_bindings_path
 
 #############################
 # Environment Variables (command-dependent, belongs in zshrc)
