@@ -16,7 +16,6 @@ ARG AIDER_DESK_EXTENSIONS_DEFAULT="bmad,\
     questions,\
     redact-secrets,\
     rtk,\
-    sandbox,\
     seek,\
     sound-notification,\
     theme,\
