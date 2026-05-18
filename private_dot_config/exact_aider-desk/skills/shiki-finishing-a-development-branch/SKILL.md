@@ -313,3 +313,40 @@ git town propose
 - git town not installed or configured
 - Non-standard branch hierarchies
 - Custom merge requirements
+
+## Container/Restricted Environment Fallback
+
+When running in a containerized environment where git commands fail (permission denied, no credentials, etc.), invoke **shiki-container-git-fallback**.
+
+**Detection:**
+- `git commit` fails with auth/permission errors
+- `git push` fails with auth/permission errors
+- `gh pr create` fails
+
+**Fallback behavior:**
+Instead of executing git commands, provide the user with:
+1. Complete commit message (formatted for copy-paste)
+2. Exact git commands to run manually
+3. PR title and description (if PR requested)
+
+**Example fallback output:**
+```
+## Git Operations Required (Manual)
+
+I cannot execute git commands directly in this environment. Please run:
+
+\`\`\`bash
+git add -A
+git commit -m "feat(auth): add OAuth2 login support
+
+- Add login form with email/password
+- Implement JWT token generation
+- Add password hashing with bcrypt"
+
+git push -u origin feature/auth
+\`\`\`
+
+Let me know when complete, and I'll continue with the next steps.
+```
+
+**After user confirms:** Continue with remaining steps (worktree cleanup instructions if applicable).
