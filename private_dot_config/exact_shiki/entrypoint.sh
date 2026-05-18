@@ -69,6 +69,8 @@ if [ -n "${GIT_SIGNING_KEY:-}" ]; then
   sign_commits="${GIT_SIGN_COMMITS:-true}"
 
   cat >>"${GIT_CONFIG_FILE}" <<EOF
+
+[user]
   signingkey = ${GIT_SIGNING_KEY}
 
 [gpg]
