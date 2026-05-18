@@ -170,3 +170,37 @@ fix the thing
 ```
 feat: add stuff and also refactor other stuff
 ```
+
+## Container/Restricted Environment Fallback
+
+When running in a containerized environment where git commands fail, this skill can still generate commit messages by analyzing the changes made in the current session.
+
+**When git diff fails:**
+1. Use file change tracking from the session
+2. Analyze modifications made via power tools (file_write, file_edit)
+3. Generate commit message based on session activity
+
+**Output for manual commit:**
+```
+## Commit Message (for manual use)
+
+I cannot run git commands directly. Here's the commit message for your changes:
+
+\`\`\`
+<type>(<scope>): <description>
+
+<body>
+\`\`\`
+
+**To commit, run:**
+\`\`\`bash
+git add -A
+git commit -m "<paste message above>"
+\`\`\`
+
+**Files changed in this session:**
+- path/to/file1.go (modified)
+- path/to/file2.go (created)
+```
+
+**Integration:** When git fails, invoke **shiki-container-git-fallback** for complete manual instructions.
