@@ -16,6 +16,10 @@ services:
       GIT_SIGN_COMMITS: ${GIT_SIGN_COMMITS:-}
       AIDER_DESK_PROJECTS: ${AIDER_DESK_PROJECTS}
       AIDER_DESK_DATA_DIR: /app/state
+      # Aider history files — store in session data dir instead of project dir
+      # to avoid polluting mounted projects with .aider* files.
+      AIDER_INPUT_HISTORY_FILE: /app/state/aider.input.history
+      AIDER_CHAT_HISTORY_FILE: /app/state/aider.chat.history.md
       SHIKI_NETWORK_MODE: ${SHIKI_NETWORK_MODE}
       SHIKI_HOST_LOCALHOST: ${SHIKI_HOST_LOCALHOST}
       SHIKI_HOST_GATEWAY: ${SHIKI_HOST_GATEWAY}
