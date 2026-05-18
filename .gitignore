@@ -29,3 +29,15 @@ MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/omnisearch/*.db
 MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/omnisearch/*-cache.*
 
 .git-ignored/
+
+# macOS Finder metadata
+.DS_Store
+
+# Aider/AiderDesk local session artifacts
+.aider-desk/
+.aider.input.history
+.aider.tags.cache.v4/
+.aider.chat.history.md
+
+# Claude Code local settings
+.claude/
