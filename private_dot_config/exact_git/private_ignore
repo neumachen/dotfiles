@@ -79,8 +79,9 @@ tagged
 .cover
 **/vendor
 
-# Aider
+# Aider / AiderDesk
 .aider*
+.aider-desk/
 
 # .env files
 .env
@@ -91,4 +92,6 @@ tagged
 # ---------------------------------------------------------------------------------------------
 .git-ignored/
 
+# Claude Code local settings
+.claude/
 **/.claude/settings.local.json
