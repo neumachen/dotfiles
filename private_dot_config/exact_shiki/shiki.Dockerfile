@@ -37,6 +37,11 @@ RUN git config --system --add safe.directory "*" \
     && rm -f /root/.gitconfig /root/.config/git/config \
     && mkdir -p /etc/xdg/git
 
+# Global gitignore: patterns for OS artifacts, editor swap files, and tool
+# caches that should never be committed. The entrypoint-generated git config
+# references this via core.excludesfile.
+COPY gitignore /etc/xdg/git/ignore
+
 # ── 2) Use bash + pipefail for safer RUN steps ────────────────────────
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 

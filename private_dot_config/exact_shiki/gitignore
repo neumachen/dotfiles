@@ -1,0 +1,76 @@
+# Global gitignore for shiki containers
+# Patterns here apply to all git operations inside the container.
+
+# macOS
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Tags (etags, ctags)
+TAGS
+tags
+tags.*
+!tags.go
+.ctags.file
+
+# Vim
+.*.sw[a-z]
+*.un~
+Session.vim
+
+# SASS
+.sass-cache
+
+# IDE/Editor
+.project
+.classpath
+*.sublime-workspace
+
+# Markdown generated HTML
+*.md.html
+
+# Exuberant Tags
+gutentags
+
+# Temp files
+tmp/
+
+# Development tokens
+.tokens
+
+# Python
+venv/
+*.pyc
+__pycache__/
+*.pyo
+instance/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Go
+.cover
+**/vendor
+
+# Aider / AiderDesk
+.aider*
+.aider-desk/
+
+# Claude Code local settings
+.claude/
+**/.claude/settings.local.json
+
+# Environment files
+.env
+*.env
+
+# Personal ignored folder
+.git-ignored/

@@ -59,6 +59,9 @@ cat >"${GIT_CONFIG_FILE}" <<EOF
 [user]
   name = ${GIT_USER_NAME}
   email = ${GIT_USER_EMAIL}
+
+[core]
+  excludesfile = ${GIT_CONFIG_DIR}/ignore
 EOF
 
 # SSH signing block (only if a signing key is provided)
