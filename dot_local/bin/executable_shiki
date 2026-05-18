@@ -40,7 +40,13 @@ DEFAULT_AIDER_DESK_IMAGE="ghcr.io/hotovo/aider-desk:local"
 # "<session>.shiki.orb.local". The session name itself becomes the compose
 # service + container name.
 PROJECT_NAME="shiki"
+# DEFAULT_PORT is the IN-CONTAINER port AiderDesk listens on. The HOST port
+# defaults to 0 (Docker picks a free ephemeral port) so multiple sessions
+# can run concurrently without collisions; access is via OrbStack's
+# <session>.shiki.orb.local domain (or the auto-assigned localhost port,
+# reported on startup).
 DEFAULT_PORT=24337
+DEFAULT_HOST_PORT=0
 DEFAULT_NETWORK_MODE="bridge"
 DEFAULT_HOST_LOCALHOST_ALIAS="host.docker.internal"
 DEFAULT_HOST_GATEWAY_ALIAS="gateway.docker.internal"
@@ -56,7 +62,8 @@ UPDATE_EXTENSIONS=0
 BUILD_USE_CACHE=0
 BUILD_PULL=1
 SESSION_NAME=""
-HOST_PORT="$DEFAULT_PORT"
+HOST_PORT="$DEFAULT_HOST_PORT"
+HOST_PORT_EXPLICIT=0  # set to 1 when user passes -p/--port
 PROJECT_DIRS=()
 EXTRA_ENV=()
 EXTRA_VOLUMES=()
@@ -80,7 +87,10 @@ Wrapper options (before --):
                      Deterministic names allow restoring sessions even
                      after the container has been removed.
   -i, --image        Image to run (default: shiki:latest).
-  -p, --port         Host port for AiderDesk UI (default: 24337).
+  -p, --port         Host port for AiderDesk UI (default: auto-assigned by
+                     Docker — printed on startup). Pass an explicit port
+                     here to pin it. Multiple concurrent sessions only
+                     conflict if you pin them to the same port.
   -d, --dir          Project directory to mount (default: $PWD).
                      Accepts one or more directory arguments after the flag,
                      and may also be specified multiple times. All mounted
@@ -340,6 +350,7 @@ parse_args() {
     -p | --port)
       [ $# -ge 2 ] || die "--port requires an argument"
       HOST_PORT="$2"
+      HOST_PORT_EXPLICIT=1
       shift 2
       ;;
     -d | --dir)
@@ -817,7 +828,12 @@ print_mount_banner() {
   echo-info "  Claude:   ${SESSION_CLAUDE} → /root/.claude"
   echo-info "            ${CLAUDE_HOST}/settings.json → /root/.claude/settings.json (ro)"
   echo-info "  Mise:     ${AIDER_DESK_DATA_ROOT}/${SESSION_NAME}/mise/{config,data,cache}"
-  echo-info "  UI:       http://localhost:${HOST_PORT}"
+  if [ "$HOST_PORT" = "0" ]; then
+    echo-info "  UI:       http://localhost:<auto-assigned> (reported on startup)"
+  else
+    echo-info "  UI:       http://localhost:${HOST_PORT}"
+  fi
+  echo-info "  Orb:      http://${SESSION_NAME}.${PROJECT_NAME}.orb.local"
   if [ "$NETWORK_MODE" = "host" ]; then
     echo-info "  Network:  host (localhost inside container = host localhost)"
     echo-info "  Host:     localhost:<port> → host machine localhost"
@@ -828,7 +844,14 @@ print_mount_banner() {
 }
 
 print_run_hints() {
-  echo-info "  UI:   http://localhost:${1:-$HOST_PORT}"
+  local port="${1:-}"
+  [ -n "$port" ] || port="$HOST_PORT"
+  if [ -z "$port" ] || [ "$port" = "0" ]; then
+    echo-info "  UI:   http://localhost:<unknown> (port lookup failed)"
+  else
+    echo-info "  UI:   http://localhost:${port}"
+  fi
+  echo-info "  Orb:  http://${SESSION_NAME}.${PROJECT_NAME}.orb.local"
   echo-info "  Logs: docker logs -f $SESSION_NAME"
   echo-info "  Stop: docker stop $SESSION_NAME"
 }
@@ -845,6 +868,21 @@ container_aider_desk_port() {
   printf '%s\n' "$port"
 }
 
+# Resolve the actual host port currently bound by `container`. Works for
+# both bridge mode (reads PortBindings — handles random Docker-assigned
+# ports) and host mode (reads the in-container listen port from the
+# container's env). Prints empty on failure.
+inspect_host_port() {
+  local container="$1" network port
+  network="$(container_network_mode "$container")"
+  if [ "$network" = "host" ]; then
+    container_aider_desk_port "$container"
+  else
+    port="$(docker inspect --format '{{range $p, $b := .HostConfig.PortBindings}}{{range $b}}{{.HostPort}}{{end}}{{end}}' "$container" 2>/dev/null || true)"
+    printf '%s\n' "$port"
+  fi
+}
+
 echo-debug "compose runtime overlay: $RUNTIME_OVERLAY"
 echo-debug "AIDER_DESK_PROJECTS=${PROJECT_CONTAINER_PATH_LIST}"
 echo-debug "host SSH_AUTH_SOCK source: ${HOST_SSH_AUTH_SOCK:-<unset>}"
@@ -859,25 +897,23 @@ case "$SESSION_ACTION" in
   print_mount_banner
   "${compose_cmd[@]}" up -d "$SERVICE_NAME"
   echo-ok "Session '$SESSION_NAME' started."
-  print_run_hints
+  print_run_hints "$(inspect_host_port "$SESSION_NAME")"
   ;;
 
 1)
   container_status="$(docker inspect --format '{{.State.Status}}' "$SESSION_NAME" 2>/dev/null || echo "unknown")"
-  container_network="$(container_network_mode "$SESSION_NAME")"
-  if [ "$container_network" = "host" ]; then
-    bound_port="$(container_aider_desk_port "$SESSION_NAME")"
-  else
-    bound_port="$(docker inspect --format '{{range $p, $b := .HostConfig.PortBindings}}{{range $b}}{{.HostPort}}{{end}}{{end}}' "$SESSION_NAME" 2>/dev/null || echo "$HOST_PORT")"
-    [ -n "$bound_port" ] || bound_port="$HOST_PORT"
-  fi
+  bound_port="$(inspect_host_port "$SESSION_NAME")"
+  [ -n "$bound_port" ] || bound_port="$HOST_PORT"
 
   if [ "$container_status" = "running" ]; then
     echo-info "Session '$SESSION_NAME' is already running."
     print_run_hints "$bound_port"
   else
     echo-info "Resuming session: $SESSION_NAME"
-    if [ "$bound_port" != "$HOST_PORT" ]; then
+    # Only warn about port mismatch if the user explicitly asked for a
+    # different port — the default HOST_PORT=0 means "any port," so
+    # whatever's bound is fine.
+    if [ "$HOST_PORT_EXPLICIT" -eq 1 ] && [ "$bound_port" != "$HOST_PORT" ]; then
       echo-warn "  Container was created with port ${bound_port}, ignoring -p ${HOST_PORT}."
     fi
     "${compose_base_cmd[@]}" start "$SERVICE_NAME"
@@ -891,6 +927,6 @@ case "$SESSION_ACTION" in
   print_mount_banner "existing"
   "${compose_cmd[@]}" up -d "$SERVICE_NAME"
   echo-ok "Session '$SESSION_NAME' restored."
-  print_run_hints
+  print_run_hints "$(inspect_host_port "$SESSION_NAME")"
   ;;
 esac
