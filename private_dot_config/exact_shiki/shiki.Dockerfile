@@ -1,4 +1,4 @@
-ARG AIDER_DESK_IMAGE=ghcr.io/hotovo/aider-desk:local
+ARG AIDER_DESK_IMAGE=aider-desk:local
 FROM ${AIDER_DESK_IMAGE}
 
 ARG AIDER_DESK_EXTENSIONS_DEFAULT="bmad,\
@@ -89,7 +89,7 @@ RUN printf '#!/bin/sh\nexec git check-ignore "$@"\n' >/usr/local/bin/check-ignor
 # where Seatbelt init has different requirements).
 RUN mkdir -p /etc/claude-code \
     && printf '%s\n' '{"sandbox":{"enabled":true}}' \
-        > /etc/claude-code/managed-settings.json
+        >/etc/claude-code/managed-settings.json
 
 # ── 4) Install mise ───────────────────────────────────────────────────
 ENV MISE_INSTALL_PATH=/usr/local/bin/mise
@@ -101,7 +101,7 @@ ENV PATH=/usr/local/share/mise/shims:/root/.local/share/mise/shims:${PATH}
 RUN mkdir -p "${MISE_CONFIG_DIR}" "${MISE_DATA_DIR}" "${MISE_CACHE_DIR}" /etc/mise \
     && curl -fsSL https://mise.run | sh \
     && mise --version \
-    && echo 'eval "$(mise activate bash)"' >> /root/.bashrc
+    && echo 'eval "$(mise activate bash)"' >>/root/.bashrc
 
 # System-wide mise config: the baseline tools every shiki session gets
 # (gh, jq, fzf, vim, delta). Installed on first container start by
