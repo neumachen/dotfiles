@@ -86,6 +86,7 @@ map(
 
 -- LSP hover (use native ^ and $ for line start/end)
 map('n', 'gh', vim.lsp.buf.hover, { desc = 'LSP Hover Documentation' })
+map('n', '<leader>cr', vim.lsp.buf.rename, { desc = 'LSP Rename Symbol' })
 
 -- buffers (cycling handled by bufferline.lua)
 map('n', '<leader>bb', '<cmd>e #<cr>', { desc = 'Switch to Other Buffer' })
