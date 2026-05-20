@@ -1,17 +1,6 @@
 local map = vim.keymap.set
 
-map(
-  { 'n', 'v' },
-  '<localleader>;',
-  ':',
-  { desc = 'Command Line Without Colon' }
-)
-map(
-  { 'n', 'v' },
-  '<localleader><localleader>;',
-  '@:',
-  { desc = 'Replay Recent Command Without Colon' }
-)
+
 
 -- Better up/down
 map(
