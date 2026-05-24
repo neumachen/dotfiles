@@ -76,9 +76,6 @@ if [ -n "${GIT_SIGNING_KEY:-}" ]; then
 [gpg]
   format = ssh
 
-[gpg "ssh"]
-  program = ssh-keygen
-
 [commit]
   gpgsign = ${sign_commits}
 
@@ -88,7 +85,7 @@ EOF
 
   echo "✓ sign     format=ssh  gpgsign=${sign_commits}"
   echo "  ↳ key    ${GIT_SIGNING_KEY:0:40}..."
-  echo "  ↳ prog   ssh-keygen (via SSH_AUTH_SOCK)"
+  echo "  ↳ agent  SSH_AUTH_SOCK (1Password-compatible)"
 fi
 
 # Sensible defaults for container use
