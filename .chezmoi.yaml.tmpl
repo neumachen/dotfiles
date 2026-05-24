@@ -8,6 +8,8 @@
 {{- end -}}
 {{- $vault := "" -}}
 {{- $sshKey := "" -}}
+{{- $gitEmail := promptStringOnce . "git.email" "Git user email" -}}
+{{- $gitName := promptStringOnce . "git.name" "Git user name" -}}
 {{- if ne $onePasswordApp "" -}}
   {{- $vault = promptStringOnce . "onepassword.vault" "1Password vault name (e.g. Personal, Private)" -}}
   {{- $sshKey = promptStringOnce . "onepassword.ssh_signing_key" "SSH signing key (e.g. ssh-ed25519 AAAA...)" -}}
@@ -32,10 +34,12 @@ data:
     vault: {{ $vault | quote }}
     ssh_signing_key: {{ $sshKey | quote }}
   git:
+    email: {{ $gitEmail | quote }}
+    name: {{ $gitName | quote }}
     profile: |
       [user]
-        email = kareem@hepburn.info
-        name = Kareem Hepburn
+        email = {{ $gitEmail }}
+        name = {{ $gitName }}
 {{- if ne $onePasswordApp "" }}
         signingKey = {{ $sshKey }}
       [gpg]

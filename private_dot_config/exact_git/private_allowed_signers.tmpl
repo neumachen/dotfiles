@@ -1,5 +1,5 @@
 # Allowed SSH signing keys for Git signature verification
 # Format: <email> <key-type> <public-key>
 {{ if .onepassword.ssh_signing_key -}}
-kareem@hepburn.info {{ .onepassword.ssh_signing_key }}
+{{ .git.email }} {{ .onepassword.ssh_signing_key }}
 {{- end }}
