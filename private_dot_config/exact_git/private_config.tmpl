@@ -27,25 +27,20 @@
   # https://git-scm.com/docs/git-update-index#_untracked_cache
   untrackedCache = true
 
+[pretty]
+  signed = format:%C(yellow)%h%C(reset) %C(bold blue)[%G?]%C(reset) %C(red)%d%C(reset) %s %C(green)(%cr)%C(reset) %C(dim white)<%an>%C(reset)
+
 [format]
-  pretty = format:%C(yellow)%h %Cblue%>(15)%ad %Cgreen%<(15)%aN%Cred%d %Creset%s
+  pretty = signed
 
 [alias]
   # via http://blog.apiaxle.com/post/handy-git-tips-to-stop-you-getting-fired/
   snapshot = !git stash save "snapshot: $(date)" && git stash apply "stash@{0}"
   snapshots = !git stash list --grep snapshot
 
-  # via http://stackoverflow.com/questions/5188320/how-can-i-get-a-list-of-git-branches-ordered-by-most-recent-commit
-  recent-branches = !git for-each-ref --count=5 --sort=-committerdate refs/heads/ --format='%(refname:short)'
-
   # log
-  l = log --graph --date=iso
-  # View abbreviated SHA, description, and history graph of the latest 20 commits.
-  lp = log --pretty=oneline -n 20 --graph --abbrev-commit
-  changes = log --pretty=format:\"%h %cr %cn %Cgreen%s%Creset\" --name-status
-  short = log --pretty=format:\"%h %cr %cn %Cgreen%s%Creset\"
-  changelog = log --pretty=format:\" * %s\"
-  shortnocolor = log --pretty=format:\"%h %cr %cn %s\"
+  l = log --graph --decorate --date=relative --pretty=signed
+  changes = log --pretty=format:\"%h %cr %cn %C(bold blue)[%G?]%Creset %Cgreen%s%Creset\" --name-status
 
   # View the current working tree status using the short format.
   s = status -s
@@ -56,61 +51,52 @@
   # `git di $number` shows the diff between the state `$number` revisions ago and the current state.
   di = !"d() { git diff --patch-with-stat HEAD~$1; }; git diff-index --quiet HEAD -- || clear; d"
 
-  # Pull in remote changes for the current repository and all its submodules.
-  pl = pull --recurse-submodules
+  # pull
+  pl = pull
+  plr = pull --recurse-submodules
 
   # push
   ps = push
+  psf = push --force-with-lease
 
   # rebase
   rc = rebase --continue
   rs = rebase --skip
 
-  # remote
-  r = remote -v
-
-  c = commit                        # commit using editor
+  # commit
+  cm = commit                       # commit using editor
   cam = commit -am                  # commit all with message
   call = !git add -A && git commit -av
-  ci = commit                       # commit
   amend = commit --amend            # amend your last commit
   nemend = commit --amend --no-edit
+
   # checkout
-  cco = checkout                     # checkout
-  # Switch to a branch, creating it if necessary.
-  br = "!f() { git checkout -b \"$1\" 2> /dev/null || git checkout -t -b \"$1\"; }; f"
-  # create and switch to a new branch (mnemonic: "git new branch branchname...")
-  nb = checkout -t -b
+  cco = checkout
 
-  # Show verbose output about tags, branches or remotes
+  # Show verbose output about tags or remotes
   tags = tag -l
-  branches = branch --all
   remotes = remote --verbose
-
-  fix='$EDITOR `git diff --name-only | uniq`'
 
   # List all aliases.  Stolen from here: https://twitter.com/TrevorBramble/status/774292970681937920
   aliases = "!git config -l | grep ^alias | cut -c 7- | sort"
 
   fall = fetch --all
 
-  # Destroy all local changes and reset to HEAD.
-  # hreset = reset --hard HEAD
-
   # Reset previous commit, but keep all the associated changes. Useful for avoiding nasty git merge commits.
   uncommit = reset --soft HEAD^
-
-  # reset-up = reset --hard $(git upstream)
 
   # list untracked files
   lsu = ls-files --others --exclude-standard
 
   # Remove branches that have already been merged with main.
-  # a.k.a. ‘delete merged’
-  dm = "!git branch --merged | grep -v '\\*' | xargs -n 1 git branch -d"
+  delete-merged = "!git branch --merged | grep -v '\\*' | xargs -n 1 git branch -d"
 
   # Show the user email for the current repository.
   whoami = config user.email
+
+  # Review files in editor
+  review = "!f() { if [ \"$1\" = \"-untracked\" ]; then git ls-files --others --exclude-standard | xargs $EDITOR; elif [ \"$1\" = \"-staged\" ]; then git diff --cached --name-only | xargs $EDITOR; elif [ \"$1\" = \"all\" ]; then $EDITOR $(git diff --name-only HEAD; git ls-files --others --exclude-standard); else git diff --name-only | xargs $EDITOR; fi; }; f"
+
 [branch]
   # Show most recently changed branches first.
   sort = -committerdate
