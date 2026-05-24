@@ -1,25 +1,78 @@
 # yaml-language-server: $schema=https://gh-dash.dev/schema.json
+# gh-dash configuration
+# Docs: https://gh-dash.dev
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Pull Request Sections
+# ──────────────────────────────────────────────────────────────────────────────
 prSections:
-  - title: My Pull Requests
-    filters: is:open author:@me
-  - title: Needs My Review
-    filters: is:pr is:open archived:false sort:updated-desc user:neumachen
-  - title: Needs My Review
+  # Personal repositories (neumachen)
+  - title: "Personal: My PRs"
+    filters: is:open author:@me user:neumachen
+  - title: "Personal: Review Requested"
+    filters: is:open review-requested:@me user:neumachen
+
+  # Instinct Science repositories
+  - title: "Instinct: My PRs"
+    filters: is:open author:@me org:instinctscience
+  - title: "Instinct: Review Requested"
+    filters: is:open review-requested:@me org:instinctscience
+  - title: "Instinct: Team PRs"
+    filters: is:open org:instinctscience -author:@me
+    limit: 15
+
+  # Cross-org views
+  - title: "All: Needs My Review"
     filters: is:open review-requested:@me
-  - title: Subscribed
-    filters: is:open -author:@me
+  - title: "All: Involved"
+    filters: is:open involves:@me -author:@me
     limit: 10
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Issue Sections
+# ──────────────────────────────────────────────────────────────────────────────
 issuesSections:
-  - title: My Open Source Projects
-    filters: is:issue is:open archived:false sort:updated-desc user:neumachen
-  - title: My Issues
-    filters: is:open author:@me
+  # Personal repositories (neumachen)
+  - title: "Personal: My Issues"
+    filters: is:open author:@me user:neumachen
+  - title: "Personal: Assigned"
+    filters: is:open assignee:@me user:neumachen
+
+  # Instinct Science repositories
+  - title: "Instinct: My Issues"
+    filters: is:open author:@me org:instinctscience
+  - title: "Instinct: Assigned"
+    filters: is:open assignee:@me org:instinctscience
+  - title: "Instinct: Team Issues"
+    filters: is:open org:instinctscience -author:@me
+    limit: 15
+
+  # Cross-org views
+  - title: "All: Assigned to Me"
+    filters: is:open assignee:@me
+  - title: "All: Involved"
+    filters: is:open involves:@me -author:@me
+    limit: 10
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Defaults
+# ──────────────────────────────────────────────────────────────────────────────
 defaults:
   layout:
-    pars:
+    prs:
       repo:
         grow: true
+        width: 15
+        hidden: false
+      author:
+        width: 10
+        hidden: false
+    issues:
+      repo:
+        grow: true
+        width: 15
+        hidden: false
+      assignees:
         width: 10
         hidden: false
   preview:
@@ -27,11 +80,84 @@ defaults:
     width: 50
   prsLimit: 20
   issuesLimit: 20
-  view: issues
+  view: prs
+  refetchIntervalMinutes: 5
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Repository Paths
+# Map remote repos to local paths for checkout/edit commands
+# ──────────────────────────────────────────────────────────────────────────────
 repoPaths:
-  :owner/:repo: $CODEBASIS_DIR/github.com/:owner/:repo
-  neumachen/*: $CODEBASIS_DIR/github.com/neumachen/*
+  # Generic fallback pattern
+  ":owner/:repo": "$CODEBASIS_DIR/github.com/:owner/:repo"
+  # Personal repos
+  "neumachen/*": "$CODEBASIS_DIR/github.com/neumachen/*"
+  # Instinct Science repos
+  "instinctscience/*": "$CODEBASIS_DIR/github.com/instinctscience/*"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Keybindings
+# ──────────────────────────────────────────────────────────────────────────────
 keybindings:
   prs:
+    # Checkout PR and open in Neovim (via Wezterm)
     - key: c
-      command: kitty @ launch --cwd={{.RepoPath}} zsh -c 'gh pr checkout {{.PrNumber}}; nvim'
+      command: >
+        wezterm cli spawn --cwd {{.RepoPath}} -- zsh -c '
+          gh pr checkout {{.PrNumber}} &&
+          nvim
+        '
+    # Checkout PR and open diff in Neovim (via Wezterm)
+    - key: d
+      command: >
+        wezterm cli spawn --cwd {{.RepoPath}} -- zsh -c '
+          gh pr checkout {{.PrNumber}} &&
+          nvim -c "DiffviewOpen origin/{{.BaseRefName}}...HEAD"
+        '
+    # Open PR in browser
+    - key: o
+      command: gh pr view {{.PrNumber}} --repo {{.RepoName}} --web
+    # Approve PR
+    - key: a
+      command: gh pr review {{.PrNumber}} --repo {{.RepoName}} --approve
+    # Request changes
+    - key: x
+      command: gh pr review {{.PrNumber}} --repo {{.RepoName}} --request-changes
+    # Merge PR (squash)
+    - key: m
+      command: gh pr merge {{.PrNumber}} --repo {{.RepoName}} --squash --delete-branch
+    # Comment on PR
+    - key: C
+      command: gh pr comment {{.PrNumber}} --repo {{.RepoName}} --editor
+
+  issues:
+    # Open issue in Neovim (via Wezterm) for editing
+    - key: e
+      command: >
+        wezterm cli spawn --cwd {{.RepoPath}} -- zsh -c '
+          gh issue view {{.IssueNumber}} --repo {{.RepoName}} &&
+          read -k "?Press any key to close..."
+        '
+    # Open issue in browser
+    - key: o
+      command: gh issue view {{.IssueNumber}} --repo {{.RepoName}} --web
+    # Assign issue to self
+    - key: a
+      command: gh issue edit {{.IssueNumber}} --repo {{.RepoName}} --add-assignee @me
+    # Comment on issue
+    - key: C
+      command: gh issue comment {{.IssueNumber}} --repo {{.RepoName}} --editor
+    # Close issue
+    - key: x
+      command: gh issue close {{.IssueNumber}} --repo {{.RepoName}}
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Pager
+# ──────────────────────────────────────────────────────────────────────────────
+pager:
+  diff: delta
+
+# ──────────────────────────────────────────────────────────────────────────────
+# UI Settings
+# ──────────────────────────────────────────────────────────────────────────────
+confirmQuit: false
