@@ -7,7 +7,7 @@
 //      built-in `alwaysUpdateLinks` (which handles wikilink targets).
 //
 //   2. metadataCache.on("changed", ...): when the `title:` frontmatter of a
-//      managed note changes (vermerk / kadai / zakki), recompute the
+//      managed note changes (kadai / zakki), recompute the
 //      <uid6>-<slug> stem and rename the file via app.fileManager.renameFile.
 //      Skips the first event per file path (which fires during the vault's
 //      indexing pass at startup) so we don't mass-rename pre-existing files
@@ -32,7 +32,6 @@ for (const [key, off] of [[RENAME_KEY, "vault"], [META_KEY, "metadataCache"]]) {
 const seen = globalThis[SEEN_KEY] = new Set();
 const pending = globalThis[PENDING_KEY] = new Set();
 
-const VERMERKE_PATH_RE = /^akten\/\d{4}\/\d{2}\/[a-z0-9]+-[a-z0-9-]+\/vermerke\//;
 const KADAI_PATH_RE = /^kadai\/\d{4}\/\d{2}\/\d{2}\//;
 const ZAKKI_PATH_RE = /^zakki\/\d{4}\/\d{2}\/\d{2}\//;
 const UID6_RE = /^[a-f0-9]{6}$/;
@@ -54,7 +53,7 @@ const slugify = (title) => {
 
 const expectedStem = (file, title) => {
   const path = file.path;
-  if (!VERMERKE_PATH_RE.test(path) && !KADAI_PATH_RE.test(path) && !ZAKKI_PATH_RE.test(path)) {
+  if (!KADAI_PATH_RE.test(path) && !ZAKKI_PATH_RE.test(path)) {
     return null;
   }
   const basename = file.basename;
