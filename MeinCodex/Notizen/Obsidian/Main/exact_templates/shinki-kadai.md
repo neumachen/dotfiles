@@ -8,7 +8,7 @@ const DEFAULT_STATUS = "incipient";
 
 const TASKS_HEADING = "## Tasks";
 
-// When inserting a task into a parent doc (Akte index, Vermerk, Zakki), emit
+// When inserting a task into a parent doc (Akte index, Zakki), emit
 // a Bases code block scoped to that parent's id instead of a wikilink. One
 // block per scope; re-running the template with the same scope is a no-op.
 // Bracket notation is required because property names with literal dots
@@ -81,28 +81,49 @@ const active = isCreateMode
 
 let context = null;
 let akteUid = null;
-let vermerkUid = null;
-let zakkiId = null;
+let zakkiUid = null;
+let akteLink = null;
+let zakkiLink = null;
+
+const buildLink = (path, title, fallback) => `[[${path}|${title || fallback}]]`;
+
+const resolveAkteLinkByUid = (uid) => {
+  const folders = app.vault.getAllLoadedFiles().filter(f =>
+    f.children && /^akten\/\d{4}\/\d{2}(\/\d{2})?\/[a-z0-9]+-[a-z0-9-]+$/.test(f.path)
+  );
+  const hit = folders.find(f => f.path.split("/").pop().split("-")[0] === uid);
+  if (!hit) return null;
+  const indexPath = `${hit.path}/index.md`;
+  const indexFile = app.vault.getAbstractFileByPath(indexPath);
+  if (!indexFile) return null;
+  const t = app.metadataCache.getFileCache(indexFile)?.frontmatter?.title ?? "";
+  return buildLink(indexPath, t, uid);
+};
+
 if (active) {
   const ap = active.path;
   const akteMatch = ap.match(/^akten\/\d{4}\/\d{2}(?:\/\d{2})?\/([a-z0-9]+)-[a-z0-9-]+\//);
-  if (akteMatch) {
+  if (akteMatch && active.basename === "index") {
     akteUid = akteMatch[1];
-    if (active.basename === "index") {
-      context = "akten";
-    } else {
-      context = "vermerk";
-      const cache = app.metadataCache.getFileCache(active);
-      vermerkUid = cache?.frontmatter?.id ?? null;
-    }
+    context = "akten";
+    const t = app.metadataCache.getFileCache(active)?.frontmatter?.title ?? "";
+    akteLink = buildLink(ap, t, akteUid);
   } else if (ap.startsWith("zakki/")) {
     context = "zakki";
-    zakkiId = active.basename;
+    const cache = app.metadataCache.getFileCache(active);
+    zakkiUid = cache?.frontmatter?.id ?? null;
+    const zakkiTitle = cache?.frontmatter?.title ?? "";
+    if (zakkiUid) zakkiLink = buildLink(ap, zakkiTitle, zakkiUid.slice(0, 6));
+    const akteRef = cache?.frontmatter?.["reference.akten.id"];
+    if (akteRef) {
+      akteUid = String(akteRef);
+      const cachedAkteLink = cache?.frontmatter?.["reference.akten.link"];
+      akteLink = cachedAkteLink ? String(cachedAkteLink) : resolveAkteLinkByUid(akteUid);
+    }
   }
 }
 
 const contextLabel = context === "akten" ? "Add to new Akten"
-                   : context === "vermerk" ? "Add to new Vermerk"
                    : context === "zakki" ? "Add to new Zakki"
                    : "Task creation";
 
@@ -166,15 +187,18 @@ const status = DEFAULT_STATUS;
 const refLines = [];
 if (context === "akten") {
   refLines.push(`reference.akten.id: ${akteUid}`);
-} else if (context === "vermerk") {
-  if (vermerkUid) {
-    refLines.push(`reference.vermerk.id: ${vermerkUid}`);
-  } else {
-    new Notice("Active Vermerk has no `vermerk.id` in frontmatter; only the parent Akte will be referenced.");
-  }
-  refLines.push(`reference.akten.id: ${akteUid}`);
+  if (akteLink) refLines.push(`reference.akten.link: "${akteLink}"`);
 } else if (context === "zakki") {
-  refLines.push(`reference.zakki.id: ${zakkiId}`);
+  if (zakkiUid) {
+    refLines.push(`reference.zakki.id: ${zakkiUid}`);
+    if (zakkiLink) refLines.push(`reference.zakki.link: "${zakkiLink}"`);
+  } else {
+    new Notice("Active Zakki has no `id` in frontmatter; reference.zakki.id will be empty.");
+  }
+  if (akteUid) {
+    refLines.push(`reference.akten.id: ${akteUid}`);
+    if (akteLink) refLines.push(`reference.akten.link: "${akteLink}"`);
+  }
 }
 const refBlock = refLines.length ? refLines.join("\n") + "\n" : "";
 
@@ -269,20 +293,16 @@ if (context === "akten") {
   refKey = "reference.akten.id";
   refValue = akteUid;
   scopeLabel = "Akte";
-} else if (context === "vermerk") {
-  if (vermerkUid) {
-    refKey = "reference.vermerk.id";
-    refValue = vermerkUid;
-    scopeLabel = "Vermerk";
-  } else {
+} else if (context === "zakki") {
+  if (zakkiUid) {
+    refKey = "reference.zakki.id";
+    refValue = zakkiUid;
+    scopeLabel = "Zakki";
+  } else if (akteUid) {
     refKey = "reference.akten.id";
     refValue = akteUid;
     scopeLabel = "Akte";
   }
-} else if (context === "zakki") {
-  refKey = "reference.zakki.id";
-  refValue = zakkiId;
-  scopeLabel = "Zakki";
 }
 const baseBlock = (refKey && refValue) ? buildTaskBaseBlock(refKey, refValue, scopeLabel) : null;
 

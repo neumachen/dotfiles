@@ -41,17 +41,18 @@ Every note carries a standard frontmatter block:
 id:               <full-uuidv4-hex>             — 32-char hex UUIDv4 (no hyphens), set at creation
 path:             <vault-relative file path including .md>
 filename:         <bare filename stem, without .md>   — first 6 hex chars of `id` for
-                                                       zakki / vermerk / kadai; `index`
-                                                       for Akten (folder uses the 6-hex
-                                                       prefix instead)
+                                                       zakki / kadai; `index` for Akten
+                                                       (folder uses the 6-hex prefix
+                                                       instead)
 title:            human-readable title
-type:             akten | vermerk | zakki | kadai   — document kind, set by template
+type:             akten | zakki | kadai            — document kind, set by template
 aliases:
-tags:                                            — `<type>` (akten / vermerk / zakki) auto-added;
+tags:                                            — `<type>` (akten / zakki) auto-added;
                                                    `task` for kadai (Tasks plugin filter);
-                                                   Vermerke also tag the parent Akte's UUID
-                                                   for `#<akte-uuid>` cross-doc search;
-                                                   user-added tags accumulate alongside
+                                                   Zakki linked to an Akte also tag the
+                                                   parent Akte's UUID6 for `#<akte-uuid6>`
+                                                   cross-doc search; user-added tags
+                                                   accumulate alongside
 created_at.utc:   "YYYY-MM-DDTHH:mm:ssZ"        — set at creation, never updated
 created_at.local: "YYYY-MM-DDTHH:mm:ss±HH:MM"   — local wall-clock + offset at creation
 modified_at.utc:  "YYYY-MM-DDTHH:mm:ssZ"        — auto-maintained by Linter on every save
@@ -67,7 +68,6 @@ via `crypto.randomUUID()` at creation. Identical schema across types:
 | Type | `id` | Filename / folder prefix | Example |
 |---|---|---|---|
 | `akten` | full UUID | first 6 hex chars + `-<slug>` (folder name) | folder `f47ac1-q3-tax-review/index.md`, `id: f47ac10b58cc4372a5670e02b2c3d479` |
-| `vermerk` | full UUID | first 6 hex chars + `-<slug>` (filename) | `f47ac1-named-pipe-browser-forwarding.md`, `id: f47ac10b58cc4372a5670e02b2c3d479` |
 | `zakki` | full UUID | first 6 hex chars + `-<slug>` (filename) | `9c2a8d-coffee-shop-thoughts.md`, `id: 9c2a8d11ef4a4b9aa2cb35bf12d8e0c5` |
 | `kadai` | full UUID | first 6 hex chars + `-<slug>` (filename) | `3b1d6f-fix-failing-build.md`, `id: 3b1d6f7e88d9498aa6c2d5fe04a91e7c` |
 
@@ -78,14 +78,13 @@ worst case). The full UUID stays in frontmatter `id` as the canonical
 identifier — anything that needs to disambiguate beyond the filename
 reads `id` directly.
 
-Vermerk, Zakki, Kadai, and Akten all append a sanitized title slug
-after the 6-hex prefix (`<uid6>-<slug>`) so the file explorer is
-readable. Slug sanitization is identical across types: NFD-fold to
-ASCII, lowercase, non-`[a-z0-9]` runs collapsed to `-`, trimmed,
-truncated to 60 chars on a `-` boundary, falls back to `untitled` if
-empty. Akten encode the slug in the folder name (the `index.md` itself
-keeps its bare `index` filename); the other three encode it in the
-file basename.
+Zakki, Kadai, and Akten all append a sanitized title slug after the
+6-hex prefix (`<uid6>-<slug>`) so the file explorer is readable. Slug
+sanitization is identical across types: NFD-fold to ASCII, lowercase,
+non-`[a-z0-9]` runs collapsed to `-`, trimmed, truncated to 60 chars
+on a `-` boundary, falls back to `untitled` if empty. Akten encode the
+slug in the folder name (the `index.md` itself keeps its bare `index`
+filename); the other two encode it in the file basename.
 
 The `type:` field is the source of truth for document kind. Time
 ordering for Zakki / Kadai comes from the `YYYY/MM/DD/` parent folder
@@ -95,7 +94,7 @@ fine.
 The `path` field carries the document's full vault-relative path (with `.md`),
 so a note's canonical location can be read straight from frontmatter without
 walking the filesystem. The `filename` field is the bare stem (no `.md`):
-`index` for Akten, `<uid6>-<slug>` for Vermerk / Zakki / Kadai. Both fields
+`index` for Akten, `<uid6>-<slug>` for Zakki / Kadai. Both fields
 stay in sync with the file's actual location via
 `templates/sync-system-frontmatter.md`, a Templater startup hook that
 installs **two** vault-wide listeners:
@@ -105,9 +104,9 @@ installs **two** vault-wide listeners:
    rewrite that file's `path:` and `filename:` frontmatter via
    `app.fileManager.processFrontMatter`.
 2. **`metadataCache.on("changed", ...)`** — when the `title:`
-   frontmatter of a managed note (Vermerk under `akten/.../vermerke/`,
-   Kadai under `kadai/YYYY/MM/DD/`, Zakki under `zakki/YYYY/MM/DD/`)
-   changes, recompute `<uid6>-<slug>` from the new title and rename
+   frontmatter of a managed note (Kadai under `kadai/YYYY/MM/DD/`,
+   Zakki under `zakki/YYYY/MM/DD/`) changes, recompute
+   `<uid6>-<slug>` from the new title and rename
    the file via `app.fileManager.renameFile`. The first metadata-changed
    event per file is treated as the indexing pass and skipped, so
    pre-existing legacy files are NOT mass-renamed at startup — bulk
@@ -134,6 +133,32 @@ Task notes additionally carry flat dotted-key fields in the same frontmatter blo
 priority, Date & time for the dates, Text for the rest), and Bases reads them as ordinary
 string-keyed fields. See REFERENCE.md for the full task schema.
 
+### Cross-document References
+
+Every cross-document reference (child note pointing back at a parent) follows
+a consistent two-field shape:
+
+| Key | Value | Visible in Properties UI |
+|---|---|---|
+| `reference.<type>.id`   | uid6 for Akten, full 32-char UUID for Zakki | No — hidden by `ui-hide-system-frontmatter.css`; Bases queries still read it |
+| `reference.<type>.link` | `"[[<vault-path>|<parent-title>]]"` wikilink alias | Yes — the clickable surface |
+
+Both fields are written together, the `.id` always immediately above the
+`.link`. Templates that emit references (`neuer-zakki.md`, `shinki-kadai.md`)
+populate both at creation. Concrete shapes:
+
+| Source → target | Fields written |
+|---|---|
+| Zakki → Akte    | `reference.akten.id` + `reference.akten.link` |
+| Kadai → Akte    | `reference.akten.id` + `reference.akten.link` |
+| Kadai → Zakki   | `reference.zakki.id` + `reference.zakki.link` (and, if the Zakki itself links to an Akte, both `reference.akten.*` lines propagate) |
+
+The two-field shape is what lets the Properties UI stay readable (no raw
+hashes cluttering the view) while Bases / shell queries / migration scripts
+can keep filtering on the stable `.id`. Backfill for pre-existing references
+that only carry the `.id` lives in
+`~/MeinCodex/Codekiste/obsidian/scripts/one-off/migrate-add-reference-links.py`.
+
 ---
 
 ## Templates
@@ -142,12 +167,11 @@ Located at `<vault-root>/templates/`. All templates use Templater syntax.
 
 | File | Hotkey | Command label (via Commander) | Purpose |
 |---|---|---|---|
-| `neuer-zakki.md` | `Cmd+N` | — | General note — prompts for title, lands in `zakki/YYYY/MM/DD/<uuid6>-<slug>.md` with tags `[zakki]`. Frontmatter `id` is the full 32-char UUID; filename uses the 6-hex prefix plus a sanitized title slug (slug rules identical to `neuer-akten.md`). |
+| `neuer-zakki.md` | `Cmd+N` | — | General note — prompts for title, lands in `zakki/YYYY/MM/DD/<uuid6>-<slug>.md` with tags `[zakki]`. Frontmatter `id` is the full 32-char UUID; filename uses the 6-hex prefix plus a sanitized title slug (slug rules identical to `neuer-akten.md`). **Akte-aware:** if an Akte's `index.md` is open in another pane when the template fires, the new Zakki is treated as a child of that Akte — its frontmatter gets `reference.akten.id` and `reference.akten.link` and the parent Akte's UUID6 is appended to `tags`. The `id` field is hidden from the Properties UI by `ui-hide-system-frontmatter.css` (Bases queries still see it); only the link surfaces. The Akte's `index.md` also gets a Bases code block inserted under a `## Zakki` section (created on first use, reused thereafter) scoped to that Akte's UUID6, so the index shows a live table of its Zakki children. Without an Akte in context, the Zakki is created standalone with no back-reference. |
 | `neuer-akten.md` | — | `Akten: Neue Akte` | Project folder — prompts for title, creates `akten/YYYY/MM/<uuid6>-<slug>/index.md` with tags `[akten]`. Folder name uses the first 6 hex chars of the UUID; the full 32-char UUID lives in frontmatter `id`. |
-| `neuer-vermerk.md` | — | `Akten: Neuer Vermerk` | Memo inside an Akte — runs in **insert mode** (matches `shinki-kadai`'s pattern). Auto-detects the parent Akte from the active file's enclosing folder; falls back to a suggester listing all Akten if none is active. Mode picker (`Title only` vs `Full document`) controls whether focus switches to the new Vermerk after creation. Lands in `akten/YYYY/MM/<akte-folder>/vermerke/<uuid6>-<slug>.md` (the `vermerke/` subdirectory is created on first use; slug sanitization mirrors `neuer-akten.md`) with tags `[vermerk, <parent-akte-uuid6>]` plus property `reference.akten.id: <parent-akte-uuid>` (full parent UUID). The Vermerk's own UUID lives in `id` only — there's no separate `vermerk.id` field anymore. **Always inserts a wikilink to the new Vermerk into the parent Akte's `index.md`** under a `## Vermerke` section (created on first use, reused thereafter), regardless of which document is currently active. |
-| `shinki-kadai.md` | `Cmd+Shift+T` | `Kadai: Shinki Kadai (新規課題)` | Task note — runs in **insert mode** by default (the hotkey is bound to `templater-obsidian:templates/shinki-kadai.md`), so the active document stays open and a wikilink to the new task is dropped into it. Two creation modes: `Title only` (just title prompt) and `Full document` (also prompts an optional description, then opens the new task after the link is inserted — priority and due date can be edited later in the task file or via the Tasks plugin). Where the link goes depends on Vim mode: in **insert mode**, the link is inserted at the cursor; in **normal mode**, the link is appended under a `## Inserted Tasks` section at the end of the active document (created on first use, reused on subsequent inserts). The task file itself always lives at `kadai/YYYY/MM/DD/<uuid6>-<slug>.md` (slug rules match `neuer-akten.md`). The task body's `## Status` section embeds two `meta-bind` widgets: an `INPUT[inlineSelect(...):task.status]` dropdown constrained to the 6 canonical options (`incipient`, `in-progress`, `completed`, `discarded`, `blocked`, `abandoned`) and a derived `VIEW` field rendering `☑ Done` / `☐ Not done` based on whether `task.status` is `completed` or `discarded`. Status defaults to `incipient` at creation; change it via the dropdown. **Context-aware label and references:** the mode picker's placeholder reflects the active document context — `Add to new Akten` (active = Akte index), `Add to new Vermerk` (active = Vermerk), `Add to new Zakki` (active = Zakki), or `Task creation` (no context). Reference fields follow the label: Akten → `reference.akten.id`; Vermerk → both `reference.vermerk.id` and `reference.akten.id` (parent); Zakki → `reference.zakki.id`; no context → no reference fields. **Standalone fallback:** invoking `Templater: Create new note from template → templates/shinki-kadai.md` (or any create-mode wrapper) skips the insert path entirely and creates the task as a standalone open file — same prompts, no reference fields, no link insertion. |
+| `shinki-kadai.md` | `Cmd+Shift+T` | `Kadai: Shinki Kadai (新規課題)` | Task note — runs in **insert mode** by default (the hotkey is bound to `templater-obsidian:templates/shinki-kadai.md`), so the active document stays open and a wikilink to the new task is dropped into it. Two creation modes: `Title only` (just title prompt) and `Full document` (also prompts an optional description, then opens the new task after the link is inserted — priority and due date can be edited later in the task file or via the Tasks plugin). Where the link goes depends on Vim mode: in **insert mode**, the link is inserted at the cursor; in **normal mode**, the link is appended under a `## Inserted Tasks` section at the end of the active document (created on first use, reused on subsequent inserts). The task file itself always lives at `kadai/YYYY/MM/DD/<uuid6>-<slug>.md` (slug rules match `neuer-akten.md`). The task body's `## Status` section embeds two `meta-bind` widgets: an `INPUT[inlineSelect(...):task.status]` dropdown constrained to the 6 canonical options (`incipient`, `in-progress`, `completed`, `discarded`, `blocked`, `abandoned`) and a derived `VIEW` field rendering `☑ Done` / `☐ Not done` based on whether `task.status` is `completed` or `discarded`. Status defaults to `incipient` at creation; change it via the dropdown. **Context-aware label and references:** the mode picker's placeholder reflects the active document context — `Add to new Akten` (active = Akte index), `Add to new Zakki` (active = Zakki), or `Task creation` (no context). Reference fields follow the label: Akten → `reference.akten.id`; Zakki → `reference.zakki.id`, plus `reference.akten.id` if the Zakki itself is linked to an Akte; no context → no reference fields. **Standalone fallback:** invoking `Templater: Create new note from template → templates/shinki-kadai.md` (or any create-mode wrapper) skips the insert path entirely and creates the task as a standalone open file — same prompts, no reference fields, no link insertion. |
 | `add-tag.md` | `Cmd+Alt+T` | — | Adds a tag to the current note's frontmatter. First shows a suggester populated from `app.metadataCache.getTags()` so existing tags fuzzy-autocomplete as you type; press `Esc` on the suggester to fall through to a free-form prompt for a brand-new tag. |
-| `sync-system-frontmatter.md` | — (startup template) | — | Registered in Templater's `startup_templates`. Runs once on vault open to install **two** vault-wide listeners: (1) `app.vault.on("rename", ...)` — keeps each note's `path:` / `filename:` frontmatter aligned with its current location after any rename or move; (2) `app.metadataCache.on("changed", ...)` — when `title:` changes on a managed note (Vermerk / Kadai / Zakki), recomputes `<uid6>-<slug>` and renames the file via `app.fileManager.renameFile`, which then triggers Obsidian's `alwaysUpdateLinks` to rewrite wikilinks vault-wide. The first metadata-changed event per file is treated as the indexing pass and skipped, so legacy bare-`<uid6>.md` files are NOT mass-renamed silently at startup. Idempotent across plugin reloads via `globalThis` guards + `app.vault.offref()` / `app.metadataCache.offref()`. Produces no file output. |
+| `sync-system-frontmatter.md` | — (startup template) | — | Registered in Templater's `startup_templates`. Runs once on vault open to install **two** vault-wide listeners: (1) `app.vault.on("rename", ...)` — keeps each note's `path:` / `filename:` frontmatter aligned with its current location after any rename or move; (2) `app.metadataCache.on("changed", ...)` — when `title:` changes on a managed note (Kadai / Zakki), recomputes `<uid6>-<slug>` and renames the file via `app.fileManager.renameFile`, which then triggers Obsidian's `alwaysUpdateLinks` to rewrite wikilinks vault-wide. The first metadata-changed event per file is treated as the indexing pass and skipped, so legacy bare-`<uid6>.md` files are NOT mass-renamed silently at startup. Idempotent across plugin reloads via `globalThis` guards + `app.vault.offref()` / `app.metadataCache.offref()`. Produces no file output. |
 
 To pick any template interactively (including `neuer-akten`), use `Cmd+Shift+N`
 (Templater → *Create new note from template*). To insert a template into the
@@ -164,7 +188,6 @@ custom palette label. They live in `dot_obsidian/plugins/cmdr/data.json` under t
 | Macro name (palette label) | Underlying command ID |
 |---|---|
 | `Akten: Neue Akte` | `templater-obsidian:create-templates/neuer-akten.md` |
-| `Akten: Neuer Vermerk` | `templater-obsidian:templates/neuer-vermerk.md` |
 | `Kadai: Shinki Kadai (新規課題)` | `templater-obsidian:create-templates/shinki-kadai.md` |
 
 Note: Obsidian prefixes plugin commands with the plugin name in the palette, so
@@ -200,10 +223,13 @@ Path format:
 empty `tags:`, `created_at.{utc,local}`, `modified_at.{utc,local}`). Add
 subfolders or attachments inside the project folder freely; the project's
 identity is the folder name and its canonical entry point is `index.md`.
-Vermerke created via `Akten: Neuer Vermerk` land in a `vermerke/`
-subdirectory next to `index.md` (auto-created on first use) as
-`<id>.md`, and a wikilink is appended to the index under a `## Vermerke`
-section.
+Zakki created with an Akte in context (via `Cmd+N` while an Akte's
+`index.md` is open in another pane) land in the regular
+`zakki/YYYY/MM/DD/` tree, but their frontmatter carries
+`reference.akten.id` back to the parent Akte. The Akte's `index.md`
+gets a Bases code block inserted under a `## Zakki` section
+(auto-created on first use) scoped to that Akte's UUID6, so the index
+shows a live table of its Zakki children.
 
 Examples:
 - `akten/2026/05/f47ac1-q3-tax-review-fy26/index.md`
@@ -284,7 +310,7 @@ visual setting.
 | `editor-tables.css` | Table borders, alternating rows |
 | `plugin-mysnippets.css` | MySnippets status bar menu tweaks |
 | `ui-compact-tab-header.css` | Compact tab bar |
-| `ui-hide-system-frontmatter.css` | Hides `id`-adjacent system frontmatter (`filename`, `path`, `type`, `created_at.*`, `modified_at.*`) from the Properties view; data stays in the file |
+| `ui-hide-system-frontmatter.css` | Hides `id`-adjacent system frontmatter (`filename`, `path`, `type`, `created_at.*`, `modified_at.*`, `reference.akten.id`, `reference.zakki.id`) from the Properties view; data stays in the file. `reference.akten.link` is deliberately *not* hidden — it's the user-visible clickable back-reference to the parent Akte. |
 | `ui-statusbar-tweaks.css` | Status bar layout tweaks |
 
 All snippet files follow `category-name.css` naming (lowercase, hyphenated).

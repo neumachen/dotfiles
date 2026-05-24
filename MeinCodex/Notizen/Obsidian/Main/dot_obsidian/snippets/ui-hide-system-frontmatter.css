@@ -7,6 +7,8 @@
 .metadata-property[data-property-key="path"],
 .metadata-property[data-property-key="type"],
 .metadata-property[data-property-key^="created_at"],
-.metadata-property[data-property-key^="modified_at"] {
+.metadata-property[data-property-key^="modified_at"],
+.metadata-property[data-property-key="reference.akten.id"],
+.metadata-property[data-property-key="reference.zakki.id"] {
   display: none;
 }

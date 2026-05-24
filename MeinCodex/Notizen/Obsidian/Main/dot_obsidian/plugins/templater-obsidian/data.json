@@ -8,7 +8,6 @@
   "enabled_templates_hotkeys": [
     "templates/add-tag.md",
     "templates/neuer-akten.md",
-    "templates/neuer-vermerk.md",
     "templates/neuer-zakki.md",
     "templates/shinki-kadai.md"
   ],
