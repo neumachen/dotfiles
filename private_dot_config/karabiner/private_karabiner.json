@@ -3,8 +3,114 @@
         "show_additional_menu_items": true,
         "show_profile_name_in_menu_bar": true
     },
+    "machine_specific": { "krbn-230fb790-6adc-4db1-8918-7afa598b78b1": { "external_editor_path": "/Applications/Neovide.app" } },
     "profiles": [
         {
+            "complex_modifications": {
+                "rules": [
+                    {
+                        "description": "Print Screen to Command+F11 (NLKB16-02 only)",
+                        "manipulators": [
+                            {
+                                "conditions": [
+                                    {
+                                        "identifiers": [
+                                            {
+                                                "product_id": 5634,
+                                                "vendor_id": 53280
+                                            }
+                                        ],
+                                        "type": "device_if"
+                                    }
+                                ],
+                                "from": { "key_code": "print_screen" },
+                                "to": [
+                                    {
+                                        "key_code": "f11",
+                                        "modifiers": ["right_command"]
+                                    }
+                                ],
+                                "type": "basic"
+                            }
+                        ]
+                    },
+                    {
+                        "description": "Scroll Lock to Command+F12 (NLKB16-02 only)",
+                        "manipulators": [
+                            {
+                                "conditions": [
+                                    {
+                                        "identifiers": [
+                                            {
+                                                "product_id": 5634,
+                                                "vendor_id": 53280
+                                            }
+                                        ],
+                                        "type": "device_if"
+                                    }
+                                ],
+                                "from": { "key_code": "scroll_lock" },
+                                "to": [
+                                    {
+                                        "key_code": "f12",
+                                        "modifiers": ["right_command"]
+                                    }
+                                ],
+                                "type": "basic"
+                            }
+                        ]
+                    },
+                    {
+                        "description": "Hold button6 to trigger Option+Tab (ELECOM IST PRO only)",
+                        "manipulators": [
+                            {
+                                "conditions": [
+                                    {
+                                        "identifiers": [
+                                            {
+                                                "product_id": 394,
+                                                "vendor_id": 1390
+                                            }
+                                        ],
+                                        "type": "device_if"
+                                    }
+                                ],
+                                "from": { "pointing_button": "button6" },
+                                "parameters": { "basic.to_if_held_down_threshold_milliseconds": 500 },
+                                "to_if_held_down": [
+                                    {
+                                        "key_code": "tab",
+                                        "modifiers": ["option"]
+                                    }
+                                ],
+                                "type": "basic"
+                            }
+                        ]
+                    },
+                    {
+                        "description": "Hold button7 to open Mission Control (ELECOM IST PRO only)",
+                        "manipulators": [
+                            {
+                                "conditions": [
+                                    {
+                                        "identifiers": [
+                                            {
+                                                "product_id": 394,
+                                                "vendor_id": 1390
+                                            }
+                                        ],
+                                        "type": "device_if"
+                                    }
+                                ],
+                                "from": { "pointing_button": "button7" },
+                                "parameters": { "basic.to_if_held_down_threshold_milliseconds": 500 },
+                                "to_if_held_down": [{ "apple_vendor_keyboard_key_code": "mission_control" }],
+                                "type": "basic"
+                            }
+                        ]
+                    }
+                ]
+            },
             "devices": [
                 {
                     "identifiers": { "is_keyboard": true },
@@ -30,32 +136,43 @@
                 {
                     "identifiers": {
                         "is_keyboard": true,
-                        "is_pointing_device": true,
-                        "product_id": 394,
-                        "vendor_id": 1390
+                        "product_id": 5634,
+                        "vendor_id": 53280
                     },
                     "ignore_vendor_events": true
                 },
                 {
                     "identifiers": {
                         "is_keyboard": true,
+                        "is_pointing_device": true,
                         "product_id": 5634,
                         "vendor_id": 53280
                     },
+                    "ignore_vendor_events": true
+                },
+                {
+                    "identifiers": {
+                        "is_keyboard": true,
+                        "is_pointing_device": true,
+                        "product_id": 394,
+                        "vendor_id": 1390
+                    },
+                    "ignore": false,
                     "ignore_vendor_events": true,
+                    "mouse_flip_horizontal_wheel": true,
+                    "mouse_flip_vertical_wheel": true,
                     "simple_modifications": [
                         {
-                            "from": { "key_code": "insert" },
-                            "to": [{ "apple_vendor_top_case_key_code": "keyboard_fn" }]
+                            "from": { "pointing_button": "button8" },
+                            "to": [{ "key_code": "right_command" }]
                         }
                     ]
                 },
                 {
                     "identifiers": {
                         "is_keyboard": true,
-                        "is_pointing_device": true,
-                        "product_id": 5634,
-                        "vendor_id": 53280
+                        "product_id": 10203,
+                        "vendor_id": 5824
                     },
                     "ignore_vendor_events": true
                 }
