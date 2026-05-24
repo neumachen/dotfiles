@@ -50,4 +50,13 @@ data:
       [commit]
         gpgsign = true
 {{- end }}
+    # Directory-specific git profiles
+    # Example:
+    #   profiles:
+    #     - name: work
+    #       gitdir: ~/work/
+    #       email: work@example.com
+    #       # name: Optional (inherits from git.name if omitted)
+    #       # signingKey: Optional (inherits from onepassword.ssh_signing_key if omitted)
+    profiles: []
   envvars: []

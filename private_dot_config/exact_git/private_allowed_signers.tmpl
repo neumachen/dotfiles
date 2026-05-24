@@ -1,5 +1,14 @@
 # Allowed SSH signing keys for Git signature verification
 # Format: <email> <key-type> <public-key>
+
+# Default signing key
 {{ if .onepassword.ssh_signing_key -}}
 {{ .git.email }} {{ .onepassword.ssh_signing_key }}
+{{- end }}
+
+# Profile-specific signing keys
+{{ range .git.profiles -}}
+{{ if .signingKey -}}
+{{ .email }} {{ .signingKey }}
+{{ end -}}
 {{- end }}
