@@ -1,13 +1,14 @@
 #!/bin/bash
 # vim: ft=bash
 # Generate git profile files from chezmoi data
-# Hash: {{ .git.profiles | toJson | sha256sum }}
+# Hash: {{ if .git.profiles }}{{ .git.profiles | toJson | sha256sum }}{{ else }}empty{{ end }}
 
 set -euo pipefail
 
 PROFILES_DIR="${HOME}/.config/git/profiles"
 mkdir -p "${PROFILES_DIR}"
 
+{{ if .git.profiles -}}
 {{ range .git.profiles }}
 cat > "${PROFILES_DIR}/{{ .name }}" << 'PROFILE_EOF'
 # vim:ft=gitconfig
@@ -24,7 +25,6 @@ PROFILE_EOF
 
 echo "Generated git profile: {{ .name }}"
 {{ end }}
-
-{{ if not .git.profiles -}}
+{{- else }}
 echo "No git profiles configured"
-{{ end -}}
+{{- end }}
