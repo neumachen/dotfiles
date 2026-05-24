@@ -13,7 +13,7 @@
 {{- if ne $onePasswordApp "" -}}
   {{- $vault = promptStringOnce . "onepassword.vault" "1Password vault name (e.g. Personal, Private)" -}}
   {{- $sshKey = promptStringOnce . "onepassword.ssh_signing_key" "SSH signing key (e.g. ssh-ed25519 AAAA...)" -}}
-{{- end -}}
+{{- end }}
 sourceDir: ~/MeinCodex/Codebasis/github.com/neumachen/dotfiles
 diff:
   command: nvim
