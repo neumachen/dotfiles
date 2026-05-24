@@ -7,8 +7,10 @@
 {{- end }}
 
 # Profile-specific signing keys
+{{- if .git.profiles }}
 {{ range .git.profiles -}}
 {{ if .signingKey -}}
 {{ .email }} {{ .signingKey }}
 {{ end -}}
+{{- end }}
 {{- end }}

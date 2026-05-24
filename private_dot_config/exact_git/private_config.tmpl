@@ -194,10 +194,12 @@
 [include]
   path = {{ expandenv "${HOME}/.config/git/profile" }}
 
+{{- if .git.profiles }}
 {{ range .git.profiles -}}
 [includeIf "gitdir:{{ .gitdir }}"]
   path = {{ expandenv "${HOME}/.config/git/profiles/{{ .name }}" }}
 
 {{ end -}}
+{{- end }}
 [init]
   defaultBranch = main
