@@ -1,18 +1,18 @@
 {
-  "id": "d2c3fef0-65d2-4ba0-8042-72d68d108712",
-  "name": "New Profile",
-  "provider": "openrouter",
-  "model": "anthropic/claude-sonnet-4.6",
-  "maxIterations": 250,
+  "id": "8b7b4fe1-6c43-4ab0-9696-2e0f3d807f21",
+  "name": "Scout",
+  "provider": "claude-agent-sdk",
+  "model": "haiku",
+  "maxIterations": 150,
   "minTimeBetweenToolCalls": 0,
   "toolApprovals": {
     "aider---get_context_files": "always",
     "aider---add_context_files": "always",
     "aider---drop_context_files": "always",
-    "aider---run_prompt": "ask",
-    "power---file_edit": "ask",
+    "aider---run_prompt": "never",
+    "power---file_edit": "never",
     "power---file_read": "always",
-    "power---file_write": "ask",
+    "power---file_write": "never",
     "power---glob": "always",
     "power---grep": "always",
     "power---semantic_search": "always",
@@ -27,14 +27,14 @@
     "tasks---delete_task": "ask",
     "memory---store_memory": "always",
     "memory---retrieve_memory": "always",
-    "memory---delete_memory": "always",
+    "memory---delete_memory": "ask",
     "memory---list_memories": "always",
-    "memory---update_memory": "always"
+    "memory---update_memory": "ask"
   },
   "toolSettings": {
     "power---bash": {
-      "allowedPattern": "ls .*;cat .*;git status;git show;git log",
-      "deniedPattern": "rm .*;del .*;chown .*;chgrp .*;chmod .*"
+      "allowedPattern": "ls .*;cat .*;git status;git show;git log;go list.*;go mod graph",
+      "deniedPattern": "rm .*;del .*;chown .*;chgrp .*;chmod .*;git push.*;git commit.*"
     }
   },
   "includeContextFiles": false,
@@ -47,14 +47,14 @@
   "useMemoryTools": true,
   "useSkillsTools": true,
   "useExtensionTools": true,
-  "customInstructions": "Default coding profile: use Claude Sonnet 4.6 for normal implementation, debugging, and refactoring work. Escalate to the Deep Profile only for unusually hard architectural or cross-cutting reasoning tasks.",
+  "customInstructions": "Scout — fast read-only triage using Claude Haiku (Agent SDK / subscription). Always activate using-shiki at session start. NEVER make code changes. Use for: repo exploration, log/error summarization, narrowing candidate files, dependency graph reading, and 'what does this code do?' questions. Hand off to Forge for any implementation work. Agent mode only.",
   "enabledServers": [],
   "subagent": {
     "enabled": false,
-    "systemPrompt": "",
+    "systemPrompt": "You are Scout, a fast read-only triage agent. Explore the codebase, summarize findings, identify the right files. Never make code changes.",
     "invocationMode": "on-demand",
-    "color": "#3368a8",
-    "description": "",
+    "color": "#2e8b57",
+    "description": "Fast read-only triage via Claude Haiku (Agent SDK). Use before coding work to explore and narrow scope.",
     "contextMemory": "off"
   }
 }
