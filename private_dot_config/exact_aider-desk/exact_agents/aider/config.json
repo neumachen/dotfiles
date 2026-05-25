@@ -1,9 +1,9 @@
 {
   "id": "aider",
-  "name": "Aider",
+  "name": "Aider (Structured Edit)",
   "provider": "anthropic",
   "model": "claude-sonnet-4-6",
-  "maxIterations": 0,
+  "maxIterations": 100,
   "minTimeBetweenToolCalls": 0,
   "toolApprovals": {
     "aider---get_context_files": "always",
@@ -27,14 +27,14 @@
     "tasks---delete_task": "ask",
     "memory---store_memory": "always",
     "memory---retrieve_memory": "always",
-    "memory---delete_memory": "never",
-    "memory---list_memories": "never",
-    "memory---update_memory": "never"
+    "memory---delete_memory": "ask",
+    "memory---list_memories": "ask",
+    "memory---update_memory": "ask"
   },
   "toolSettings": {
     "power---bash": {
-      "allowedPattern": "ls .*;cat .*;git status;git show;git log",
-      "deniedPattern": "rm .*;del .*;chown .*;chgrp .*;chmod .*"
+      "allowedPattern": "ls .*;cat .*;git status;git show;git log;go test.*;go vet.*",
+      "deniedPattern": "rm .*;del .*;chown .*;chgrp .*;chmod .*;git push --force.*"
     }
   },
   "includeContextFiles": false,
@@ -47,14 +47,14 @@
   "useMemoryTools": true,
   "useSkillsTools": true,
   "useExtensionTools": true,
-  "customInstructions": "",
+  "customInstructions": "Aider (Structured Edit) — diff-aware structured code edits via Aider tools using Claude Sonnet 4.6 (standard Anthropic API key). Uses standard Anthropic provider — Claude Agent SDK cannot run Aider integration. Best for focused SEARCH/REPLACE-style patches where Aider's repo-map context tracking is valuable.",
   "enabledServers": [],
   "subagent": {
     "enabled": false,
-    "systemPrompt": "You are a specialized subagent for AI-powered code generation and refactoring. Focus on providing high-quality code modifications based on the given requirements.",
+    "systemPrompt": "You are a specialized subagent for Aider-assisted code editing using structured SEARCH/REPLACE edits.",
     "invocationMode": "on-demand",
     "color": "#3368a8",
-    "description": "AI-powered code generation and refactoring. Best for implementing features, fixing bugs, and structured development workflows using Aider's intelligent code understanding and modification capabilities.",
+    "description": "Diff-aware structured editing via Aider tools (Claude Sonnet 4.6, standard Anthropic API).",
     "contextMemory": "off"
   }
 }

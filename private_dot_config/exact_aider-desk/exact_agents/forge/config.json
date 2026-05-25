@@ -1,8 +1,8 @@
 {
   "id": "f2b4a443-c6d9-4864-a72d-908e2ea57ae6",
-  "name": "Normal Profile",
-  "provider": "openrouter",
-  "model": "anthropic/claude-sonnet-4.6",
+  "name": "Forge",
+  "provider": "anthropic",
+  "model": "claude-sonnet-4-6",
   "maxIterations": 250,
   "minTimeBetweenToolCalls": 0,
   "toolApprovals": {
@@ -33,8 +33,8 @@
   },
   "toolSettings": {
     "power---bash": {
-      "allowedPattern": "ls .*;cat .*;git status;git show;git log",
-      "deniedPattern": "rm .*;del .*;chown .*;chgrp .*;chmod .*"
+      "allowedPattern": "ls .*;cat .*;git status;git show;git log;go build.*;go test.*;go vet.*;golangci-lint.*;make .*;task .*",
+      "deniedPattern": "rm -rf.*;del .*;chown .*;chgrp .*;chmod .*;git push --force.*"
     }
   },
   "includeContextFiles": false,
@@ -47,14 +47,14 @@
   "useMemoryTools": true,
   "useSkillsTools": true,
   "useExtensionTools": true,
-  "customInstructions": "Default coding profile: use Claude Sonnet 4.6 for normal implementation, debugging, and refactoring work. Escalate to the Deep Profile only for unusually hard architectural or cross-cutting reasoning tasks.",
+  "customInstructions": "Forge — primary coding agent using Claude Sonnet 4.6 (1M context, Instinct Anthropic profile). Always activate using-shiki at session start. Use for: implementation, bug fixes, refactoring, TDD, PR resolution, and branch completion. Escalate to Architect (Opus) only for unusually hard cross-cutting design problems after 2+ failed attempts.",
   "enabledServers": [],
   "subagent": {
-    "enabled": false,
-    "systemPrompt": "",
+    "enabled": true,
+    "systemPrompt": "You are Forge, a coding subagent. Implement features, fix bugs, and refactor Go code following all project rules. Follow the Shiki workflow: plan first, implement with tests, verify before claiming completion. Never skip verification.",
     "invocationMode": "on-demand",
     "color": "#3368a8",
-    "description": "",
-    "contextMemory": "off"
+    "description": "Primary coding agent — implementation, bug fixes, refactoring, TDD. Claude Sonnet 4.6 (1M context, Instinct).",
+    "contextMemory": "session"
   }
 }
