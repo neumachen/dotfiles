@@ -24,7 +24,7 @@ fi
 
 usage() {
   cat <<USAGE
-Usage: fz-brew <command>
+Usage: fzbrew <command>
 
 Commands:
   install     Select one or more formulae to install
