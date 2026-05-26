@@ -59,4 +59,35 @@ data:
     #       # name: Optional (inherits from git.name if omitted)
     #       # signingKey: Optional (inherits from onepassword.ssh_signing_key if omitted)
     profiles: []
-  envvars: []
+  # Mise profiles: generate mise.toml files in arbitrary directories from chezmoi data.
+  # Each profile drops a mise.toml into `dir` with env vars sourced from 1Password
+  # (op:// URIs) or static values. Run `mise trust <dir>/mise.toml` once after apply,
+  # or add the dir to mise's trusted_config_paths in your global mise config.
+  #
+  # Example:
+  #   mise:
+  #     profiles:
+  #       - dir: ~/work/acme
+  #         op_vault: Acme
+  #         env:
+  #           - name: API_TOKEN
+  #             op_item: "Acme API"
+  #             op_field: credential
+  #           - name: ENV
+  #             value: production
+  mise:
+    profiles:
+      - dir: ~/MeinCodex/Codebasis/github.com/instinctscience
+        op_vault: InstinctScience
+        env:
+          - name: JIRA_API_TOKEN
+            op_item: "Jira API Token"
+            op_field: credential
+          - name: JIRA_EMAIL
+            op_item: "Jira API Token"
+            op_field: username
+          - name: JIRA_BASE_URL
+            op_item: "Jira API Token"
+            op_field: hostname
+          - name: JIRA_AUTH_TYPE
+            value: bearer
