@@ -24,7 +24,7 @@ fi
 
 usage() {
   cat <<USAGE
-Usage: fz-docker <command>
+Usage: fzdocker <command>
 
 Commands:
   attach      Select a stopped container to start and attach to
