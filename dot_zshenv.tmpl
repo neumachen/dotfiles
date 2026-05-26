@@ -5,9 +5,31 @@ export XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
 export XDG_DATA_HOME=${XDG_DATA_HOME:-$HOME/.local/share}
 export ZDOTDIR=${ZDOTDIR:-$XDG_CONFIG_HOME/zsh}
 
-# zsh-snap configuration
-export ZNAP_HOME="${XDG_DATA_HOME}/zsh-snap"
-[[ ! -d "$ZNAP_HOME" ]] && mkdir -p "$ZNAP_HOME"
+# zimfw configuration
+# ZIM_CONFIG_FILE is authored config — lives in ZDOTDIR
+# ZIM_HOME is downloaded plugin data — lives in XDG_DATA_HOME
+export ZIM_CONFIG_FILE="${ZDOTDIR}/zimrc.zsh"
+export ZIM_HOME="${XDG_DATA_HOME}/zim"
+[[ ! -d "$ZIM_HOME" ]] && mkdir -p "$ZIM_HOME"
+
+# Homebrew — set BREW_PREFIX and add bin to PATH for all shell types.
+# Must be in zshenv (not zprofile) so non-login and non-interactive shells
+# (Alfred, launchd agents, scripts) can find Homebrew-installed tools like mise.
+{{ if eq .chezmoi.os "darwin" -}}
+if [[ -z "${BREW_PREFIX}" ]]; then
+  export BREW_PREFIX=$([[ "$(arch)" == "arm64" ]] && echo "/opt/homebrew" || echo "/usr/local")
+fi
+path=("${BREW_PREFIX}/bin" "${BREW_PREFIX}/sbin" ${path})
+{{ end -}}
+
+# mise shims — add to PATH for all shell types so mise-managed tools (node,
+# python, go, rust, etc.) are universally available without requiring
+# `mise activate` to have run. Per-directory version switching still requires
+# joke/zim-mise (which runs `mise activate` in interactive shells via zimrc.zsh).
+export MISE_DATA_DIR="${XDG_DATA_HOME}/mise"
+if [[ -d "${MISE_DATA_DIR}/shims" ]]; then
+  path=("${MISE_DATA_DIR}/shims" ${path})
+fi
 
 # Lang stuff
 export LANG=en_US.UTF-8

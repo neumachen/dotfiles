@@ -12,41 +12,38 @@ source "${XDG_CONFIG_HOME:-$HOME/.config}/sh/lib.sh"
 command_exists() { (( $+commands[$1] )); }
 
 #############################
-# zsh-snap Bootstrap
+# fpath (MUST be before zimfw bootstrap — compinit runs inside init.zsh)
 #############################
 
-ZNAP_HOME="${ZNAP_HOME:-${XDG_DATA_HOME:-$HOME/.local/share}/zsh-snap}"
-[[ -d "$ZNAP_HOME" ]] || mkdir -p "$ZNAP_HOME"
-
-# Download zsh-snap if not present
-if [[ ! -r "${ZNAP_HOME}/znap/znap.zsh" ]]; then
-  echo-info "Downloading zsh-snap"
-  git clone --depth 1 https://github.com/marlonrichert/zsh-snap.git "${ZNAP_HOME}/znap" \
-    || echo-err "Unable to download zsh-snap"
-fi
-
-# Source zsh-snap
-source "${ZNAP_HOME}/znap/znap.zsh"
-
-#############################
-# Local completions (before compinit)
-#############################
-
-# Add Homebrew completions to fpath (must be before compinit/zsh-autocomplete)
+# Homebrew completions
 if [[ -d "/opt/homebrew/share/zsh/site-functions" ]]; then
-  # Homebrew on Apple Silicon
   fpath=("/opt/homebrew/share/zsh/site-functions" $fpath)
 elif [[ -d "/usr/local/share/zsh/site-functions" ]]; then
-  # Homebrew on Intel Mac or Linux
   fpath=("/usr/local/share/zsh/site-functions" $fpath)
 fi
 
-# Add local completions directory to fpath
-# This includes completions managed by chezmoi external:
-# - _fzf, _eza, _kubectx, _kubens, _fd, _ghq, _git-forgit, _docker
-# And local completions:
-# - _rg, _just, _shiki, _kind
+# Local completions directory — chezmoi externals (_fzf, _docker) and
+# regen-zsh-completions output (_rg, _just, _shiki, _kind, _kubectl, etc.)
 fpath=("${ZDOTDIR}/completions" $fpath)
+
+#############################
+# zimfw Bootstrap
+#############################
+
+# Download zimfw if not already installed
+if [[ ! -e "${ZIM_HOME}/zimfw.zsh" ]]; then
+  echo-info "Downloading zimfw" \
+    && curl -fsSL --create-dirs -o "${ZIM_HOME}/zimfw.zsh" \
+       https://github.com/zimfw/zimfw/releases/latest/download/zimfw.zsh \
+    || echo-err "Unable to download zimfw"
+fi
+
+# Regenerate init.zsh when zimrc.zsh has changed
+if [[ ! "${ZIM_HOME}/init.zsh" -nt "${ZIM_CONFIG_FILE}" ]]; then
+  source "${ZIM_HOME}/zimfw.zsh" init -q
+fi
+
+source "${ZIM_HOME}/init.zsh"
 
 #############################
 # Environment Settings
@@ -235,50 +232,18 @@ function zvm_config() {
 }
 
 #############################
-# Plugins - Load Order Matters!
+# Plugins — all managed by zimfw via zimrc.zsh
+# Load order:
+#   joke/zim-mise → jeffreytse/zsh-vi-mode →
+#   zdharma-continuum/fast-syntax-highlighting →
+#   marlonrichert/zsh-autocomplete → wfxr/forgit →
+#   Aloxaf/fzf-tab → zmodule completion
+# Init scripts (starship, zoxide, broot) handled by zmodule-custom in zimrc.zsh.
 #############################
-
-# Load mise first for tool detection
-znap source joke/zim-mise
-
-# Load zsh-vi-mode early to avoid rewriting fzf opts
-znap source jeffreytse/zsh-vi-mode
-
-# Syntax highlighting must load BEFORE zsh-autocomplete to avoid
-# "unhandled ZLE widget" warnings for menu-search/recent-paths
-znap source zdharma-continuum/fast-syntax-highlighting
-
-# IMPORTANT:
-# zsh-autocomplete must be loaded after syntax highlighting.
-# It also expects you to NOT run compinit manually.
-znap source marlonrichert/zsh-autocomplete
-
-# Git utilities (plugin functionality, completions via chezmoi external)
-znap source wfxr/forgit
-
-#############################
-# Eval commands (cached)
-#############################
-
-# broot
-if [[ -f "${HOME}/.config/broot/launcher/bash/br" ]]; then
-  source "${HOME}/.config/broot/launcher/bash/br"
-fi
-
-# starship
-if command_exists starship; then
-  znap eval starship 'starship init zsh'
-fi
 
 # Dynamic CLI-sourced completions are produced by ~/.local/bin/regen-zsh-completions
 # and live in ${ZDOTDIR}/completions/. Regenerate via that script after upgrading
 # any listed tool, or via `chezmoi apply` after editing it.
-
-#############################
-# fzf-tab (load after zsh-autocomplete)
-#############################
-
-znap source Aloxaf/fzf-tab
 
 # fzf-tab recommended: disable zsh's default menu for fzf-tab to take over
 zstyle ':completion:*' menu no
@@ -290,19 +255,12 @@ zstyle ':fzf-tab:complete:ls:*' fzf-preview 'eza --color=always --icons -1 $real
 zstyle ':fzf-tab:complete:*:*' fzf-preview 'if [[ -d $realpath ]]; then eza --color=always --icons -1 $realpath 2>/dev/null || ls --color=always $realpath 2>/dev/null; elif [[ -f $realpath ]]; then bat --color=always --style=numbers --line-range=:100 $realpath 2>/dev/null || head -100 $realpath 2>/dev/null; else echo $realpath; fi'
 
 #############################
-# zoxide (load last per zoxide doctor guidance)
-#############################
-
-if command_exists zoxide; then
-  znap eval zoxide 'zoxide init --cmd cd zsh'
-fi
-
-#############################
-# FZF keybindings — sourced last so they win against zsh-autocomplete
-# rebinding ^R, etc. With ZVM_INIT_MODE=sourcing, zsh-vi-mode finishes
-# init the moment its plugin is sourced (line ~236), so the previous
-# `zvm_after_init`-wrapped sourcing no longer fires here. Direct source
-# at end-of-plugin-load is the correct placement.
+# FZF keybindings — sourced after zimfw's init.zsh so they win against
+# zsh-autocomplete rebinding ^R, etc. The `zmodule fzf` in zimrc.zsh
+# registers fzf's shell integration (completion + key-bindings) via the
+# Zim fzf module; this explicit source is a belt-and-suspenders fallback
+# for the raw key-bindings.zsh file managed by chezmoi external, ensuring
+# ^R / ^T / Alt-C bind correctly regardless of module ordering.
 #############################
 
 _fzf_key_bindings_path="${HOME}/.local/share/fzf/shell/key-bindings.zsh"
