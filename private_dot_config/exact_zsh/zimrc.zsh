@@ -124,9 +124,8 @@ zmodule-custom zoxide --eval "zoxide init --cmd cd zsh"
 zmodule-custom starship --eval "starship init zsh"
 
 # fzf-tab needs to be loaded after compinit, but before plugins which will wrap
-# widgets, such as zsh-autosuggestions or fast-syntax-highlighting
+# widgets, such as zsh-autosuggestions or zsh-autocomplete
 zmodule Aloxaf/fzf-tab
-zmodule zdharma-continuum/fast-syntax-highlighting
 zmodule marlonrichert/zsh-autocomplete
 
 # Load last

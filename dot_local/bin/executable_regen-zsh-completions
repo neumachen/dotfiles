@@ -39,7 +39,8 @@ have mole    && generate _mole    mole completion zsh
 have codex   && generate _codex   codex completion zsh
 have jira    && generate _jira    jira completion zsh
 have jiratui && generate _jiratui jiratui completions zsh
-have wezterm && generate _wezterm wezterm shell-completion --shell zsh
+have wezterm      && generate _wezterm     wezterm shell-completion --shell zsh
+have zsh-patina   && generate _zsh-patina  zsh-patina completion
 have aider   && generate _aider   aider --shell-completion zsh
 have gh       && generate _gh       gh completion -s zsh
 have helm     && generate _helm     helm completion zsh
