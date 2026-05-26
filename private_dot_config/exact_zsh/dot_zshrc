@@ -275,6 +275,15 @@ unset _fzf_key_bindings_path
 # Environment Variables (command-dependent, belongs in zshrc)
 #############################
 
+# Go — GOPATH explicitly set to XDG_DATA_HOME/go so workspace and module
+# cache land under ~/.local/share rather than defaulting to ~/go.
+# Set unconditionally: go is managed by mise so the binary may not be on
+# PATH at this point, but the variable is valid regardless.
+export GOPATH="${XDG_DATA_HOME:-$HOME/.local/share}/go"
+export GOBIN="${GOPATH}/bin"
+[[ ! -d "$GOPATH" ]] && mkdir -p "$GOPATH"
+path=("${GOBIN}" ${path})
+
 # Don't write python .pyc files, because they're not necessary and clutter
 # directories with binary files
 export PYTHONDONTWRITEBYTECODE=1
