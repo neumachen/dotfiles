@@ -122,6 +122,7 @@ zmodule-custom broot --if "[[ -f \${HOME}/.config/broot/launcher/bash/br ]]" --s
 
 zmodule-custom zoxide --eval "zoxide init --cmd cd zsh"
 zmodule-custom starship --eval "starship init zsh"
+zmodule-custom zsh-patina --eval "zsh-patina activate"
 
 # fzf-tab needs to be loaded after compinit, but before plugins which will wrap
 # widgets, such as zsh-autosuggestions or zsh-autocomplete
