@@ -19,14 +19,13 @@ return {
   },
   sections = {
     { section = 'header' },
-    {
+    not vim.env.NEOVIDE and {
       pane = 2,
       section = 'terminal',
       cmd = 'fortune -s | cowsay',
-      enabled = function() return vim.env.NEOVIDE == nil end,
       indent = 8,
       padding = 1,
-    },
+    } or nil,
     {
       section = 'keys',
       gap = 1,
