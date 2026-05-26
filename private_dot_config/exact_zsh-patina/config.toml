@@ -1,0 +1,7 @@
+[highlighting]
+# Use the built-in tokyonight theme to match the WezTerm/Neovim tokyonight-storm
+# colour scheme. This replaces the default "patina" theme which uses raw ANSI
+# magenta for variable.parameter — on a tokyonight terminal palette that renders
+# as an intense pink block that makes compound words like
+# "com.neumachen.obsidian-plugin-sync" nearly unreadable.
+theme = "tokyonight"

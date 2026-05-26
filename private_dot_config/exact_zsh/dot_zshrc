@@ -279,6 +279,13 @@ export GOBIN="${GOPATH}/bin"
 [[ ! -d "$GOPATH" ]] && mkdir -p "$GOPATH"
 path=("${GOBIN}" ${path})
 
+# Override zimfw's utility module grep colours. The utility module sets
+# GREP_COLOR='37;45' (white on magenta background) which renders as a
+# distracting pink block on tokyonight. Use bold red foreground instead —
+# readable on any dark background without a jarring background colour.
+export GREP_COLOR='01;31'
+export GREP_COLORS="mt=${GREP_COLOR}"
+
 # Don't write python .pyc files, because they're not necessary and clutter
 # directories with binary files
 export PYTHONDONTWRITEBYTECODE=1
