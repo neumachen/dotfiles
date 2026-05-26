@@ -1,0 +1,31 @@
+#!/bin/bash
+# Reload the obsidian-plugin-sync launchd agent whenever the plist or the
+# sync script changes. This ensures launchd picks up any edits without
+# requiring a logout/login.
+#
+# Plist hash:  {{ include "private_Library/LaunchAgents/com.neumachen.obsidian-plugin-sync.plist.tmpl" | sha256sum }}
+# Script hash: {{ include "dot_local/bin/executable_obsidian-plugin-sync" | sha256sum }}
+{{ if ne .chezmoi.os "darwin" }}
+exit 0
+{{ end -}}
+
+set -euo pipefail
+
+LABEL="com.neumachen.obsidian-plugin-sync"
+PLIST="${HOME}/Library/LaunchAgents/${LABEL}.plist"
+
+if [[ ! -f "${PLIST}" ]]; then
+  echo "[WARN] ${LABEL}: plist not found at ${PLIST} — skipping launchctl load"
+  exit 0
+fi
+
+# Unload the old instance if it is currently loaded (ignore errors if not loaded)
+launchctl unload "${PLIST}" 2>/dev/null || true
+
+# Load the new plist
+if launchctl load "${PLIST}"; then
+  echo "[OK] ${LABEL}: agent loaded"
+else
+  echo "[ERROR] ${LABEL}: launchctl load failed" >&2
+  exit 1
+fi
