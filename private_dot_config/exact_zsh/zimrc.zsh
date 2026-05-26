@@ -100,6 +100,7 @@ zmodule joke/zim-minikube
 zmodule joke/zim-skaffold
 zmodule shanwker1223/zim-alias-finder
 zmodule wfxr/forgit
+zmodule bigH/git-fuzzy --cmd 'path=({}/bin ${path})'
 
 # Prompt
 zmodule joke/zim-starship
