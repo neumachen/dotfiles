@@ -1,0 +1,43 @@
+#!/bin/bash
+{{- if eq .chezmoi.os "darwin" }}
+# Creates "Open with WezTerm Nvim.app" in /Applications so macOS can use it
+# as a default handler for .md files (or any file type) via Finder > Get Info.
+#
+# To set as default: right-click any .md file > Get Info > Open with >
+# select "Open with WezTerm Nvim" > Change All.
+#
+# Re-runs if this script changes.
+
+set -euo pipefail
+
+APP_NAME="Open with WezTerm Nvim"
+APP_PATH="/Applications/${APP_NAME}.app"
+
+echo "Building ${APP_NAME}.app..."
+
+osacompile -o "${APP_PATH}" - <<'APPLESCRIPT'
+on open fileList
+  set filePaths to {}
+  repeat with f in fileList
+    set end of filePaths to POSIX path of f
+  end repeat
+
+  set wezterm to "/opt/homebrew/bin/wezterm"
+  if not (do shell script "test -x " & quoted form of wezterm & " && echo yes || echo no") is "yes" then
+    set wezterm to "/usr/local/bin/wezterm"
+  end if
+
+  repeat with filePath in filePaths
+    do shell script quoted form of wezterm & " start -- nvim " & quoted form of filePath
+  end repeat
+end open
+
+on run
+  do shell script "/opt/homebrew/bin/wezterm start -- nvim 2>/dev/null || /usr/local/bin/wezterm start -- nvim"
+end run
+APPLESCRIPT
+
+echo "${APP_NAME}.app installed to /Applications."
+{{- else }}
+echo "Skipping Open with WezTerm Nvim.app (macOS only)"
+{{- end }}
