@@ -23,6 +23,7 @@ return {
       pane = 2,
       section = 'terminal',
       cmd = 'fortune -s | cowsay',
+      enabled = vim.env.NEOVIDE == nil,
       indent = 8,
       padding = 1,
     },
