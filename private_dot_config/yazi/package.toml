@@ -34,6 +34,11 @@ rev = "eaf6920"
 hash = "3996fc74044bc44144b323686f887e1"
 
 [[plugin.deps]]
+use = "yazi-rs/plugins:starship"
+rev = "eaf6920"
+hash = "0000000000000000000000000000000000"
+
+[[plugin.deps]]
 use = "yazi-rs/plugins:vcs-files"
 rev = "eaf6920"
 hash = "4ee57085277d616acfa0ef1fef37dc00"
