@@ -12,6 +12,29 @@ source "${XDG_CONFIG_HOME:-$HOME/.config}/sh/lib.sh"
 command_exists() { (( $+commands[$1] )); }
 
 #############################
+# zsh-vi-mode Configuration (MUST be before zimfw bootstrap)
+# zvm_config() is called by zsh-vi-mode during its own sourcing inside
+# init.zsh. With ZVM_INIT_MODE=sourcing the call happens synchronously,
+# so this function must be defined before source ${ZIM_HOME}/init.zsh.
+#############################
+
+function zvm_config() {
+  # Initialize synchronously at sourcing time so zvm wraps ZLE widgets
+  # before zsh-autocomplete / fzf-tab layer on top, producing a stable
+  # widget chain and avoiding intermittent Tab failures.
+  ZVM_INIT_MODE=sourcing
+
+  ZVM_VI_INSERT_ESCAPE_BINDKEY=jk
+  ZVM_KEYTIMEOUT=0.15
+  ZVM_INSERT_MODE_CURSOR=$ZVM_CURSOR_BEAM
+  ZVM_NORMAL_MODE_CURSOR=$ZVM_CURSOR_BLOCK
+
+  # Force every new prompt to start in INSERT mode so Tab and completion
+  # keys are always active regardless of what mode a prior TUI left behind.
+  ZVM_LINE_INIT_MODE=$ZVM_MODE_INSERT
+}
+
+#############################
 # fpath (MUST be before zimfw bootstrap — compinit runs inside init.zsh)
 #############################
 
@@ -201,34 +224,6 @@ function clippaste() {
     echo "clippaste: No clipboard program found" >&2
     return 1
   fi
-}
-
-#############################
-# zsh-vi-mode Configuration (must be before plugin load)
-#############################
-
-function zvm_config() {
-  # Initialize synchronously at sourcing time instead of deferring to
-  # the first precmd. This makes zvm wrap ZLE widgets BEFORE
-  # fast-syntax-highlighting / zsh-autocomplete / fzf-tab layer on top,
-  # producing a stable widget chain instead of a deferred re-wrap that
-  # was the root cause of our intermittent Tab failures (the wrapping
-  # revision drift that left fzf-tab calling into stale widget refs).
-  # Documented escape hatch for this class of plugin-ordering race.
-  ZVM_INIT_MODE=sourcing
-
-  ZVM_VI_INSERT_ESCAPE_BINDKEY=jk
-  ZVM_KEYTIMEOUT=0.15
-  ZVM_INSERT_MODE_CURSOR=$ZVM_CURSOR_BEAM
-  ZVM_NORMAL_MODE_CURSOR=$ZVM_CURSOR_BLOCK
-
-  # Force every new prompt to start in INSERT mode. Without this, zvm
-  # defaults to "mode of last line" — which, after an external TUI like
-  # vim exits, sometimes resolves to NORMAL mode. In normal mode Tab
-  # (and most completion keys) are unbound, so completion silently dies
-  # until you press `i`. This made it look like completion was randomly
-  # broken; it was actually just a mode-tracking artifact.
-  ZVM_LINE_INIT_MODE=$ZVM_MODE_INSERT
 }
 
 #############################
@@ -516,7 +511,7 @@ function reload-shell() {
 # Targeted recovery when Tab completion silently dies — usually after
 # a TUI exits (vim, git commit, etc.) and fzf-tab's widget chain ends
 # up referencing a stale revision in the wrapping stack
-# (zsh-vi-mode → fast-syntax-highlighting → zsh-autocomplete → fzf-tab).
+# (zsh-vi-mode → zsh-autocomplete → fzf-tab).
 # Lighter than `reload-shell`: keeps your shell session, history, and
 # variables; just resets fzf-tab and re-asserts the Tab binding.
 function heal-tab() {
