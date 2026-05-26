@@ -50,6 +50,7 @@ return {
         action = ':Lazy',
         enabled = package.loaded.lazy ~= nil,
       },
+      { icon = ' ', key = 'G', desc = 'Neogit', action = ':Neogit' },
       { icon = ' ', key = 'q', desc = 'Quit', action = ':qa' },
     },
   },
