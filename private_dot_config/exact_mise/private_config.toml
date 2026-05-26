@@ -76,6 +76,7 @@ zoxide = "latest"
 "aqua:docker/compose" = "latest"
 
 "cargo:broot" = "latest"
+"cargo:zsh-patina" = "latest"
 "cargo:codebook-lsp" = "latest"
 "cargo:eza" = "latest"
 "cargo:ghgrab" = "latest"

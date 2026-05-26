@@ -238,7 +238,7 @@ function zvm_config() {
 #   marlonrichert/zsh-autocomplete → wfxr/forgit →
 #   Aloxaf/fzf-tab → zmodule completion
 # Init scripts (starship, zoxide, broot) handled by zmodule-custom in zimrc.zsh.
-# Syntax highlighting: zsh-patina (binary via Homebrew), activated at end of file.
+# Syntax highlighting: zsh-patina (binary via Homebrew), via zmodule-custom --eval in zimrc.zsh.
 #############################
 
 # Dynamic CLI-sourced completions are produced by ~/.local/bin/regen-zsh-completions
@@ -549,16 +549,6 @@ function _osc7_cwd() {
 }
 add-zsh-hook -Uz chpwd _osc7_cwd
 _osc7_cwd
-
-#############################
-# zsh-patina — syntax highlighting (must be last)
-# Replaces fast-syntax-highlighting. Binary installed via Homebrew.
-# Per README: activation must happen at the very end of .zshrc.
-#############################
-
-if command_exists zsh-patina; then
-  eval "$(zsh-patina activate)"
-fi
 
 # Profiling End
 # zprof
