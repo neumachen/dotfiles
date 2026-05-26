@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Label must match the filename without .plist -->
+  <key>Label</key>
+  <string>com.neumachen.obsidian-plugin-sync</string>
+
+  <!-- Script to run when watched paths change.
+       -l makes bash a login shell so PATH includes ~/.local/bin. -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>-l</string>
+    <string>{{ .chezmoi.homeDir }}/.local/bin/obsidian-plugin-sync</string>
+  </array>
+
+  <!-- Watch the entire plugins directory. launchd fires whenever any file
+       inside changes, including manifest.json updates from plugin upgrades
+       and iCloud-synced changes arriving from iOS. -->
+  <key>WatchPaths</key>
+  <array>
+    <string>{{ .chezmoi.homeDir }}/MeinCodex/Notizen/Obsidian/Main/.obsidian/plugins</string>
+  </array>
+
+  <!-- Redirect stdout/stderr to a log file for debugging -->
+  <key>StandardOutPath</key>
+  <string>{{ .chezmoi.homeDir }}/Library/Logs/obsidian-plugin-sync.log</string>
+  <key>StandardErrorPath</key>
+  <string>{{ .chezmoi.homeDir }}/Library/Logs/obsidian-plugin-sync.log</string>
+
+  <!-- Do not run immediately on load — only fire when files change -->
+  <key>RunAtLoad</key>
+  <false/>
+
+  <!-- Throttle: don't re-fire more than once per 10 seconds.
+       Combined with the 1s sleep in the script this handles rapid
+       sequential plugin updates gracefully. -->
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+</dict>
+</plist>
