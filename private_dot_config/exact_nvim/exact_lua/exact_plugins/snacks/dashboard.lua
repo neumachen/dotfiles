@@ -83,7 +83,7 @@ return {
       },
       { section = 'startup' },
     }
-    if not vim.env.NEOVIDE then
+    if not vim.g.neovide then
       table.insert(s, 2, {
         pane = 2,
         section = 'terminal',
