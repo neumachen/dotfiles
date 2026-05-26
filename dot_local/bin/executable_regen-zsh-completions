@@ -58,31 +58,31 @@ generate_inline() {
   printf '  generated  %s\n' "$out"
 }
 
-have fz-brew && generate_inline _fz-brew <<'EOF'
-#compdef fz-brew
-_fz-brew() {
+have fzbrew && generate_inline _fzbrew <<'EOF'
+#compdef fzbrew
+_fzbrew() {
   local -a commands=(
     'install:Select one or more formulae to install'
     'uninstall:Select one or more installed formulae to uninstall'
     'update:Select one or more installed formulae to upgrade'
   )
-  _describe -t commands 'fz-brew command' commands
+  _describe -t commands 'fzbrew command' commands
 }
-_fz-brew "$@"
+_fzbrew "$@"
 EOF
 
-have fz-docker && generate_inline _fz-docker <<'EOF'
-#compdef fz-docker
-_fz-docker() {
+have fzdocker && generate_inline _fzdocker <<'EOF'
+#compdef fzdocker
+_fzdocker() {
   local -a commands=(
     'attach:Select a stopped container to start and attach to'
     'rm:Select one or more containers to remove'
     'image-rm:Select one or more images to remove'
     'stop:Select a running container to stop'
   )
-  _describe -t commands 'fz-docker command' commands
+  _describe -t commands 'fzdocker command' commands
 }
-_fz-docker "$@"
+_fzdocker "$@"
 EOF
 
 have dots && generate_inline _dots <<'EOF'
