@@ -1,0 +1,74 @@
+#!/bin/bash
+# obsidian-plugin-sync
+#
+# Called by launchd WatchPaths when any file in the Obsidian plugins directory
+# changes. Re-adds only the files chezmoi tracks (manifest.json and data.json)
+# back into the chezmoi source directory.
+#
+# Debounce: launchd coalesces rapid filesystem events, but a batch plugin
+# update still fires multiple times as each plugin finishes. We sleep briefly
+# so the last event wins and chezmoi sees the final state of all manifests.
+#
+# macOS-only: this script is only invoked by a launchd agent and never runs
+# on iOS. iOS plugin updates propagate via iCloud sync; when the synced files
+# land on the Mac, launchd fires this script on the Mac side.
+
+set -euo pipefail
+
+VAULT_DIR="${HOME}/MeinCodex/Notizen/Obsidian/Main"
+PLUGINS_DIR="${VAULT_DIR}/.obsidian/plugins"
+LOG_PREFIX="obsidian-plugin-sync"
+
+log_info()  { echo "[INFO]  ${LOG_PREFIX}: $*" >&2; }
+log_ok()    { echo "[OK]    ${LOG_PREFIX}: $*" >&2; }
+log_warn()  { echo "[WARN]  ${LOG_PREFIX}: $*" >&2; }
+log_err()   { echo "[ERROR] ${LOG_PREFIX}: $*" >&2; }
+
+# Bail out if chezmoi is not available
+if ! command -v chezmoi >/dev/null 2>&1; then
+  log_warn "chezmoi not found in PATH — skipping sync"
+  exit 0
+fi
+
+# Bail out if the vault doesn't exist (e.g. on a machine without the vault)
+if [[ ! -d "${PLUGINS_DIR}" ]]; then
+  log_warn "Obsidian plugins directory not found: ${PLUGINS_DIR}"
+  exit 0
+fi
+
+# Debounce: wait for filesystem activity to settle.
+# launchd re-fires immediately if more events arrive during the sleep, which
+# means we always run once against the final settled state.
+sleep 1
+
+log_info "Scanning for updated plugin manifests and settings..."
+
+changed=0
+errors=0
+
+# Re-add manifest.json (version identifier) and data.json (plugin settings)
+# for every plugin. main.js and styles.css are intentionally excluded —
+# they are in .chezmoiignore and chezmoi will refuse to re-add them.
+while IFS= read -r -d '' file; do
+  filename="$(basename "${file}")"
+  if [[ "${filename}" == "manifest.json" || "${filename}" == "data.json" ]]; then
+    if chezmoi re-add "${file}" 2>/dev/null; then
+      log_ok "re-added ${file#"${HOME}/"}"
+      (( changed++ )) || true
+    else
+      log_warn "skipped ${file#"${HOME}/"} (not tracked by chezmoi or unchanged)"
+    fi
+  fi
+done < <(find "${PLUGINS_DIR}" -maxdepth 2 -type f \
+  \( -name 'manifest.json' -o -name 'data.json' \) -print0)
+
+if (( errors > 0 )); then
+  log_err "${errors} file(s) failed to re-add"
+  exit 1
+fi
+
+if (( changed > 0 )); then
+  log_ok "${changed} file(s) synced to chezmoi source"
+else
+  log_info "No tracked files changed — nothing to sync"
+fi
