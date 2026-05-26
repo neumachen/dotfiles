@@ -508,24 +508,30 @@ function reload-shell() {
   exec zsh -il
 }
 
-# Targeted recovery when Tab completion silently dies — usually after
-# a TUI exits (vim, git commit, etc.) and fzf-tab's widget chain ends
-# up referencing a stale revision in the wrapping stack
-# (zsh-vi-mode → zsh-autocomplete → fzf-tab).
-# Lighter than `reload-shell`: keeps your shell session, history, and
-# variables; just resets fzf-tab and re-asserts the Tab binding.
-function heal-tab() {
-  if (( ${+functions[disable-fzf-tab]} )) && (( ${+functions[enable-fzf-tab]} )); then
-    disable-fzf-tab
-    enable-fzf-tab
-    bindkey -M viins '^I' fzf-tab-complete
-    bindkey -M main  '^I' fzf-tab-complete
-    echo-info "fzf-tab reset; Tab re-bound"
-  else
-    echo-warn "fzf-tab functions not available; falling back to reload-shell"
-    reload-shell
-  fi
-}
+# heal-tab — commented out: no longer needed now that fast-syntax-highlighting
+# has been replaced with zsh-patina. fast-syntax-highlighting aggressively
+# re-wrapped ZLE widgets, which caused fzf-tab to hold stale widget references
+# after a TUI exited, silently breaking Tab completion until the shell was
+# reloaded. zsh-patina uses a background daemon and does not wrap ZLE widgets,
+# so the stale-reference failure mode no longer occurs.
+#
+# NOTE: if fast-syntax-highlighting (or any other widget-wrapping highlighter)
+# is ever re-introduced, Tab completion silently dying after TUI exits is likely
+# to return. Restore this function at that point and call it from the shell or
+# bind it to a key.
+#
+# function heal-tab() {
+#   if (( ${+functions[disable-fzf-tab]} )) && (( ${+functions[enable-fzf-tab]} )); then
+#     disable-fzf-tab
+#     enable-fzf-tab
+#     bindkey -M viins '^I' fzf-tab-complete
+#     bindkey -M main  '^I' fzf-tab-complete
+#     echo-info "fzf-tab reset; Tab re-bound"
+#   else
+#     echo-warn "fzf-tab functions not available; falling back to reload-shell"
+#     reload-shell
+#   fi
+# }
 
 # Report cwd via OSC 7 so terminals (Wezterm, etc.) can show it in tabs when
 # no foreground process is running. Harmless in terminals that don't parse it.
