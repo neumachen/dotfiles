@@ -198,4 +198,42 @@ vim.api.nvim_create_autocmd('LspAttach', {
   end,
 })
 -----------------------------------------------------------------------------//
+-- Lazy lockfile sync back to chezmoi source {{{1
+-----------------------------------------------------------------------------//
+-- lazy.nvim writes lazy-lock.json to stdpath("config") (the *target* dir).
+-- chezmoi only tracks the *source* dir, so the lockfile change is invisible
+-- to chezmoi until a manual `chezmoi re-add`. This autocmd runs `chezmoi
+-- re-add` on the lockfile automatically after any lazy operation that
+-- rewrites it: LazyUpdate, LazySync, LazyInstall.
+--
+-- NOTE: if you ever re-introduce a lock-writing plugin manager or add other
+-- lock files (e.g. package-lock.json managed by chezmoi), apply the same
+-- pattern with their equivalent post-write events.
+vim.api.nvim_create_autocmd('User', {
+  group = augroup('lazy_lockfile_chezmoi_sync'),
+  pattern = { 'LazyUpdate', 'LazySync', 'LazyInstall' },
+  callback = function()
+    local lockfile = vim.fn.stdpath('config') .. '/lazy-lock.json'
+    if vim.fn.filereadable(lockfile) == 0 then return end
+    vim.system(
+      { 'chezmoi', 're-add', lockfile },
+      { text = true },
+      function(result)
+        if result.code == 0 then
+          vim.schedule(function()
+            vim.notify('lazy-lock.json synced to chezmoi source', vim.log.levels.INFO)
+          end)
+        else
+          vim.schedule(function()
+            vim.notify(
+              'chezmoi re-add failed: ' .. (result.stderr or ''),
+              vim.log.levels.WARN
+            )
+          end)
+        end
+      end
+    )
+  end,
+})
+-----------------------------------------------------------------------------//
 -- vim:foldmethod=marker
