@@ -483,6 +483,28 @@ SAVEHIST=10000000
 # Functions
 #############################
 
+# Override `open` to use Bloom (refined Finder alternative) for directories
+# when installed, falling back to the system `open` (Finder) otherwise.
+# Non-directory args (files, URLs, flags) always pass straight through.
+function open() {
+  local bloom_app="/Applications/Bloom.app"
+
+  if [[ -d "$bloom_app" ]]; then
+    local -a dir_args other_args
+    for arg in "$@"; do
+      if [[ -d "$arg" ]]; then
+        dir_args+=("$arg")
+      else
+        other_args+=("$arg")
+      fi
+    done
+    [[ ${#dir_args[@]} -gt 0 ]] && command open -a Bloom "${dir_args[@]}"
+    [[ ${#other_args[@]} -gt 0 ]] && command open "${other_args[@]}"
+  else
+    command open "$@"
+  fi
+}
+
 function source-env() {
   if [[ $# -eq 0 ]]; then
     echo "Usage: source-env <file> [file...]" >&2
