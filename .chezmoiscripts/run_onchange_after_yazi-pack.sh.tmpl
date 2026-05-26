@@ -1,0 +1,22 @@
+#!/bin/bash
+# Re-run whenever package.toml changes to keep Yazi plugins up to date.
+# The hash directive below pulls package.toml content into this file's own
+# hash, so any edit (e.g. adding a plugin) triggers chezmoi to re-execute
+# this hook on the next `chezmoi apply`.
+#
+# package.toml hash: {{ include "private_dot_config/yazi/package.toml" | sha256sum }}
+
+set -euo pipefail
+
+if ! command -v ya &>/dev/null; then
+  echo "ya not found, skipping Yazi plugin upgrade"
+  exit 0
+fi
+
+echo "Upgrading Yazi plugins..."
+ya pkg upgrade
+
+# Pull the updated package.toml (with resolved hashes) back into the chezmoi
+# source directory so changes are tracked and committable.
+chezmoi re-add ~/.config/yazi/package.toml
+echo "Yazi plugins upgraded and package.toml re-added to chezmoi."
