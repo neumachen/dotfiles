@@ -188,15 +188,10 @@ opt.emoji = false
 -----------------------------------------------------------------------------//
 -- Cursor {{{1
 -----------------------------------------------------------------------------//
--- Mode shapes + named highlight groups (`Cursor`, `iCursor`) supplied by
--- the colorscheme. The insert-mode bar is set to 50% rather than 25% to
--- avoid a sub-cell render lag visible inside floating input prompts
--- (notably the snacks picker) where the terminal momentarily draws the
--- narrow bar one column behind the freshly-typed character before
--- catching up. 50% renders more like a half-block and avoids the jump.
+-- This is from the help docs, it enables mode shapes, "Cursor" highlight, and blinking
 opt.guicursor = {
   'n-v-sm:block-Cursor',
-  'i-ci-ve-c:ver50-iCursor',
+  'i-ci-ve-c:ver25-iCursor',
   'r-cr-o:hor20-Cursor',
   'a:blinkon0',
 }
