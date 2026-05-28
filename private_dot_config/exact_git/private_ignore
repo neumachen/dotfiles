@@ -31,6 +31,12 @@ tags.*
 *.un~
 Session.vim
 
+# Neovim project-local config loaded via `exrc` (`:h 'exrc'`). May contain
+# secrets, machine paths, or per-checkout overrides — never commit.
+.nvim.lua
+.nvimrc
+.exrc
+
 # SASS
 # ----------------------------------------------------------------------------------------------
 .sass-cache
