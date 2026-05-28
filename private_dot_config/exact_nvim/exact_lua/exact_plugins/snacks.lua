@@ -291,5 +291,25 @@ return {
         Snacks.toggle.option('cursorline'):map('yo-')
       end,
     })
+
+    -- Workaround for snacks.nvim#2810: typing the first character in the
+    -- picker input causes the cursor to render one column behind because
+    -- the right-aligned virt_text extmark snacks draws for the results
+    -- counter (e.g. "5/127") competes with cursor-position accounting at
+    -- end-of-line. Enabling `virtualedit=onemore` in the input buffer
+    -- lets the cursor sit past the last column without nvim shoving it
+    -- back, which removes the jump.
+    --
+    -- Scoped to the picker input filetype so the global virtualedit
+    -- setting (`block`) is unchanged everywhere else.
+    vim.api.nvim_create_autocmd('FileType', {
+      group = vim.api.nvim_create_augroup(
+        'user_snacks_picker_input_virtualedit',
+        { clear = true }
+      ),
+      pattern = 'snacks_picker_input',
+      desc = 'Fix cursor jump on first keystroke in snacks picker input',
+      callback = function() vim.opt_local.virtualedit = 'onemore' end,
+    })
   end,
 }
