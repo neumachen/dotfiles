@@ -227,7 +227,16 @@ opt.sessionoptions = {
   'winsize',
 }
 opt.viewoptions = { 'cursor', 'folds' } -- save/restore just these (with `:{mk,load}view`)
-opt.virtualedit = 'block' -- Allow cursor to move where there is no text in visual block mode
+-- `block` lets the cursor sit on empty cells in visual-block mode;
+-- `onemore` permits the cursor to rest one column past EOL in insert mode.
+-- The latter works around snacks.nvim#2810: typing the first character in
+-- the snacks picker input shoves the cursor one column left because of the
+-- right-aligned virt_text extmark snacks draws for the results counter.
+-- Scoping the workaround via a FileType autocmd was attempted (commit
+-- 0402d9e) and didn't take effect at runtime, so we apply it globally. The
+-- only visible side effect outside the picker is that `$a` keeps the cursor
+-- at the end instead of snapping back one position.
+opt.virtualedit = { 'block', 'onemore' }
 -----------------------------------------------------------------------------//
 -- Jumplist
 -----------------------------------------------------------------------------//
