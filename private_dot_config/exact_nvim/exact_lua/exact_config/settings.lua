@@ -206,6 +206,12 @@ opt.titlelen = 80
 -- Utilities {{{1
 -----------------------------------------------------------------------------//
 opt.showmode = false
+-- Load project-local config from any ancestor directory of the edited file
+-- (`.nvim.lua`, `.nvimrc`, or `.exrc`). Neovim's built-in trust system gates
+-- execution: the first time a file is encountered the user must run `:trust`
+-- on it; subsequent edits to that file require re-trusting. See `:h 'exrc'`
+-- and `:h trust`.
+opt.exrc = true
 -- NOTE: Don't remember
 -- * help files since that will error if they are from a lazy loaded plugin
 -- * folds since they are created dynamically and might be missing on startup

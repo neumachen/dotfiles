@@ -34,9 +34,8 @@
 
 Entry point: `init.lua`
 
-1. Loads `config.settings`
-2. Loads optional `.nvim-config.lua` from the current working directory (project-local settings, git-ignored)
-3. Loads `config.autocmds`, `config.lazy`, `config.keymaps`
+1. Loads `config.settings` (which enables `exrc`, so Neovim auto-loads `.nvim.lua` / `.nvimrc` / `.exrc` from any ancestor directory of the edited file once the file has been authorized via `:trust`)
+2. Loads `config.autocmds`, `config.lazy`, `config.keymaps`
 4. If not in VSCode, sets the colorscheme (`tokyonight-storm`) and enables all LSP servers discovered from the `lsp/` directory
 5. The TypeScript LSP server is selected via `vim.g.lsp_typescript_server` (default: `"ts_ls"`; alternative: `"vtsls"`)
 6. Additional LSP servers can be enabled on-demand via `vim.g.lsp_on_demands = { "eslint", ... }`
@@ -88,6 +87,7 @@ Ruby, Perl, Node, and Python3 providers are all disabled (`vim.g.loaded_*_provid
 | `completeopt` | `menu,menuone,noselect,fuzzy` | |
 | `spelllang` | `en` | |
 | `spelloptions` | `camel,noplainbuffer` | |
+| `exrc` | `true` | Auto-loads project-local `.nvim.lua` / `.nvimrc` / `.exrc` after `:trust` |
 
 ### Diagnostic Signs
 
@@ -1271,8 +1271,9 @@ is empty or cancelled — existing mappings are never overwritten silently.
 
 Initialized to an empty table only if not already defined. Real credentials
 must not be committed; populate it from env vars, the credential script
-(`<leader>dg`), or a local git-ignored `.nvim-config.lua` (already sourced by
-`init.lua`). Example shape (kept commented in the plugin spec):
+(`<leader>dg`), or a local git-ignored `.nvim.lua` (loaded via Neovim's
+built-in `exrc`; run `:trust` once to authorize). Example shape (kept
+commented in the plugin spec):
 
 ```lua
 vim.g.dbs = {
@@ -1637,7 +1638,7 @@ Custom treesitter-aware navigation with a floating tree view.
 
 ### `utils/project.lua`
 
-Provides `:ProjectSettings` and `:ProjectSettingsHelp` commands for creating `.nvim-config.lua` project-local config files interactively.
+Provides `:ProjectSettings` and `:ProjectSettingsHelp` commands for creating `.nvim.lua` project-local config files interactively (loaded via Neovim's `exrc`; run `:trust` to authorize).
 
 ---
 
