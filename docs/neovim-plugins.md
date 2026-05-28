@@ -1636,9 +1636,30 @@ Custom treesitter-aware navigation with a floating tree view.
 |---|---|
 | `pcall(msg, func, ...)` | Wraps `xpcall` with `vim.notify` error reporting; `msg` is optional |
 
-### `utils/project.lua`
+### `utils/exrc.lua`
 
-Provides `:ProjectSettings` and `:ProjectSettingsHelp` commands for creating `.nvim.lua` project-local config files interactively (loaded via Neovim's `exrc`; run `:trust` to authorize).
+Helpers for managing project-local `.nvim.lua` / `.nvimrc` / `.exrc` files (loaded by Neovim's built-in `exrc`; see `:h 'exrc'` and `:h trust`). The hierarchy walker is anchored on the current buffer's file path (falling back to cwd for empty/special buffers) and stops at the nearest `.git` ancestor by default to avoid enumerating unrelated parent directories.
+
+Each command is also registered as a `:Nvimrc*` alias (e.g. `:NvimrcEdit`).
+
+| Command | Behavior |
+|---|---|
+| `:ExrcEdit` | Picker over the buffer's hierarchy. Existing exrc files are listed alongside `(create)` placeholders for empty ancestors so the same picker serves edit-existing and scaffold-new flows. |
+| `:ExrcEdit home` | Widens the walk past the git ceiling up to `$HOME`. |
+| `:ExrcNew` | Create a new exrc file in the current buffer's directory. Refuses to overwrite without `!`. |
+| `:ExrcNew project` | Create at the git root (cwd if not in a repo). |
+| `:ExrcNew home` | Create at `$HOME`. |
+| `:ExrcNew <path>` | Create at the given directory (relative or absolute). |
+| `:ExrcNew!` | Force-overwrite (combine with any of the above). |
+| `:ExrcTrust` | Picker over existing exrc files in the hierarchy; runs `:trust` on the selection. |
+| `:ExrcTrust project` / `home` / `<path>` | Run `:trust` on the exrc file at that scope directly. Warns if no file exists there. |
+| `:ExrcDelete` | Picker over existing exrc files in the hierarchy; removes the selection after a yes/no prompt. |
+| `:ExrcDelete project` / `home` / `<path>` | Remove the exrc file at that scope (with confirmation). |
+| `:ExrcDelete!` | Skip the confirmation prompt. |
+
+The template written by `:ExrcNew` is a minimal stub — header comment, `:trust` reminder, doc pointer — so authors decide what belongs at each level of the hierarchy. Common payloads include `vim.g.db_credential_script`, `vim.g.dbs`, `vim.g.lsp_typescript_server`, and per-project `vim.opt` tweaks.
+
+Wired into startup via `require('utils.exrc').setup()` in `init.lua`.
 
 ---
 
