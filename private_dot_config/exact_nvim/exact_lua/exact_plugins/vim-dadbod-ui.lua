@@ -32,8 +32,8 @@ return {
     -- Real credentials MUST NOT be committed. Populate `vim.g.dbs` from one
     -- of:
     --   * environment variables read at startup
-    --   * a local, git-ignored Lua file (e.g. `.nvim-config.lua` in the cwd,
-    --     which `init.lua` already sources)
+    --   * a local, git-ignored `.nvim.lua` loaded by Neovim's built-in `exrc`
+    --     (see :h 'exrc' and the :ExrcNew / :ExrcEdit user commands)
     --   * the credential script wired to <leader>dg (utils.db.generate_connection)
     --
     -- Leaving `vim.g.dbs` empty is fine; DBUI will simply not show static
