@@ -27,6 +27,11 @@ return {
         group = '+code (lsp)',
         desc = 'Code LSP provided operations',
       },
+      {
+        '<leader>d',
+        group = '+database',
+        desc = 'Database (dadbod) operations',
+      },
       { '<leader>f', group = '+file', desc = 'File operations' },
       { '<leader>g', group = '+git', desc = 'Git operations' },
       { '<leader>m', group = '+marker', desc = 'Marker operations' },
