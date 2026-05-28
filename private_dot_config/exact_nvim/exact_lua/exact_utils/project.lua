@@ -52,7 +52,8 @@ Available options:
   help_text = help_text
     .. [[
 
-  Please create .nvim-config.lua in the current directory with the following example:
+  Please create .nvim.lua in the current directory with the following example
+  (loaded by Neovim's built-in `exrc`; run `:trust` once to authorize):
 
 ```lua
 -- Project-specific Neovim configuration
@@ -161,13 +162,16 @@ vim.g.enable_extra_plugins = {
 -- vim.opt.shiftwidth = 2
 ]]
 
-      local file = io.open('.nvim-config.lua', 'w')
+      local file = io.open('.nvim.lua', 'w')
       if file then
         file:write(config)
         file:close()
-        vim.notify('Created .nvim-config.lua with selected settings', vim.log.levels.INFO)
+        vim.notify(
+          'Created .nvim.lua with selected settings. Run :trust to authorize it.',
+          vim.log.levels.INFO
+        )
       else
-        vim.notify('Failed to create .nvim-config.lua', vim.log.levels.ERROR)
+        vim.notify('Failed to create .nvim.lua', vim.log.levels.ERROR)
       end
     end)
   end)
@@ -175,7 +179,7 @@ end
 
 function M.setup()
   vim.api.nvim_create_user_command('ProjectSettings', create_nvim_config, {
-    desc = 'Create .nvim-config.lua with interactive plugin and LSP selection',
+    desc = 'Create .nvim.lua with interactive plugin and LSP selection',
   })
 
   vim.api.nvim_create_user_command('ProjectSettingsHelp', show_help, {

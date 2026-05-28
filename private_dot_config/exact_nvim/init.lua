@@ -11,18 +11,9 @@
 -----------------------------------------------------------------------------//
 require('config.settings')
 
--- Load project setting if available, e.g: .nvim-config.lua
--- This file is not tracked by git
--- It can be used to set project specific settings
-local project_setting = vim.fn.getcwd() .. '/.nvim-config.lua'
--- Check if the file exists and load it
-if vim.loop.fs_stat(project_setting) then
-  -- Read the file and run it with pcall to catch any errors
-  local ok, err = pcall(dofile, project_setting)
-  if not ok then
-    vim.notify('Error loading project setting: ' .. err, vim.log.levels.ERROR)
-  end
-end
+-- Project-local settings are loaded via Neovim's built-in `exrc` (enabled in
+-- config.settings). Drop a `.nvim.lua` in the project root (or any ancestor
+-- of the file being edited) and run `:trust` once to authorize it.
 
 require('config.autocmds')
 require('config.lazy')
