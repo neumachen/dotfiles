@@ -18,6 +18,9 @@ require('config.settings')
 require('config.autocmds')
 require('config.lazy')
 require('config.keymaps')
+
+-- Register :Exrc* helpers for managing project-local `.nvim.lua` files.
+require('utils.exrc').setup()
 -----------------------------------------------------------------------------//
 -- LazyNVIM {{{1
 -----------------------------------------------------------------------------//
