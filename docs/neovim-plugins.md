@@ -1245,15 +1245,61 @@ Markdown live preview using Deno.
 
 **File:** `lua/plugins/vim-dadbod-ui.lua`
 
-Database UI for vim-dadbod.
+Database UI for vim-dadbod. SQL workflow helpers live in
+`lua/utils/db.lua` and are wired through a runtime-safe keymap helper that
+will not silently overwrite existing mappings.
 
 **Dependencies:** `tpope/vim-dadbod`, `vim-dadbod-completion`
 
 **Keymaps:**
 
-| Key | Action |
-|---|---|
-| `<leader>tD` | Toggle DBUI |
+| Mode | Key | Action |
+|---|---|---|
+| n | `<leader>dt` | Toggle DBUI |
+| n | `<leader>dn` | New SQL buffer attached to current DB |
+| n | `<leader>dg` | Generate credentials from script |
+| n | `<leader>da` | Attach `vim.g.db` to current buffer |
+| n | `<leader>dr` | Run current SQL buffer (`:%DB`) |
+| v | `<leader>dr` | Run selected SQL (`:'<,'>DB`) |
+| n | `<leader>dS` | Select / set DB connection (from `vim.g.dbs` or prompt) |
+
+If any of the proposed `lhs` values is already mapped at startup, the helper
+prompts (`vim.ui.input`) for an alternate and skips the mapping if the prompt
+is empty or cancelled — existing mappings are never overwritten silently.
+
+**Static connections (`vim.g.dbs`):**
+
+Initialized to an empty table only if not already defined. Real credentials
+must not be committed; populate it from env vars, the credential script
+(`<leader>dg`), or a local git-ignored `.nvim-config.lua` (already sourced by
+`init.lua`). Example shape (kept commented in the plugin spec):
+
+```lua
+vim.g.dbs = {
+  dev_local = 'postgres://user:password@localhost:5432/dev',
+  staging   = vim.env.STAGING_DB_URL,
+}
+```
+
+**Credential script (`<leader>dg`):**
+
+Resolves the first defined of:
+
+1. `vim.g.db_credential_script`
+2. `$NVIM_DB_CREDENTIAL_SCRIPT`
+3. `~/.local/bin/get-pg-url` (fallback)
+
+The script must print a single Dadbod-compatible Postgres URL to stdout, e.g.
+`postgres://user:password@host:5432/database`. Output is trimmed. On non-zero
+exit or empty stdout the helper notifies and leaves the current connection
+untouched. On success it sets `vim.g.db`, sets `vim.b.db` when the current
+buffer is SQL-flavored, and opens a fresh SQL buffer when it is not.
+
+**SQL `FileType` autocmd:**
+
+When entering a `sql` / `mysql` / `plsql` buffer, `vim.b.db` is seeded from
+`vim.g.db` if the buffer has none set. This lets vim-dadbod-completion (wired
+through `blink.cmp`) and `:DB` work without an explicit attach step.
 
 **Config:** right position, nerd fonts, nvim-notify.
 
