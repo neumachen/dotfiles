@@ -97,6 +97,9 @@ tagged
 # Personal folder of ignored files/directoaries
 # ---------------------------------------------------------------------------------------------
 .git-ignored/
+.gitignored/
+_git-ignored/
+_gitignored/
 
 # Claude Code local settings
 .claude/
