@@ -56,5 +56,8 @@
     "color": "#3368a8",
     "description": "Diff-aware structured editing via Aider tools (Claude Sonnet 4.6, standard Anthropic API).",
     "contextMemory": "off"
-  }
+  },
+  "autoCompactThresholdPercentage": 85,
+  "autoCompactionType": "handoff",
+  "temperature": 0
 }

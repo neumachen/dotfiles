@@ -56,5 +56,8 @@
     "color": "#3368a8",
     "description": "Primary coding agent — implementation, bug fixes, refactoring, TDD. Claude Sonnet 4.6 (1M context, Instinct).",
     "contextMemory": "session"
-  }
+  },
+  "autoCompactThresholdPercentage": 85,
+  "autoCompactionType": "handoff",
+  "temperature": 0
 }
