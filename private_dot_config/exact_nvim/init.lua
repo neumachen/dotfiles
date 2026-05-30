@@ -24,6 +24,9 @@ require('utils.keymaps_dump').setup()
 
 -- Register :Exrc* helpers for managing project-local `.nvim.lua` files.
 require('utils.exrc').setup()
+
+-- Register :ToolDoctor for checking missing formatter / linter / LSP binaries.
+require('utils.doctor').setup()
 -----------------------------------------------------------------------------//
 -- LazyNVIM {{{1
 -----------------------------------------------------------------------------//
