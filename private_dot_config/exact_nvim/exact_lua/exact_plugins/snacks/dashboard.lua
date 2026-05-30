@@ -85,18 +85,18 @@ return {
       { section = 'startup' },
     }
     if not vim.g.neovide then
-      table.insert(s, 2, {
-        pane = 2,
-        indent = 8,
-        padding = 1,
-        text = function()
-          local lines = vim.fn.systemlist('fortune -s | cowsay')
-          if vim.v.shell_error ~= 0 or #lines == 0 then return {} end
-          return vim.tbl_map(function(l)
+      table.insert(s, 2, function()
+        local lines = vim.fn.systemlist('fortune -s | cowsay')
+        if vim.v.shell_error ~= 0 or #lines == 0 then return end
+        return {
+          pane = 2,
+          indent = 8,
+          padding = 1,
+          text = vim.tbl_map(function(l)
             return { l .. '\n', hl = 'SnacksDashboardFooter' }
-          end, lines)
-        end,
-      })
+          end, lines),
+        }
+      end)
     end
     return s
   end,
