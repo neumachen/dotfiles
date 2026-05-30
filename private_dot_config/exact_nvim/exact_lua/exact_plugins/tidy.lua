@@ -3,12 +3,12 @@ return {
   event = 'BufWritePre',
   keys = {
     {
-      '<localleader>tt',
+      '<localleader>ut',
       function() require('tidy').toggle() end,
       desc = 'Toggle tidy.nvim on/off for the current buffer',
     },
     {
-      '<localleader>tr',
+      '<localleader>ur',
       function() require('tidy').run() end,
       desc = 'Toggle formatting functionality of tidy.nvim off without saving',
     },

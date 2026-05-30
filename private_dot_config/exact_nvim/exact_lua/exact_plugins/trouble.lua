@@ -7,7 +7,7 @@ return {
   opts = {},
   keys = {
     {
-      '<localleader>T',
+      '<localleader>dT',
       '<cmd>Trouble diagnostics toggle<cr>',
       desc = 'Diagnostics (Trouble)',
     },
