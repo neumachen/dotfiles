@@ -23,6 +23,12 @@ return {
       end,
       { force = true, all = false }
     )
+
+    -- nvim-treesitter has no `jsonc` parser; the upstream community recommends
+    -- aliasing the jsonc filetype to json5 (closest spec match, handles
+    -- comments and trailing commas). Registering before lazy.nvim runs so
+    -- the alias is in place when the first .jsonc buffer opens.
+    vim.treesitter.language.register('json5', 'jsonc')
   end,
   config = function()
     local ts = require('nvim-treesitter')
@@ -83,7 +89,7 @@ return {
           'javascript',
           'jsdoc',
           'json',
-          'jsonc',
+          'json5',
           'just',
           'lua',
           'luadoc',
