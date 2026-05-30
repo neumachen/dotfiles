@@ -2,12 +2,12 @@ return {
   'bassamsdata/namu.nvim',
   cmd = { 'Namu' },
   keys = {
-    { '<localleader>tnb', '<cmd>Namu symbols<cr>', desc = 'Namu buffer symbols' },
-    { '<localleader>tnw', '<cmd>Namu workspace<cr>', desc = 'Namu workspace symbols' },
-    { '<localleader>tnW', '<cmd>Namu watchtower<cr>', desc = 'Namu watchtower symbols' },
-    { '<localleader>tnd', '<cmd>Namu diagnostics<cr>', desc = 'Namu diagnostics symbols' },
-    { '<localleader>tnc', '<cmd>Namu ctags<cr>', desc = 'Namu ctags symbols' },
-    { '<localleader>tnh', '<cmd>Namu help<cr>', desc = 'Namu help symbols' },
+    { '<localleader>unb', '<cmd>Namu symbols<cr>', desc = 'Namu buffer symbols' },
+    { '<localleader>unw', '<cmd>Namu workspace<cr>', desc = 'Namu workspace symbols' },
+    { '<localleader>unW', '<cmd>Namu watchtower<cr>', desc = 'Namu watchtower symbols' },
+    { '<localleader>und', '<cmd>Namu diagnostics<cr>', desc = 'Namu diagnostics symbols' },
+    { '<localleader>unc', '<cmd>Namu ctags<cr>', desc = 'Namu ctags symbols' },
+    { '<localleader>unh', '<cmd>Namu help<cr>', desc = 'Namu help symbols' },
   },
   config = function()
     --- @module 'namu'

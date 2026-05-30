@@ -46,11 +46,12 @@ return {
         desc = 'Finding/searching operations',
       },
       { '<leader>t', group = '+toggle', desc = 'Toggle operations' },
+      { '<leader>u', group = '+ui', desc = 'UI / option toggles' },
       { '<leader>w', group = '+window', desc = 'Window operations' },
       { '<leader><tab>', group = '+tab', desc = 'Tab operations' },
       -- Localleader groups
       {
-        '<localleader>t',
+        '<localleader>u',
         group = '+toggle',
         desc = 'Toggle operations',
       },
@@ -75,9 +76,8 @@ return {
       -- Subgroups - Leader
       { '<leader>gh', group = '+hunk', desc = 'Git hunk operations' },
       { '<leader>gl', group = '+log', desc = 'Git Log operations' },
+      { '<leader>gn', group = '+neogit', desc = 'Neogit operations' },
       { '<leader>gt', group = '+toggle', desc = 'Git toggle operations' },
-      { '<leader>tn', group = '+neogit', desc = 'Neogit operations' },
-      { '<leader>ts', group = '+scooter', desc = 'Scooter operations' },
       -- Subgroups - Localleader
       {
         '<localleader>gb',
@@ -90,7 +90,7 @@ return {
         desc = 'Buffer specific git hunk operations',
       },
       {
-        '<localleader>tn',
+        '<localleader>un',
         group = '+Namu',
         desc = 'Namu related operations',
       },

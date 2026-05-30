@@ -42,7 +42,7 @@ return {
       map('n', '<localleader>gbR', gs.reset_buffer, { desc = 'Reset Entire Buffer' })
       map('n', '<localleader>gbl', gs.blame_line, { desc = 'Blame Current Line' })
       map('n', '<localleader>gB', function() gs.blame() end, { desc = 'Toggle git blame (full file)' })
-      map('n', '<leader>lm', function() gs.setqflist('all') end, { desc = 'List Modified in Quickfix' })
+      map('n', '<leader>gm', function() gs.setqflist('all') end, { desc = 'List Modified in Quickfix' })
       bmap({ 'n', 'v' }, '<localleader>ghs', '<Cmd>Gitsigns stage_hunk<CR>', { desc = 'Stage Hunk' })
       bmap({ 'n', 'v' }, '<localleader>ghr', '<Cmd>Gitsigns reset_hunk<CR>', { desc = 'Reset Hunk' })
       bmap({ 'o', 'x' }, 'ih', ':<C-U>Gitsigns select_hunk<CR>', { desc = 'Select Hunk' })
