@@ -38,6 +38,9 @@ local function build_preset()
 
   return {
     name = 'theme-cursorline',
+    init = function()
+      vim.api.nvim_set_hl(0, 'ColorColumn', { bg = normal_bg })
+    end,
     modes = {
       -- Normal: use the theme's own CursorLine bg, nothing exotic
       n = {
