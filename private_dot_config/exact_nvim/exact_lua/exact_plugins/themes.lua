@@ -9,7 +9,8 @@ return {
   },
   {
     'catppuccin/nvim',
-    lazy = true,
+    lazy = false,
+    priority = 1000,
     name = 'catppuccin',
     opts = require('plugins.themes.catpuccin'),
   },
