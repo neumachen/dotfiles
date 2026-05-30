@@ -1,3 +1,7 @@
+# neumachen specific
+_git-ignored/
+
+# Common
 *.tar.gz
 **/.zcompcache
 **/.zcompdump
