@@ -1,3 +1,9 @@
+-- DISABLED (Phase A6, nvim-review): trialing life without code-lens. Re-enable by
+-- removing the surrounding `--[[ ... ]]` block-comment and deleting the `return {}` line.
+-- If unused after ~1 week, delete this file outright.
+return {}
+
+--[[
 return {
   'oribarilan/lensline.nvim',
   event = 'LspAttach',
@@ -36,3 +42,4 @@ return {
     })
   end,
 }
+]]
