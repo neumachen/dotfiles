@@ -1,5 +1,7 @@
 return {
   'folke/todo-comments.nvim',
+  event = { 'BufReadPost', 'BufNewFile' },
+  cmd = { 'TodoTrouble', 'TodoTelescope', 'TodoQuickFix', 'TodoLocList', 'TodoFzfLua' },
   dependencies = { 'nvim-lua/plenary.nvim' },
   opts = {
     signs = true, -- show icons in the signs column

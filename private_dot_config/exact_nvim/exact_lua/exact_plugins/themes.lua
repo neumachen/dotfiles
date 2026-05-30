@@ -9,15 +9,13 @@ return {
   },
   {
     'catppuccin/nvim',
-    lazy = false,
+    lazy = true,
     name = 'catppuccin',
-    priority = 1000,
     opts = require('plugins.themes.catpuccin'),
   },
   {
     'AlexvZyl/nordic.nvim',
-    lazy = false,
-    priority = 1000,
+    lazy = true,
     opts = nordic_overrides.opts,
     config = function(_, opts)
       local nordic = require('nordic')
@@ -28,8 +26,7 @@ return {
   },
   {
     'rmehri01/onenord.nvim',
-    lazy = false,
-    priority = 1000,
+    lazy = true,
     opts = require('plugins.themes.onenord'),
     config = function(_, opts) require('onenord').setup(opts) end,
   },
