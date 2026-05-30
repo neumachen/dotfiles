@@ -4,7 +4,7 @@ return {
   dependencies = {
     'folke/snacks.nvim',
     'nvim-lua/plenary.nvim',
-    'sindrets/diffview.nvim',
+    'esmuellert/codediff.nvim',
   },
   keys = {
     {
@@ -55,8 +55,16 @@ return {
         item = { '', '▾' },
         hunk = { '󰐕', '󰍴' },
       },
+      -- Graph rendering style for the log popup. 'kitty' uses the same
+      -- glyph technique as gitgraph.nvim (works in any terminal with a Nerd
+      -- Font, despite the name). Fall back to 'unicode' if glyphs render
+      -- incorrectly in your terminal, or 'ascii' for the plain git CLI look.
+      graph_style = 'kitty',
+      -- Explicit diff backend. nil = auto-detect (codediff first then diffview);
+      -- pinning avoids any ambiguity if a second diff plugin enters the deps tree.
+      diff_viewer = 'codediff',
       integrations = {
-        diffview = true,
+        codediff = true,
         snacks = true,
       },
     })
