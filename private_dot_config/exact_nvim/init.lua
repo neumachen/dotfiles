@@ -19,6 +19,9 @@ require('config.autocmds')
 require('config.lazy')
 require('config.keymaps')
 
+-- Register :DumpKeymaps for exporting all keymaps to JSON + Markdown.
+require('utils.keymaps_dump').setup()
+
 -- Register :Exrc* helpers for managing project-local `.nvim.lua` files.
 require('utils.exrc').setup()
 -----------------------------------------------------------------------------//
