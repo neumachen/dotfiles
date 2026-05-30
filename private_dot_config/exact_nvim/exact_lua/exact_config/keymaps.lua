@@ -307,11 +307,6 @@ map('n', 'zk', 'zckzOzz', {
   desc = 'Close Current Fold, Open Previous',
 })
 
--- Toggle fold under cursor, or insert space if no fold
-map('n', '<space><space>', [[@=(foldlevel('.')?'za':"\<Space>")<CR>]], {
-  desc = 'Toggle Fold Under Cursor',
-})
-
 -- Refocus folds: close all, open current, center
 map('n', '<localleader>z', [[zMzvzz]], { desc = 'Refocus Folds and Center' })
 
@@ -335,9 +330,6 @@ local opts = { silent = true }
 -- Better paste
 -- remap "p" in visual mode to delete the highlighted text without overwriting your yanked/copied text, and then paste the content from the unnamed register.
 map('v', 'p', '"_dP', opts)
-
--- Copy whole file content to clipboard with C-c
-map('n', '<C-c>', ':%y+<CR>', opts)
 
 -- Select all text in buffer with Alt-a
 map(
