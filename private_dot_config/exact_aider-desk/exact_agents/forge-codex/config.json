@@ -56,5 +56,8 @@
     "color": "#5a5ae6",
     "description": "OpenAI Codex coding agent (GPT-5.5-high, Codex Auth). Alternative to Forge for OpenAI-style implementation.",
     "contextMemory": "off"
-  }
+  },
+  "autoCompactThresholdPercentage": 85,
+  "autoCompactionType": "handoff",
+  "temperature": 0
 }

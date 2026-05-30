@@ -56,5 +56,8 @@
     "color": "#3368a8",
     "description": "Hybrid approach combining Aider's code generation with advanced search capabilities. Best for complex development tasks requiring both intelligent code modification and comprehensive codebase exploration.",
     "contextMemory": "off"
-  }
+  },
+  "autoCompactThresholdPercentage": 85,
+  "autoCompactionType": "handoff",
+  "temperature": 0
 }

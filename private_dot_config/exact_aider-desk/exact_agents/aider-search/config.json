@@ -56,5 +56,8 @@
     "color": "#3368a8",
     "description": "Aider editing + Power Tools search (Claude Sonnet 4.6, standard Anthropic API).",
     "contextMemory": "off"
-  }
+  },
+  "autoCompactThresholdPercentage": 85,
+  "autoCompactionType": "handoff",
+  "temperature": 0
 }

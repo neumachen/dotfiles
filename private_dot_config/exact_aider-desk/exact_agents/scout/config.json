@@ -56,5 +56,8 @@
     "color": "#2e8b57",
     "description": "Fast read-only triage via Claude Haiku (Agent SDK). Use before coding work to explore and narrow scope.",
     "contextMemory": "off"
-  }
+  },
+  "autoCompactThresholdPercentage": 85,
+  "autoCompactionType": "handoff",
+  "temperature": 0
 }

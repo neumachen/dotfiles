@@ -1,5 +1,6 @@
 # neumachen specific
 _git-ignored/
+**/.keep
 
 # Common
 *.tar.gz

@@ -56,5 +56,8 @@
     "color": "#8b0000",
     "description": "Deep architectural reasoning (Claude Opus 4.6, 1M context, Instinct). Reserve for complex design problems Forge cannot resolve.",
     "contextMemory": "session"
-  }
+  },
+  "autoCompactThresholdPercentage": 85,
+  "autoCompactionType": "handoff",
+  "temperature": 0
 }
