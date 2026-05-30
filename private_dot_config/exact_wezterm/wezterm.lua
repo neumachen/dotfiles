@@ -107,6 +107,13 @@ local config = {
   -- enable_wayland = enable_wayland(),
   -- https://github.com/wez/wezterm/issues/1772
   enable_wayland = false,
+  -- Advertise the dedicated wezterm terminfo entry instead of the default
+  -- xterm-256color. Requires the terminfo to be installed first:
+  --   tempfile=$(mktemp) \
+  --     && curl -o $tempfile https://raw.githubusercontent.com/wezterm/wezterm/main/termwiz/data/wezterm.terminfo \
+  --     && tic -x -o ~/.terminfo $tempfile \
+  --     && rm $tempfile
+  term = 'wezterm',
   color_scheme = 'tokyonight_storm',
   color_scheme_dirs = { os.getenv('HOME') .. '/.config/wezterm/colors/' },
   hide_tab_bar_if_only_one_tab = false,

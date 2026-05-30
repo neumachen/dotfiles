@@ -157,8 +157,10 @@ zmodload zsh/complist
 # Set LS_COLORS (used by fzf-tab for file coloring)
 # If using eza/exa, you may already have EZA_COLORS; this covers ls-style colors
 if command_exists vivid; then
-  # If you have vivid installed, use it for a nice theme
-  export LS_COLORS="$(vivid generate one-dark)"
+  # If you have vivid installed, use it for a nice theme.
+  # tokyonight-storm matches the WezTerm/Neovim/Starship tokyonight-storm scheme
+  # so file listings (ls/eza via fzf-tab + zsh completion) stay consistent.
+  export LS_COLORS="$(vivid generate tokyonight-storm)"
 elif command_exists dircolors; then
   # GNU dircolors
   eval "$(dircolors -b)"
@@ -171,13 +173,14 @@ else
 fi
 
 # Override other-writable (ow) and sticky+other-writable (tw) directory colors
-# Use orange/yellow foreground (RGB 229,192,123 from one-dark theme) without background
-# This makes them visually distinct from regular directories without the distracting green background
-export LS_COLORS="${LS_COLORS}:ow=0;38;2;229;192;123:tw=0;38;2;229;192;123"
+# Use Tokyo Night Storm orange foreground (RGB 255,158,100 / #ff9e64) without background.
+# This makes them visually distinct from regular directories without the distracting
+# green background, while matching the tokyonight-storm palette used everywhere else.
+export LS_COLORS="${LS_COLORS}:ow=0;38;2;255;158;100:tw=0;38;2;255;158;100"
 
-# EZA_COLORS: eza uses its own color variable; override ow/tw with orange/yellow
-# This ensures eza (aliased as ls) shows other-writable dirs in a distinct color
-export EZA_COLORS="${EZA_COLORS}:ow=38;2;229;192;123:tw=38;2;229;192;123"
+# EZA_COLORS: eza uses its own color variable; override ow/tw with the same
+# Tokyo Night Storm orange so eza (aliased as ls) stays consistent with LS_COLORS.
+export EZA_COLORS="${EZA_COLORS}:ow=38;2;255;158;100:tw=38;2;255;158;100"
 
 # Tell zsh completion to use LS_COLORS
 zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
