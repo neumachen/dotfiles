@@ -8,29 +8,24 @@ return {
   },
   keys = {
     {
-      '<leader>tN',
+      '<leader>gn',
       function() require('neogit').open() end,
-      desc = 'open Neogit',
+      desc = 'Open Neogit',
     },
     {
-      '<localleader>G',
-      function() require('neogit').open() end,
-      desc = 'open Neogit',
-    },
-    {
-      '<leader>tnc',
+      '<leader>gnc',
       function() require('neogit').open({ 'commit' }) end,
-      desc = 'open commit buffer',
+      desc = 'Neogit: commit',
     },
     {
-      '<leader>tnp',
+      '<leader>gnp',
       function() require('neogit').open({ 'pull' }) end,
-      desc = 'open pull popup',
+      desc = 'Neogit: pull',
     },
     {
-      '<leader>tnP',
+      '<leader>gnP',
       function() require('neogit').open({ 'push' }) end,
-      desc = 'open push popup',
+      desc = 'Neogit: push',
     },
   },
   config = function()
