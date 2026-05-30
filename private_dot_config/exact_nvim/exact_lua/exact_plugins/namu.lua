@@ -1,5 +1,14 @@
 return {
   'bassamsdata/namu.nvim',
+  cmd = { 'Namu' },
+  keys = {
+    { '<localleader>tnb', '<cmd>Namu symbols<cr>', desc = 'Namu buffer symbols' },
+    { '<localleader>tnw', '<cmd>Namu workspace<cr>', desc = 'Namu workspace symbols' },
+    { '<localleader>tnW', '<cmd>Namu watchtower<cr>', desc = 'Namu watchtower symbols' },
+    { '<localleader>tnd', '<cmd>Namu diagnostics<cr>', desc = 'Namu diagnostics symbols' },
+    { '<localleader>tnc', '<cmd>Namu ctags<cr>', desc = 'Namu ctags symbols' },
+    { '<localleader>tnh', '<cmd>Namu help<cr>', desc = 'Namu help symbols' },
+  },
   config = function()
     --- @module 'namu'
     require('namu').setup({
@@ -198,29 +207,7 @@ return {
       },
     })
 
-    vim.keymap.set('n', '<localleader>tnb', ':Namu symbols<cr>', {
-      desc = 'Namu buffer symbols',
-      silent = true,
-    })
-    vim.keymap.set('n', '<localleader>tnw', ':Namu workspace<cr>', {
-      desc = 'Namu workspace symbols',
-      silent = true,
-    })
-    vim.keymap.set('n', '<localleader>tnW', ':Namu watchtower<cr>', {
-      desc = 'Namu watchtower symbols',
-      silent = true,
-    })
-    vim.keymap.set('n', '<localleader>tnd', ':Namu diagnostics<cr>', {
-      desc = 'Namu diagnostics symbols',
-      silent = true,
-    })
-    vim.keymap.set('n', '<localleader>tnc', ':Namu ctags<cr>', {
-      desc = 'Namu ctags symbols',
-      silent = true,
-    })
-    vim.keymap.set('n', '<localleader>tnh', ':Namu help<cr>', {
-      desc = 'Namu help symbols',
-      silent = true,
-    })
+    -- NOTE: keymaps moved to top-level `keys = { ... }` so lazy.nvim can
+    -- trigger plugin load on first use (was eager when defined here).
   end,
 }

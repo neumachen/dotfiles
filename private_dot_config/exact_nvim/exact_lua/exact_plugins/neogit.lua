@@ -1,11 +1,37 @@
-local map = vim.keymap.set
-
 return {
   'NeogitOrg/neogit',
+  cmd = 'Neogit',
   dependencies = {
     'folke/snacks.nvim',
     'nvim-lua/plenary.nvim',
     'sindrets/diffview.nvim',
+  },
+  keys = {
+    {
+      '<leader>tN',
+      function() require('neogit').open() end,
+      desc = 'open Neogit',
+    },
+    {
+      '<localleader>G',
+      function() require('neogit').open() end,
+      desc = 'open Neogit',
+    },
+    {
+      '<leader>tnc',
+      function() require('neogit').open({ 'commit' }) end,
+      desc = 'open commit buffer',
+    },
+    {
+      '<leader>tnp',
+      function() require('neogit').open({ 'pull' }) end,
+      desc = 'open pull popup',
+    },
+    {
+      '<leader>tnP',
+      function() require('neogit').open({ 'push' }) end,
+      desc = 'open push popup',
+    },
   },
   config = function()
     require('neogit').setup({
@@ -33,23 +59,6 @@ return {
         diffview = true,
         snacks = true,
       },
-    })
-
-    local neogit = require('neogit')
-    map('n', '<leader>tN', function() neogit.open() end, {
-      desc = 'open Neogit',
-    })
-    map('n', '<localleader>G', function() neogit.open() end, {
-      desc = 'open Neogit',
-    })
-    map('n', '<leader>tnc', function() neogit.open({ 'commit' }) end, {
-      desc = 'open commit buffer',
-    })
-    map('n', '<leader>tnp', function() neogit.open({ 'pull' }) end, {
-      desc = 'open pull popup',
-    })
-    map('n', '<leader>tnP', function() neogit.open({ 'push' }) end, {
-      desc = 'open push popup',
     })
   end,
 }

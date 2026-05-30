@@ -1,5 +1,6 @@
 return {
   'yochem/jq-playground.nvim',
+  cmd = 'JqPlayground',
   config = function()
     require('jq-playground').setup({
       cmd = { 'jq' },

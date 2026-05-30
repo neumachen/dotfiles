@@ -1,6 +1,13 @@
 return {
   'tris203/precognition.nvim',
-  event = 'VeryLazy',
+  cmd = { 'Precognition' },
+  keys = {
+    {
+      '<localleader>up',
+      '<cmd>Precognition toggle<cr>',
+      desc = 'Toggle Precognition hints',
+    },
+  },
   opts = {
     startVisible = false,
     showBlankVirtLine = true,

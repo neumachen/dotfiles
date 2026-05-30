@@ -79,13 +79,13 @@ require('lazy').setup({
   checker = {
     concurrency = 16,
     enabled = true,
-    notify = true,
-    frequency = 3600, -- check for updates every hour
+    notify = false, -- silenced per nvim-review Phase C7
+    frequency = 86400, -- check for updates once a day
   },
   change_detection = {
     -- Automatically check for config file changes and reload the UI
     enabled = true,
-    notify = true, -- Get a notification when changes are found
+    notify = false, -- silenced per nvim-review Phase C7
   },
   performance = {
     rtp = {
