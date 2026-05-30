@@ -1,5 +1,6 @@
 return {
   'jameswolensky/marker-groups.nvim',
+  event = 'VeryLazy',
   dependencies = {
     'nvim-lua/plenary.nvim', -- Required
     'ibhagwan/fzf-lua', -- Optional: fzf-lua picker
