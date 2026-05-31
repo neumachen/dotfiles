@@ -45,7 +45,7 @@ local cmdSequenceWatcher = hs.eventtap.new(
     local eventType = event:getType()
     local isKeyDown = eventType == hs.eventtap.event.types.keyDown
 
-    local leftCmdCode  = hs.keycodes.map['leftcmd']
+    local leftCmdCode  = hs.keycodes.map['cmd']
     local rightCmdCode = hs.keycodes.map['rightcmd']
 
     -- Only act on key-down events for the command keys
