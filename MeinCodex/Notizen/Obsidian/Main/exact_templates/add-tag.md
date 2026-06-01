@@ -1,20 +1,26 @@
 <%*
+const NEW_TAG_SENTINEL = "＋ New tag…";
+
 const existingTags = Object.keys(app.metadataCache.getTags())
   .map(t => t.replace(/^#/, ""))
   .sort();
 
-let tag;
-if (existingTags.length > 0) {
-  tag = await tp.system.suggester(
-    existingTags,
-    existingTags,
-    false,
-    "Pick existing tag — Esc to type a new one"
-  );
-}
+const choices = [NEW_TAG_SENTINEL, ...existingTags];
 
-if (!tag) {
-  tag = await tp.system.prompt("New tag");
+const selected = await tp.system.suggester(
+  choices,
+  choices,
+  false,
+  "Pick a tag or select ＋ to create a new one"
+);
+
+if (!selected) return;
+
+let tag;
+if (selected === NEW_TAG_SENTINEL) {
+  tag = await tp.system.prompt("New tag", "");
+} else {
+  tag = selected;
 }
 
 if (!tag) return;
