@@ -5,7 +5,7 @@ local trigger_text = ';'
 return {
   'saghen/blink.cmp',
   event = 'InsertEnter',
-  build = function() require('blink.cmp').build():wait(60000) end,
+  build = function() require('blink.cmp').build():pwait() end,
   -- In case there are breaking changes and you want to go back to the last
   -- working release
   -- https://github.com/Saghen/blink.cmp/releases
