@@ -59,6 +59,15 @@ return {
     format_after_save = {},
     notify_on_error = true,
     notify_no_formatters = false,
+    -- JS/TS stack overlap (intentional, runtime-guarded; flagged for review):
+    --   * formatter chain: biome → deno_fmt → prettierd → prettier → dprint
+    --     (gated by use_biome / deno_config_exist / dprint_config_exist /
+    --     use_prettier in `formatters` below)
+    --   * LSP: `biome` LSP + `eslint` LSP
+    --   * linters (nvim-lint.lua): `oxlint` + `eslint_d`
+    -- `dprint` is a dead branch right now — not provisioned in mise/Brewfile,
+    -- and gated by an absent `dprint.json`. Keep until a canonical JS/TS
+    -- formatter is chosen and the rest is consolidated.
     formatters_by_ft = {
       dockerfile = { 'dockerfmt' },
       lua = { 'stylua' },
