@@ -23,13 +23,13 @@
     "tasks---list_tasks": "always",
     "tasks---get_task": "always",
     "tasks---get_task_message": "always",
-    "tasks---create_task": "ask",
+    "tasks---create_task": "always",
     "tasks---delete_task": "ask",
     "memory---store_memory": "always",
     "memory---retrieve_memory": "always",
-    "memory---delete_memory": "never",
-    "memory---list_memories": "never",
-    "memory---update_memory": "never"
+    "memory---delete_memory": "ask",
+    "memory---list_memories": "always",
+    "memory---update_memory": "always"
   },
   "toolSettings": {
     "power---bash": {
@@ -37,13 +37,13 @@
       "deniedPattern": "rm .*;del .*;chown .*;chgrp .*;chmod .*"
     }
   },
-  "includeContextFiles": false,
-  "includeRepoMap": false,
+  "includeContextFiles": true,
+  "includeRepoMap": true,
   "usePowerTools": true,
-  "useAiderTools": false,
+  "useAiderTools": true,
   "useTodoTools": true,
   "useSubagents": true,
-  "useTaskTools": false,
+  "useTaskTools": true,
   "useMemoryTools": true,
   "useSkillsTools": true,
   "useExtensionTools": true,
