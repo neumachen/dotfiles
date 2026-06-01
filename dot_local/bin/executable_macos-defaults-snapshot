@@ -1,0 +1,199 @@
+#!/usr/bin/env bash
+# macos-defaults-snapshot — dump current macOS defaults to stdout.
+#
+# Usage:
+#   macos-defaults-snapshot              # print all domains to stdout
+#   macos-defaults-snapshot > snap.xml   # save to file
+#
+# Each domain is separated by a clear header comment so the output can be
+# grepped or split later. The raw value is the XML plist that `defaults import`
+# understands, so you can restore a domain with:
+#   defaults import <domain> <file.plist>
+
+set -euo pipefail
+
+if [[ "$OSTYPE" != darwin* ]]; then
+  echo "macos-defaults-snapshot: macOS only" >&2
+  exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# Output helpers
+# ---------------------------------------------------------------------------
+
+if [[ -t 1 ]]; then
+  BOLD=$'\033[1m'
+  DIM=$'\033[2m'
+  RESET=$'\033[0m'
+  CYAN=$'\033[0;36m'
+  YELLOW=$'\033[0;33m'
+  RED=$'\033[0;31m'
+else
+  BOLD='' DIM='' RESET='' CYAN='' YELLOW='' RED=''
+fi
+
+info()  { printf "${CYAN}  ℹ %s${RESET}\n" "$*" >&2; }
+warn()  { printf "${YELLOW}  ⚠ %s${RESET}\n" "$*" >&2; }
+error() { printf "${RED}  ✗ %s${RESET}\n" "$*" >&2; }
+
+# ---------------------------------------------------------------------------
+# Domains to snapshot
+# ---------------------------------------------------------------------------
+# Each entry is a defaults domain identifier. Add or remove as needed.
+# Use the literal string "NSGlobalDomain" for the global domain.
+
+DOMAINS=(
+  # Global / system-wide
+  "NSGlobalDomain"
+
+  # Finder
+  "com.apple.finder"
+
+  # Dock & Mission Control
+  "com.apple.dock"
+
+  # Keyboard shortcuts (System Settings → Keyboard → Shortcuts)
+  "com.apple.symbolichotkeys"
+
+  # Keyboard input / text substitution
+  "com.apple.HIToolbox"
+
+  # Trackpad
+  "com.apple.AppleMultitouchTrackpad"
+  "com.apple.driver.AppleBluetoothMultitouch.trackpad"
+
+  # Mouse
+  "com.apple.AppleMultitouchMouse"
+  "com.apple.driver.AppleBluetoothMultitouch.mouse"
+
+  # Screen saver / lock
+  "com.apple.screensaver"
+
+  # Screenshots
+  "com.apple.screencapture"
+
+  # Spaces / Exposé
+  "com.apple.spaces"
+
+  # Menu bar / Control Centre
+  "com.apple.controlcenter"
+  "com.apple.systemuiserver"
+
+  # Notifications
+  "com.apple.ncprefs"
+
+  # Sound
+  "com.apple.sound.beep.sound"
+
+  # Accessibility
+  "com.apple.universalaccess"
+
+  # Language & Region
+  "com.apple.locale"
+  "NSLanguages"
+
+  # Date & Time
+  "com.apple.menuextra.clock"
+
+  # Energy / Battery
+  "com.apple.PowerManagement"
+
+  # Network
+  "com.apple.network.identification"
+
+  # Bluetooth
+  "com.apple.Bluetooth"
+
+  # Printing
+  "com.apple.print.PrintingPrefs"
+
+  # Safari
+  "com.apple.Safari"
+
+  # Mail
+  "com.apple.mail"
+
+  # Terminal
+  "com.apple.Terminal"
+
+  # TextEdit
+  "com.apple.TextEdit"
+
+  # Activity Monitor
+  "com.apple.ActivityMonitor"
+
+  # Disk Utility
+  "com.apple.DiskUtility"
+
+  # Software Update
+  "com.apple.SoftwareUpdate"
+
+  # App Store
+  "com.apple.appstore"
+
+  # iCloud / Apple ID
+  "MobileMeAccounts"
+
+  # Crash Reporter
+  "com.apple.CrashReporter"
+
+  # Help Viewer
+  "com.apple.helpviewer"
+
+  # Spotlight
+  "com.apple.Spotlight"
+
+  # Siri
+  "com.apple.assistant.support"
+  "com.apple.Siri"
+
+  # Hot corners (also stored in com.apple.dock, but explicit here)
+  "com.apple.expose-adjacent-spaces"
+
+  # Security & Privacy
+  "com.apple.security"
+
+  # Time Machine
+  "com.apple.TimeMachine"
+)
+
+# ---------------------------------------------------------------------------
+# Snapshot
+# ---------------------------------------------------------------------------
+
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+HOSTNAME=$(scutil --get ComputerName 2>/dev/null || hostname)
+
+printf "<!-- macos-defaults-snapshot\n"
+printf "     host:      %s\n" "$HOSTNAME"
+printf "     timestamp: %s\n" "$TIMESTAMP"
+printf "     restore:   defaults import <domain> <file.plist>\n"
+printf "-->\n\n"
+
+EXPORTED=0
+SKIPPED=0
+
+for domain in "${DOMAINS[@]}"; do
+  # Skip comment-only lines (empty or starting with #)
+  [[ -z "$domain" || "$domain" == \#* ]] && continue
+
+  info "Exporting: $domain"
+
+  # `defaults export` exits non-zero when the domain has no data.
+  # Capture output; skip silently if empty.
+  if plist=$(defaults export "$domain" - 2>/dev/null); then
+    # Pretty-print the XML so it's human-readable even when piped to a file.
+    pretty=$(echo "$plist" | plutil -convert xml1 - -o - 2>/dev/null) || pretty="$plist"
+
+    printf "<!-- ============================================================\n"
+    printf "     DOMAIN: %s\n" "$domain"
+    printf "     ============================================================ -->\n"
+    printf "%s\n\n" "$pretty"
+    (( EXPORTED++ )) || true
+  else
+    warn "No data for domain: $domain (skipped)"
+    (( SKIPPED++ )) || true
+  fi
+done
+
+info "Done. Exported ${EXPORTED} domain(s), skipped ${SKIPPED}."
