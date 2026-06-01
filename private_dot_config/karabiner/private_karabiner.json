@@ -88,6 +88,40 @@
                         ]
                     },
                     {
+                        "description": "Escape key → Hyper (Cmd+Ctrl+Alt+Shift) — internal Mac keyboard only",
+                        "manipulators": [
+                            {
+                                "conditions": [
+                                    {
+                                        "identifiers": [
+                                            {
+                                                "product_id": 5634,
+                                                "vendor_id": 53280
+                                            },
+                                            {
+                                                "product_id": 394,
+                                                "vendor_id": 1390
+                                            },
+                                            {
+                                                "product_id": 10203,
+                                                "vendor_id": 5824
+                                            }
+                                        ],
+                                        "type": "device_unless"
+                                    }
+                                ],
+                                "from": { "key_code": "caps_lock" },
+                                "to": [
+                                    {
+                                        "key_code": "left_shift",
+                                        "modifiers": ["left_command", "left_control", "left_option"]
+                                    }
+                                ],
+                                "type": "basic"
+                            }
+                        ]
+                    },
+                    {
                         "description": "Hold button7 to open Mission Control (ELECOM IST PRO only)",
                         "manipulators": [
                             {
@@ -122,10 +156,6 @@
                         {
                             "from": { "key_code": "caps_lock" },
                             "to": [{ "key_code": "escape" }]
-                        },
-                        {
-                            "from": { "key_code": "escape" },
-                            "to": [{ "key_code": "caps_lock" }]
                         },
                         {
                             "from": { "key_code": "left_control" },
