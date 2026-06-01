@@ -130,3 +130,11 @@ MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/omnisearch/*-cache.*
 .claude/session-env
 .claude/shell-snapshots
 .claude/telemetry
+
+# Karabiner-Elements (~/.config/karabiner/) — only karabiner.json is tracked.
+# Everything else under this directory is runtime state written by
+# Karabiner-Elements: timestamped backups, rules downloaded from the online
+# catalogue, and grabber/server logs.
+.config/karabiner/automatic_backups
+.config/karabiner/assets
+.config/karabiner/*.log
