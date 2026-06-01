@@ -17,5 +17,6 @@
   "cmdr",
   "obsidian-meta-bind-plugin",
   "obsidian-vimrc-support",
-  "shiki-highlighter"
+  "shiki-highlighter",
+  "quickadd"
 ]
