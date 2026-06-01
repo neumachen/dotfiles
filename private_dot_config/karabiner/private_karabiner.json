@@ -9,7 +9,7 @@
             "complex_modifications": {
                 "rules": [
                     {
-                        "description": "Print Screen to Command+F11 (NLKB16-02 only)",
+                        "description": "F20 to Meh+F5 (NLKB16-02 only)",
                         "manipulators": [
                             {
                                 "conditions": [
@@ -23,11 +23,11 @@
                                         "type": "device_if"
                                     }
                                 ],
-                                "from": { "key_code": "print_screen" },
+                                "from": { "key_code": "f20" },
                                 "to": [
                                     {
-                                        "key_code": "f11",
-                                        "modifiers": ["right_command"]
+                                        "key_code": "f5",
+                                        "modifiers": ["left_control", "left_option", "left_shift"]
                                     }
                                 ],
                                 "type": "basic"
@@ -35,7 +35,7 @@
                         ]
                     },
                     {
-                        "description": "Scroll Lock to Command+F12 (NLKB16-02 only)",
+                        "description": "F19 to Hyper+F5 (NLKB16-02 only)",
                         "manipulators": [
                             {
                                 "conditions": [
@@ -49,11 +49,11 @@
                                         "type": "device_if"
                                     }
                                 ],
-                                "from": { "key_code": "scroll_lock" },
+                                "from": { "key_code": "f19" },
                                 "to": [
                                     {
-                                        "key_code": "f12",
-                                        "modifiers": ["right_command"]
+                                        "key_code": "f5",
+                                        "modifiers": ["left_command", "left_control", "left_option", "left_shift"]
                                     }
                                 ],
                                 "type": "basic"
