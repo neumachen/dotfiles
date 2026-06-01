@@ -1,27 +1,19 @@
 <%*
-const NEW_TAG_SENTINEL = "＋ New tag…";
+const quickAddApi = app.plugins.plugins.quickadd.api;
 
 const existingTags = Object.keys(app.metadataCache.getTags())
   .map(t => t.replace(/^#/, ""))
   .sort();
 
-const choices = [NEW_TAG_SENTINEL, ...existingTags];
-
-const selected = await tp.system.suggester(
-  choices,
-  choices,
-  false,
-  "Pick a tag or select ＋ to create a new one"
+// allowCustomInput: true lets the user type a new tag and press Enter
+// directly — no second prompt needed. Existing tags appear as suggestions
+// while typing; if nothing matches, the typed text is returned as-is.
+const tag = await quickAddApi.suggester(
+  existingTags,
+  existingTags,
+  "Tag name — pick existing or type a new one",
+  true
 );
-
-if (!selected) return;
-
-let tag;
-if (selected === NEW_TAG_SENTINEL) {
-  tag = await tp.system.prompt("New tag", "");
-} else {
-  tag = selected;
-}
 
 if (!tag) return;
 
