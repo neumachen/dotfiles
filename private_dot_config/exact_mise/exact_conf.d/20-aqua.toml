@@ -1,0 +1,6 @@
+# aqua: — prebuilt binaries from aqua-registry.
+[tools]
+# docker stack
+"aqua:docker/buildx"  = "latest"
+"aqua:docker/cli"     = "latest"
+"aqua:docker/compose" = "latest"
