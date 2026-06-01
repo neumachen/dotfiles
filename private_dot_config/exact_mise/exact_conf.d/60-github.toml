@@ -1,0 +1,15 @@
+# github: — release binaries from GitHub.
+[tools]
+"github:JohnnyMorganz/StyLua" = "latest"
+"github:bufbuild/buf"         = "latest"
+"github:clangd/clangd"        = "latest"
+# docker stack
+"github:docker/docker-language-server" = { version = "latest", bin = "docker-language-server" }
+"github:reteps/dockerfmt"              = "latest"   # Dockerfile formatter
+# erlang
+"github:erlang-ls/erlang_ls" = "latest"
+# misc
+"github:dlvhdr/gh-dash"  = "latest"
+"github:marph91/jimmy"   = "latest"
+"github:mr-karan/doggo"  = "latest"
+"github:mrjosh/helm-ls"  = "latest"
