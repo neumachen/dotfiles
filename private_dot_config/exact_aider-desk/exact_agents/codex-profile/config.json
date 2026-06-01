@@ -56,5 +56,7 @@
     "color": "#5a5ae6",
     "description": "",
     "contextMemory": "off"
-  }
+  },
+  "autoCompactThresholdPercentage": 85,
+  "autoCompactionType": "handoff"
 }
