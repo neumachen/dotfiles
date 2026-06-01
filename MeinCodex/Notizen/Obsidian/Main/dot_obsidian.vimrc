@@ -26,9 +26,14 @@ vmap gl $
 omap gh ^
 omap gl $
 
-" --- Visual indent keeps selection ----------------------------------------
-vmap < <gv
-vmap > >gv
+" --- Visual indent ---------------------------------------------------------
+" No custom map here. codemirror-vim (the engine behind Obsidian's Vim mode)
+" mishandles `map > >gv` / `map < <gv`: in practice it triggers the normal-
+" mode `>` operator with `gv` as the motion, which re-selects the *previous*
+" visual area (often line 1) and shifts that — not the current selection.
+"
+" Use the built-in visual `>` / `<` instead. They shift the block once and
+" exit visual mode (standard Vim behavior). To repeat, press `gv>` or `.`.
 
 " --- Yank to end of line (sane default) -----------------------------------
 nmap Y y$
