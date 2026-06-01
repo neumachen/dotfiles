@@ -9,13 +9,6 @@ return {
     log_level = vim.log.levels.INFO,
     -- if you want to open yazi instead of netrw, see below for more info
     open_for_directories = true,
-    future_features = {
-      -- use a new shell escaping implementation that is more robust and works
-      -- on more platforms. Defaults to `true`. If set to `false`, the old
-      -- shell escaping implementation will be used, which is less robust and
-      -- may not work on all platforms.
-      new_shell_escaping = true,
-    },
     integrations = {
       grep_in_directory = 'fzf-lua',
       grep_in_selected_files = 'fzf-lua',
