@@ -24,9 +24,8 @@ return {
       return true
     end
 
-    -- NOTE: The new way to enable LuaSnip
-    -- Merge custom sources with the existing ones from lazyvim
-    -- NOTE: by default lazyvim already includes the lazydev source, so not adding it here again
+    -- score_offset on a provider boosts (positive) or penalises (negative)
+    -- every item it produces; higher number = higher rank in the menu.
     opts.sources = vim.tbl_deep_extend('force', opts.sources or {}, {
       default = {
         'lsp',
@@ -47,19 +46,21 @@ return {
           score_offset = 100,
         },
         lsp = {
-          name = 'lsp',
-          enabled = true,
-          module = 'blink.cmp.sources.lsp',
-          score_offset = 90, -- the higher the number, the higher the priority
+          score_offset = 90,
         },
         path = {
-          name = 'Path',
-          module = 'blink.cmp.sources.path',
           score_offset = 25,
           fallbacks = { 'snippets', 'buffer' },
+          min_keyword_length = 0,
           opts = {
-            trailing_slash = false,
+            -- Insert a trailing slash after accepting a directory so you can
+            -- keep typing into the next path segment without an extra
+            -- keystroke.
+            trailing_slash = true,
             label_trailing_slash = true,
+            -- get_cwd matches the upstream default (buffer's directory), but
+            -- listed here so it's obvious where to swap it for a per-project
+            -- root or `vim.fn.getcwd()`-style behaviour.
             get_cwd = function(context)
               return vim.fn.expand(('#%d:p:h'):format(context.bufnr))
             end,
@@ -67,19 +68,13 @@ return {
           },
         },
         buffer = {
-          name = 'Buffer',
-          enabled = true,
           max_items = 3,
-          module = 'blink.cmp.sources.buffer',
           min_keyword_length = 2,
-          score_offset = 15, -- the higher the number, the higher the priority
+          score_offset = 15,
         },
         snippets = {
-          name = 'snippets',
-          enabled = true,
           max_items = 15,
           min_keyword_length = 2,
-          module = 'blink.cmp.sources.snippets',
           score_offset = 85,
           should_show_items = function()
             local col = vim.api.nvim_win_get_cursor(0)[2]
@@ -120,7 +115,7 @@ return {
           name = 'Dadbod',
           module = 'vim_dadbod_completion.blink',
           min_keyword_length = 2,
-          score_offset = 85, -- the higher the number, the higher the priority
+          score_offset = 85,
         },
         spell = {
           name = 'Spell',
@@ -152,27 +147,18 @@ return {
           ---@type blink-ripgrep.Options
           opts = {
             prefix_min_len = 2,
-            context_size = 5,
-            max_filesize = '1M',
             project_root_marker = '.git',
-            project_root_fallback = true,
-            search_casing = '--ignore-case',
-            additional_rg_options = {},
-            fallback_to_regex_highlighting = true,
-            ignore_paths = {},
-            additional_paths = {},
-            toggles = {
-              on_off = nil,
-              debug = nil,
-            },
-
-            future_features = {
-              backend = {
-                use = 'ripgrep',
+            backend = {
+              -- Use ripgrep; switch to 'gitgrep-or-ripgrep' for git-aware
+              -- speedups in tracked projects.
+              use = 'ripgrep',
+              ripgrep = {
+                context_size = 5,
+                max_filesize = '1M',
+                project_root_fallback = true,
+                search_casing = '--ignore-case',
               },
             },
-
-            debug = false,
           },
           transform_items = function(_, items)
             for _, item in ipairs(items) do
@@ -204,10 +190,6 @@ return {
         },
       },
     })
-
-    opts.cmdline = {
-      enabled = true,
-    }
 
     opts.completion = {
       keyword = {
@@ -287,12 +269,6 @@ return {
     opts.snippets = {
       preset = 'luasnip', -- Choose LuaSnip as the snippet engine
     }
-
-    -- -- To specify the options for snippets
-    -- opts.sources.providers.snippets.opts = {
-    --   use_show_condition = true, -- Enable filtering of snippets dynamically
-    --   show_autosnippets = true, -- Display autosnippets in the completion menu
-    -- }
 
     -- The default preset used by lazyvim accepts completions with enter
     -- I don't like using enter because if on markdown and typing
