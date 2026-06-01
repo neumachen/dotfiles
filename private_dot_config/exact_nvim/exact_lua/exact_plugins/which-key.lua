@@ -34,6 +34,11 @@ return {
       },
       { '<leader>f', group = '+file', desc = 'File operations' },
       { '<leader>g', group = '+git', desc = 'Git operations' },
+      {
+        '<leader>h',
+        group = '+haunt',
+        desc = 'Haunt bookmark/annotation operations',
+      },
       { '<leader>m', group = '+marker', desc = 'Marker operations' },
       {
         '<leader>n',
