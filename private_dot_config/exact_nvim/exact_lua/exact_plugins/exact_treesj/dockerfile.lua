@@ -10,19 +10,14 @@ local function has_textobjects()
   return ok
 end
 
---- Get the Treesitter node at cursor using textobjects if available
+--- Get the Treesitter node at cursor using the native core API and walk up
+--- to find the enclosing Dockerfile instruction node.
 ---@param bufnr number
 ---@return TSNode|nil
 local function get_instruction_node(bufnr)
-  if not has_textobjects() then return nil end
-
-  local ok, ts_utils = pcall(require, 'nvim-treesitter.ts_utils')
-  if not ok then return nil end
-
-  local node = ts_utils.get_node_at_cursor()
+  local node = vim.treesitter.get_node({ bufnr = bufnr })
   if not node then return nil end
 
-  -- Walk up to find instruction node
   while node do
     local type = node:type()
     if type:match('_instruction$') then return node end
