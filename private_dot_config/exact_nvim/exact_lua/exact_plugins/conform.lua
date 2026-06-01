@@ -32,15 +32,33 @@ return {
     { '<leader>cn', '<cmd>ConformInfo<cr>', desc = 'Conform Info' },
   },
   opts = {
-    format_on_save = {
-      lsp_format = 'fallback',
-      timeout_ms = 500,
-    },
-    format_after_save = {
-      lsp_format = 'fallback',
-    },
+    format_on_save = function(bufnr)
+      local conform = require('conform')
+      local formatters = conform.list_formatters(bufnr)
+      if #formatters > 0 then
+        local to_run, will_use_lsp = conform.list_formatters_to_run(bufnr)
+        if #to_run == 0 and not will_use_lsp then
+          local names = table.concat(
+            vim.tbl_map(function(f) return f.name end, formatters),
+            ', '
+          )
+          vim.notify(
+            '['
+              .. vim.bo[bufnr].filetype
+              .. '] No formatter available.\nConfigured: '
+              .. names
+              .. '\nInstall one or check :ConformInfo',
+            vim.log.levels.ERROR,
+            { title = 'conform: no formatter' }
+          )
+          return nil
+        end
+      end
+      return { timeout_ms = 500 }
+    end,
+    format_after_save = {},
     notify_on_error = true,
-    notify_no_formatters = true,
+    notify_no_formatters = false,
     formatters_by_ft = {
       dockerfile = { 'dockerfmt' },
       lua = { 'stylua' },
@@ -55,7 +73,7 @@ return {
         end
       end,
       ruby = { 'rubocop' },
-      json = { 'biome', 'dprint', stop_after_first = true },
+      json = { 'biome', 'dprint', 'prettierd', 'prettier', stop_after_first = true },
       markdown = { 'prettierd', 'prettier', 'dprint', stop_after_first = true },
       ['markdown.mdx'] = {
         'prettierd',
@@ -114,9 +132,7 @@ return {
       prettier = { condition = use_prettier },
       prettierd = { condition = use_prettier },
     },
-    default_format_opts = {
-      lsp_format = 'fallback',
-    },
+    default_format_opts = {},
   },
   init = function() vim.o.formatexpr = "v:lua.require'conform'.formatexpr()" end,
 }

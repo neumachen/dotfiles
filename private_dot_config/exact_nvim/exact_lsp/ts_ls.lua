@@ -33,11 +33,6 @@ return {
         enabled = true,
         showOnAllFunctions = true,
       },
-      format = {
-        indentSize = vim.o.shiftwidth,
-        convertTabsToSpaces = vim.o.expandtab,
-        tabSize = vim.o.tabstop,
-      },
     },
     javascript = {
       -- Inlay Hints preferences
@@ -59,11 +54,6 @@ return {
       referencesCodeLens = {
         enabled = true,
         showOnAllFunctions = true,
-      },
-      format = {
-        indentSize = vim.o.shiftwidth,
-        convertTabsToSpaces = vim.o.expandtab,
-        tabSize = vim.o.tabstop,
       },
     },
     completions = {
