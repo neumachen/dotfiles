@@ -33,14 +33,11 @@ return {
     validate = "on",
     packageManager = nil,
     useESLintClass = false,
-    experimental = {
-      useFlatConfig = false,
-    },
     codeActionOnSave = {
       enable = false,
       mode = "all",
     },
-    format = true,
+    format = false,
     quiet = false,
     onIgnoredFiles = "off",
     rulesCustomizations = {},
