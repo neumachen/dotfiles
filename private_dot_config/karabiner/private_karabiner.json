@@ -158,6 +158,10 @@
                             "to": [{ "key_code": "escape" }]
                         },
                         {
+                            "from": { "key_code": "escape" },
+                            "to": [{ "key_code": "caps_lock" }]
+                        },
+                        {
                             "from": { "key_code": "left_control" },
                             "to": [{ "apple_vendor_top_case_key_code": "keyboard_fn" }]
                         }
