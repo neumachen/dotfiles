@@ -10,6 +10,9 @@ return {
       typescript = { 'oxlint', 'eslint_d' },
       javascriptreact = { 'oxlint', 'eslint_d' },
       typescriptreact = { 'oxlint', 'eslint_d' },
+      -- Shell (sh/bash/zsh): diagnostics come from bashls (LSP), which already
+      -- shells out to shellcheck. Do NOT add a `shellcheck` linter here or
+      -- you'll get duplicate diagnostics.
     },
     linters = {
       eslint_d = {
