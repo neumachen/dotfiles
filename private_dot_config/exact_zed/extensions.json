@@ -19,6 +19,11 @@
   "auto_install_extensions": {
     "catppuccin": true,
     "catppuccin-icons": true,
-    "tokyo-night": true
+    "tokyo-night": true,
+    // BEAM language support — mirrors exact_nvim/exact_lsp/{elixirls,erlang_ls}.lua
+    // and the elixir/erlang/eex/heex parsers in exact_lua/exact_plugins/arborist.lua.
+    // Both extensions consume the mise-managed elixir-ls / erlang_ls binaries on $PATH.
+    "elixir": true,
+    "erlang": true
   }
 }
