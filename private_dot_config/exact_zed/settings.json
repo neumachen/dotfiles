@@ -1,0 +1,203 @@
+// Zed user settings — mirrors private_dot_config/exact_nvim/exact_lua/exact_config/settings.lua
+// where Zed exposes a clean equivalent. Leader keys themselves live in keymap.json
+// (Zed treats multi-key sequences as ordered chords rather than a `mapleader`
+// variable).
+//
+// Schema reference: https://zed.dev/docs/configuring-zed
+// Zed accepts JSONC (// line comments and trailing commas are tolerated).
+{
+  // ---------------------------------------------------------------------------
+  // Vim mode — required for any of the leader / localleader chords in
+  // keymap.json to fire. Mirrors the fact that the nvim config is, well, nvim.
+  // ---------------------------------------------------------------------------
+  "vim_mode": true,
+  "vim": {
+    // settings.lua: opt.clipboard = 'unnamedplus'
+    "use_system_clipboard": "always",
+    // settings.lua: opt.ignorecase + opt.smartcase
+    "use_smartcase_find": true,
+    // Keep nvim-style multi-key timeout snappy (settings.lua: timeoutlen=300).
+    "use_multiline_find": true
+  },
+
+  // ---------------------------------------------------------------------------
+  // Privacy — matches the repo's privacy posture (no telemetry calls home).
+  // ---------------------------------------------------------------------------
+  "telemetry": {
+    "diagnostics": false,
+    "metrics": false
+  },
+
+  // ---------------------------------------------------------------------------
+  // AI / edit prediction — disabled by default so Zed's inline completions
+  // do not collide with the existing AiderDesk / Claude workflow declared in
+  // private_dot_config/exact_aider-desk/. Re-enable per-project if desired.
+  // ---------------------------------------------------------------------------
+  "features": {
+    "edit_prediction_provider": "none"
+  },
+  "show_edit_predictions": false,
+
+  // ---------------------------------------------------------------------------
+  // Theme + icons
+  //   dark : Tokyo Night Storm    (mirrors plugins/themes/tokyonight.lua style='storm')
+  //   light: Catppuccin Latte     (mirrors plugins/themes/catpuccin.lua background.light='latte')
+  //   icon : Catppuccin Mocha     (mirrors mocha flavour from catpuccin.lua)
+  //
+  // All three Tokyo Night variants (Tokyo Night, Tokyo Night Storm, Tokyo
+  // Night Light) ship with the `tokyo-night` extension auto-installed via
+  // extensions.json — swap the `dark` value below to switch variants.
+  // ---------------------------------------------------------------------------
+  "theme": {
+    "mode": "system",
+    "light": "Catppuccin Latte",
+    "dark": "Tokyo Night Storm"
+  },
+  "icon_theme": "Catppuccin Mocha",
+
+  // ---------------------------------------------------------------------------
+  // Fonts — settings.lua: opt.guifont = 'CartographCF Nerd Font:h14'
+  // ---------------------------------------------------------------------------
+  "buffer_font_family": "CartographCF Nerd Font",
+  "buffer_font_size": 14,
+  "buffer_font_features": {
+    "calt": true,
+    "liga": true
+  },
+  "ui_font_family": "CartographCF Nerd Font",
+  "ui_font_size": 14,
+
+  // ---------------------------------------------------------------------------
+  // Cursor + line highlight
+  //   settings.lua: guicursor includes 'a:blinkon0'   -> blink off
+  //   settings.lua: cursorlineopt = {'both'}          -> highlight number + line
+  // ---------------------------------------------------------------------------
+  "cursor_blink": false,
+  "current_line_highlight": "all",
+
+  // ---------------------------------------------------------------------------
+  // Line numbers
+  //   settings.lua: opt.number + opt.relativenumber
+  // ---------------------------------------------------------------------------
+  "relative_line_numbers": true,
+
+  // ---------------------------------------------------------------------------
+  // Scrolling margins
+  //   settings.lua: opt.scrolloff=9, opt.sidescrolloff=10
+  // ---------------------------------------------------------------------------
+  "vertical_scroll_margin": 9,
+  "horizontal_scroll_margin": 10,
+
+  // ---------------------------------------------------------------------------
+  // Indentation + wrap
+  //   settings.lua: shiftwidth=2, expandtab=true, textwidth=80, wrap=false
+  // ---------------------------------------------------------------------------
+  "tab_size": 2,
+  "hard_tabs": false,
+  "preferred_line_length": 80,
+  "wrap_guides": [80],
+  "show_wrap_guides": true,
+  "soft_wrap": "none",
+
+  // ---------------------------------------------------------------------------
+  // Save / confirm behavior
+  //   settings.lua: opt.autowriteall      -> autosave on focus change
+  //   settings.lua: opt.confirm           -> prompt before discarding changes
+  //   plugins/conform.lua: format_on_save -> Zed format_on_save + trim/EOF
+  // ---------------------------------------------------------------------------
+  "autosave": "on_focus_change",
+  "confirm_quit": true,
+  "format_on_save": "on",
+  "remove_trailing_whitespace_on_save": true,
+  "ensure_final_newline_on_save": true,
+
+  // ---------------------------------------------------------------------------
+  // Session restore
+  //   plugins/persistence.lua equivalent — reopen the last workspace.
+  // ---------------------------------------------------------------------------
+  "restore_on_startup": "last_workspace",
+
+  // ---------------------------------------------------------------------------
+  // Terminal
+  //   keymaps.lua: <C-/> -> Snacks.terminal() (toggle bottom dock in Zed).
+  //   Use zsh + the same Nerd Font for visual parity with WezTerm/Kitty.
+  // ---------------------------------------------------------------------------
+  "terminal": {
+    "shell": {
+      "program": "zsh"
+    },
+    "font_family": "CartographCF Nerd Font",
+    "font_size": 14,
+    "copy_on_select": false,
+    "dock": "bottom"
+  },
+
+  // ---------------------------------------------------------------------------
+  // Project panel + status bar — match snacks.explorer feel (left-docked).
+  // ---------------------------------------------------------------------------
+  "project_panel": {
+    "dock": "left",
+    "default_width": 32
+  },
+  "outline_panel": {
+    "dock": "right"
+  },
+
+  // ---------------------------------------------------------------------------
+  // Inlay hints — matches snacks.toggle.inlay_hints (default off, toggled
+  // per-buffer with <leader>uh). Start hidden, enable per-language as needed.
+  // ---------------------------------------------------------------------------
+  "inlay_hints": {
+    "enabled": false
+  },
+
+  // ---------------------------------------------------------------------------
+  // Per-language stubs — mirror private_dot_config/exact_nvim/exact_lsp/*.lua
+  // and plugins/conform.lua formatters_by_ft. Kept deliberately small; expand
+  // per-project via `.zed/settings.json` overrides.
+  // ---------------------------------------------------------------------------
+  "languages": {
+    // exact_lsp/gopls.lua + conform.lua: go -> { 'goimports', 'gofumpt' }
+    // Zed runs gopls and external formatters via code actions on save.
+    "Go": {
+      "tab_size": 2,
+      "hard_tabs": true,
+      "format_on_save": "on",
+      "code_actions_on_format": {
+        "source.organizeImports": true
+      }
+    },
+    // exact_lsp/lua_ls.lua + conform.lua: lua -> { 'stylua' }
+    // Zed delegates to stylua via the external formatter command.
+    "Lua": {
+      "tab_size": 2,
+      "hard_tabs": false,
+      "format_on_save": "on",
+      "formatter": {
+        "external": {
+          "command": "stylua",
+          "arguments": ["-"]
+        }
+      }
+    },
+    // exact_lsp/marksman.lua + conform.lua: markdown -> prettierd/prettier
+    "Markdown": {
+      "tab_size": 2,
+      "hard_tabs": false,
+      "format_on_save": "on",
+      "soft_wrap": "preferred_line_length",
+      "preferred_line_length": 80
+    },
+    // exact_lsp/jsonls.lua + conform.lua: json -> biome/dprint/prettier
+    "JSON": {
+      "tab_size": 2,
+      "hard_tabs": false,
+      "format_on_save": "on"
+    },
+    "JSONC": {
+      "tab_size": 2,
+      "hard_tabs": false,
+      "format_on_save": "on"
+    }
+  }
+}
