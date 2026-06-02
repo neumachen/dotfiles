@@ -1,16 +1,36 @@
 #!/usr/bin/env bash
-# macos-defaults-snapshot — dump current macOS defaults to stdout.
+# macos-defaults-snapshot — save, restore, or print macOS defaults.
 #
-# Usage:
-#   macos-defaults-snapshot              # print all domains to stdout
-#   macos-defaults-snapshot > snap.xml   # save to file
+# USAGE
+#   macos-defaults-snapshot save    [--dir <path>] [--stdout] [--domain <d>]
+#   macos-defaults-snapshot restore [--dir <path>] [--domain <d>] [--dry-run] [--yes]
+#   macos-defaults-snapshot print   [--domain <d>]
 #
-# Each domain is separated by a clear header comment so the output can be
-# grepped or split later. The raw value is the XML plist that `defaults import`
-# understands, so you can restore a domain with:
-#   defaults import <domain> <file.plist>
+# SUBCOMMANDS
+#   save      Export each defaults domain to a separate .plist file in --dir.
+#             Also writes a manifest.txt with hostname, timestamp, and domain list.
+#   restore   Import each .plist from --dir back with `defaults import`.
+#             Prompts for confirmation unless --yes is passed.
+#   print     Stream all domains as pretty-printed XML to stdout (human-readable,
+#             not directly importable as a whole — use save/restore for that).
+#
+# FLAGS
+#   --dir <path>   Directory for save/restore.
+#                  Default: ~/.local/share/macos-defaults-snapshot
+#   --stdout       (save only) Also stream concatenated output to stdout.
+#   --domain <d>   Operate on a single domain instead of all.
+#   --dry-run      (restore only) Show what would be imported without applying.
+#   --yes          (restore only) Skip confirmation prompt.
+#   -h, --help     Show this help and exit.
+#
+# RESTORE A SINGLE DOMAIN MANUALLY
+#   defaults import com.apple.finder ~/.local/share/macos-defaults-snapshot/com.apple.finder.plist
 
 set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# macOS guard
+# ---------------------------------------------------------------------------
 
 if [[ "$OSTYPE" != darwin* ]]; then
   echo "macos-defaults-snapshot: macOS only" >&2
@@ -18,31 +38,33 @@ if [[ "$OSTYPE" != darwin* ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Output helpers
+# Output helpers (progress/warnings always go to stderr)
 # ---------------------------------------------------------------------------
 
-if [[ -t 1 ]]; then
+if [[ -t 2 ]]; then
   BOLD=$'\033[1m'
-  DIM=$'\033[2m'
   RESET=$'\033[0m'
   CYAN=$'\033[0;36m'
   YELLOW=$'\033[0;33m'
+  GREEN=$'\033[0;32m'
   RED=$'\033[0;31m'
 else
-  BOLD='' DIM='' RESET='' CYAN='' YELLOW='' RED=''
+  BOLD='' RESET='' CYAN='' YELLOW='' GREEN='' RED=''
 fi
 
-info()  { printf "${CYAN}  ℹ %s${RESET}\n" "$*" >&2; }
-warn()  { printf "${YELLOW}  ⚠ %s${RESET}\n" "$*" >&2; }
-error() { printf "${RED}  ✗ %s${RESET}\n" "$*" >&2; }
+info()    { printf "${CYAN}  ℹ %s${RESET}\n"   "$*" >&2; }
+ok()      { printf "${GREEN}  ✓ %s${RESET}\n"  "$*" >&2; }
+warn()    { printf "${YELLOW}  ⚠ %s${RESET}\n" "$*" >&2; }
+error()   { printf "${RED}  ✗ %s${RESET}\n"    "$*" >&2; }
+header()  { printf "\n${BOLD}▶ %s${RESET}\n"   "$*" >&2; }
+
+die() { error "$*"; exit 1; }
 
 # ---------------------------------------------------------------------------
-# Domains to snapshot
+# Defaults domains
 # ---------------------------------------------------------------------------
-# Each entry is a defaults domain identifier. Add or remove as needed.
-# Use the literal string "NSGlobalDomain" for the global domain.
 
-DOMAINS=(
+ALL_DOMAINS=(
   # Global / system-wide
   "NSGlobalDomain"
 
@@ -147,7 +169,7 @@ DOMAINS=(
   "com.apple.assistant.support"
   "com.apple.Siri"
 
-  # Hot corners (also stored in com.apple.dock, but explicit here)
+  # Hot corners
   "com.apple.expose-adjacent-spaces"
 
   # Security & Privacy
@@ -158,42 +180,261 @@ DOMAINS=(
 )
 
 # ---------------------------------------------------------------------------
-# Snapshot
+# Argument parsing
 # ---------------------------------------------------------------------------
+
+SUBCOMMAND=""
+OPT_DIR="${HOME}/.local/share/macos-defaults-snapshot"
+OPT_STDOUT=false
+OPT_DOMAIN=""
+OPT_DRY_RUN=false
+OPT_YES=false
+
+usage() {
+  sed -n '/^# USAGE/,/^[^#]/{ /^#/{ s/^# \{0,1\}//; p }; /^[^#]/q }' "$0" | head -n -1
+  exit "${1:-0}"
+}
+
+[[ $# -eq 0 ]] && usage 1
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    save|restore|print)
+      SUBCOMMAND="$1"
+      shift
+      ;;
+    --dir)
+      [[ $# -lt 2 ]] && die "--dir requires a path argument"
+      OPT_DIR="$2"
+      shift 2
+      ;;
+    --dir=*)
+      OPT_DIR="${1#--dir=}"
+      shift
+      ;;
+    --stdout)
+      OPT_STDOUT=true
+      shift
+      ;;
+    --domain)
+      [[ $# -lt 2 ]] && die "--domain requires a domain argument"
+      OPT_DOMAIN="$2"
+      shift 2
+      ;;
+    --domain=*)
+      OPT_DOMAIN="${1#--domain=}"
+      shift
+      ;;
+    --dry-run)
+      OPT_DRY_RUN=true
+      shift
+      ;;
+    --yes|--noconfirm|-y)
+      OPT_YES=true
+      shift
+      ;;
+    -h|--help)
+      usage 0
+      ;;
+    *)
+      die "Unknown argument: $1. Run with --help for usage."
+      ;;
+  esac
+done
+
+[[ -z "$SUBCOMMAND" ]] && die "No subcommand given. Use: save, restore, or print."
+
+# Build the domain list for this run
+if [[ -n "$OPT_DOMAIN" ]]; then
+  DOMAINS=("$OPT_DOMAIN")
+else
+  DOMAINS=("${ALL_DOMAINS[@]}")
+fi
 
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 HOSTNAME=$(scutil --get ComputerName 2>/dev/null || hostname)
 
-printf "<!-- macos-defaults-snapshot\n"
-printf "     host:      %s\n" "$HOSTNAME"
-printf "     timestamp: %s\n" "$TIMESTAMP"
-printf "     restore:   defaults import <domain> <file.plist>\n"
-printf '%s\n\n' "-->"
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
-EXPORTED=0
-SKIPPED=0
-
-for domain in "${DOMAINS[@]}"; do
-  # Skip comment-only lines (empty or starting with #)
-  [[ -z "$domain" || "$domain" == \#* ]] && continue
-
-  info "Exporting: $domain"
-
-  # `defaults export` exits non-zero when the domain has no data.
-  # Capture output; skip silently if empty.
-  if plist=$(defaults export "$domain" - 2>/dev/null); then
-    # Pretty-print the XML so it's human-readable even when piped to a file.
-    pretty=$(echo "$plist" | plutil -convert xml1 - -o - 2>/dev/null) || pretty="$plist"
-
-    printf '%s\n' "<!-- ============================================================"
-    printf "     DOMAIN: %s\n" "$domain"
-    printf '%s\n' "     ============================================================ -->"
-    printf "%s\n\n" "$pretty"
-    (( EXPORTED++ )) || true
-  else
-    warn "No data for domain: $domain (skipped)"
-    (( SKIPPED++ )) || true
+# Export one domain; sets $PLIST_OUTPUT on success, returns 1 on failure.
+export_domain() {
+  local domain="$1"
+  local raw
+  if raw=$(defaults export "$domain" - 2>/dev/null); then
+    PLIST_OUTPUT=$(printf '%s' "$raw" | plutil -convert xml1 - -o - 2>/dev/null) || PLIST_OUTPUT="$raw"
+    return 0
   fi
-done
+  return 1
+}
 
-info "Done. Exported ${EXPORTED} domain(s), skipped ${SKIPPED}."
+# Print a domain block to stdout (used by both print and save --stdout).
+print_domain_block() {
+  local domain="$1"
+  local plist="$2"
+  printf '%s\n' "<!-- ================================================================"
+  printf "     DOMAIN: %s\n" "$domain"
+  printf '%s\n' "     ================================================================ -->"
+  printf '%s\n\n' "$plist"
+}
+
+# ---------------------------------------------------------------------------
+# save
+# ---------------------------------------------------------------------------
+
+cmd_save() {
+  header "Saving macOS defaults snapshot"
+  info "Output directory: ${OPT_DIR}"
+
+  mkdir -p "$OPT_DIR" || die "Cannot create directory: ${OPT_DIR}"
+
+  # Print header to stdout when streaming
+  if [[ "$OPT_STDOUT" == true ]]; then
+    printf "<!-- macos-defaults-snapshot\n"
+    printf "     host:      %s\n" "$HOSTNAME"
+    printf "     timestamp: %s\n" "$TIMESTAMP"
+    printf "     restore:   macos-defaults-snapshot restore --dir %s\n" "$OPT_DIR"
+    printf '%s\n\n' "-->"
+  fi
+
+  local exported=0 skipped=0
+  local manifest_file="${OPT_DIR}/manifest.txt"
+
+  {
+    printf "host:      %s\n" "$HOSTNAME"
+    printf "timestamp: %s\n" "$TIMESTAMP"
+    printf "dir:       %s\n" "$OPT_DIR"
+    printf "domains:\n"
+  } > "$manifest_file"
+
+  for domain in "${DOMAINS[@]}"; do
+    info "Exporting: ${domain}"
+    if export_domain "$domain"; then
+      local out_file="${OPT_DIR}/${domain}.plist"
+      printf '%s\n' "$PLIST_OUTPUT" > "$out_file"
+      printf "  - %s\n" "$domain" >> "$manifest_file"
+      ok "Saved: ${out_file}"
+      if [[ "$OPT_STDOUT" == true ]]; then
+        print_domain_block "$domain" "$PLIST_OUTPUT"
+      fi
+      (( exported++ )) || true
+    else
+      warn "No data for domain: ${domain} (skipped)"
+      (( skipped++ )) || true
+    fi
+  done
+
+  printf "exported:  %d\n" "$exported" >> "$manifest_file"
+  printf "skipped:   %d\n" "$skipped"  >> "$manifest_file"
+
+  header "Save complete"
+  info "Exported ${exported} domain(s), skipped ${skipped}."
+  info "Manifest: ${manifest_file}"
+  info "Restore with: macos-defaults-snapshot restore --dir ${OPT_DIR}"
+}
+
+# ---------------------------------------------------------------------------
+# restore
+# ---------------------------------------------------------------------------
+
+cmd_restore() {
+  header "Restoring macOS defaults from snapshot"
+  info "Source directory: ${OPT_DIR}"
+
+  [[ -d "$OPT_DIR" ]] || die "Directory not found: ${OPT_DIR}"
+
+  # Build list of plists to restore
+  local -a plist_files=()
+  if [[ -n "$OPT_DOMAIN" ]]; then
+    local f="${OPT_DIR}/${OPT_DOMAIN}.plist"
+    [[ -f "$f" ]] || die "No snapshot file for domain '${OPT_DOMAIN}': ${f}"
+    plist_files=("$f")
+  else
+    while IFS= read -r -d '' f; do
+      plist_files+=("$f")
+    done < <(find "$OPT_DIR" -maxdepth 1 -name "*.plist" -print0 | sort -z)
+  fi
+
+  [[ ${#plist_files[@]} -eq 0 ]] && die "No .plist files found in: ${OPT_DIR}"
+
+  # Show what will be restored
+  info "Domains to restore (${#plist_files[@]}):"
+  for f in "${plist_files[@]}"; do
+    local d
+    d=$(basename "$f" .plist)
+    printf "    %s\n" "$d" >&2
+  done
+
+  if [[ "$OPT_DRY_RUN" == true ]]; then
+    warn "Dry run — no changes applied."
+    return 0
+  fi
+
+  # Confirm unless --yes
+  if [[ "$OPT_YES" != true ]]; then
+    printf "\n${YELLOW}  Apply these defaults to the current user? [y/N] ${RESET}" >&2
+    read -r response
+    case "$response" in
+      [yY]|[yY][eE][sS]) ;;
+      *) info "Restore cancelled."; exit 0 ;;
+    esac
+  fi
+
+  local imported=0 failed=0
+  for f in "${plist_files[@]}"; do
+    local domain
+    domain=$(basename "$f" .plist)
+    info "Importing: ${domain}"
+    if defaults import "$domain" "$f" 2>/dev/null; then
+      ok "Imported: ${domain}"
+      (( imported++ )) || true
+    else
+      error "Failed to import: ${domain}"
+      (( failed++ )) || true
+    fi
+  done
+
+  header "Restore complete"
+  info "Imported ${imported} domain(s), failed ${failed}."
+  if [[ $imported -gt 0 ]]; then
+    warn "Some changes require a logout or restart to take effect."
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# print
+# ---------------------------------------------------------------------------
+
+cmd_print() {
+  printf "<!-- macos-defaults-snapshot\n"
+  printf "     host:      %s\n" "$HOSTNAME"
+  printf "     timestamp: %s\n" "$TIMESTAMP"
+  printf "     note:      pipe to a file and grep by DOMAIN: for individual sections\n"
+  printf '%s\n\n' "-->"
+
+  local exported=0 skipped=0
+
+  for domain in "${DOMAINS[@]}"; do
+    info "Exporting: ${domain}"
+    if export_domain "$domain"; then
+      print_domain_block "$domain" "$PLIST_OUTPUT"
+      (( exported++ )) || true
+    else
+      warn "No data for domain: ${domain} (skipped)"
+      (( skipped++ )) || true
+    fi
+  done
+
+  info "Done. Exported ${exported} domain(s), skipped ${skipped}."
+}
+
+# ---------------------------------------------------------------------------
+# Dispatch
+# ---------------------------------------------------------------------------
+
+case "$SUBCOMMAND" in
+  save)    cmd_save    ;;
+  restore) cmd_restore ;;
+  print)   cmd_print   ;;
+esac
