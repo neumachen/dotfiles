@@ -55,7 +55,7 @@
     "invocationMode": "on-demand",
     "color": "#b5651d",
     "description": "Large-context read-only analysis (Claude Opus 4.7, 1M context, Instinct). Whole-repo analysis, impact tracing, PRD generation.",
-    "contextMemory": "session"
+    "contextMemory": "full-context"
   },
   "autoCompactThresholdPercentage": 85,
   "autoCompactionType": "handoff",

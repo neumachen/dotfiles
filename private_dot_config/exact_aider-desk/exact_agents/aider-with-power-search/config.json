@@ -2,7 +2,7 @@
   "id": "aider-power-tools",
   "name": "Aider with Power Search",
   "provider": "anthropic",
-  "model": "claude-sonnet-4-6",
+  "model": "claude-opus-4-7",
   "maxIterations": 0,
   "minTimeBetweenToolCalls": 0,
   "toolApprovals": {
