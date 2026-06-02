@@ -2,7 +2,7 @@
   "id": "analyst-large-context",
   "name": "Analyst",
   "provider": "anthropic",
-  "model": "claude-opus-4-7",
+  "model": "claude-opus-4-8",
   "maxIterations": 200,
   "minTimeBetweenToolCalls": 0,
   "toolApprovals": {
