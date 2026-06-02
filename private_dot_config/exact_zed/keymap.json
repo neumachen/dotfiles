@@ -1,0 +1,255 @@
+// Zed keymap — mirrors the Neovim configuration under
+// private_dot_config/exact_nvim/. Every chord includes a comment pointing
+// to the file + behavior in the nvim setup it is derived from.
+//
+// Leaders (encoded as ordered chords, not state variables):
+//   <leader>      = ,        (settings.lua: vim.g.mapleader = ',')
+//   <localleader> = <space>  (settings.lua: vim.g.maplocalleader = ' ')
+//
+// Context expressions follow Zed's keymap context grammar:
+//   * "Editor && vim_mode == normal"  — most leader chords + nav
+//   * "Editor && vim_mode == visual"  — visual-mode variants of leader chords
+//   * "Editor && vim_mode == insert"  — `jk` escape
+//   * "Editor"                         — bindings that should fire regardless
+//                                        of vim mode (move-line, select-all)
+//   * (no context)                     — workspace-wide saves and toggles
+//
+// JSONC: // line comments and trailing commas are accepted by Zed.
+[
+  // ===========================================================================
+  // Workspace-wide bindings (no context)
+  // ===========================================================================
+  {
+    "bindings": {
+      // keymaps.lua: <C-s> -> write buffer with notification. Zed's
+      // workspace::Save is idempotent on clean buffers, so the nvim
+      // notification guards are not needed.
+      "ctrl-s": "workspace::Save",
+      // Mac-native save mirror; also covered by Zed's default but listed
+      // here for explicit parity with the nvim Neovide block.
+      "cmd-s": "workspace::Save"
+    }
+  },
+
+  // ===========================================================================
+  // Editor — runs in vim AND non-vim mode
+  // ===========================================================================
+  {
+    "context": "Editor",
+    "bindings": {
+      // keymaps.lua:33-72  <C-A-j>/<C-A-k> move line / block down/up.
+      "ctrl-alt-j": "editor::MoveLineDown",
+      "ctrl-alt-k": "editor::MoveLineUp",
+      // keymaps.lua: <A-a> ggVG -> select all.
+      "alt-a": "editor::SelectAll"
+    }
+  },
+
+  // ===========================================================================
+  // Vim NORMAL mode
+  // ===========================================================================
+  {
+    "context": "Editor && VimControl && !menu && vim_mode == normal",
+    "bindings": {
+      // -----------------------------------------------------------------------
+      // Pane navigation — plugins/smart-splits.lua move_cursor_{h,j,k,l}
+      // -----------------------------------------------------------------------
+      "ctrl-h": "workspace::ActivatePaneLeft",
+      "ctrl-j": "workspace::ActivatePaneDown",
+      "ctrl-k": "workspace::ActivatePaneUp",
+      "ctrl-l": "workspace::ActivatePaneRight",
+
+      // -----------------------------------------------------------------------
+      // Tab / buffer cycling — plugins/bufferline.lua S-h, S-l, [b, ]b.
+      // Zed's "tabs" are roughly nvim buffers; map both sets to the same
+      // pane-item nav.
+      // -----------------------------------------------------------------------
+      "shift-h": "pane::ActivatePreviousItem",
+      "shift-l": "pane::ActivateNextItem",
+      "[ b": "pane::ActivatePreviousItem",
+      "] b": "pane::ActivateNextItem",
+
+      // -----------------------------------------------------------------------
+      // Diagnostic + hunk jumps
+      //   ]d/[d  -> keymaps.lua diagnostic_goto
+      //   ]e/[e  -> keymaps.lua diagnostic_goto severity=ERROR
+      //   ]h/[h  -> plugins/gitsigns.lua next_hunk / prev_hunk
+      //   ]]/[[  -> plugins/snacks.lua words.jump (next/prev reference)
+      // -----------------------------------------------------------------------
+      "] d": "editor::GoToDiagnostic",
+      "[ d": "editor::GoToPreviousDiagnostic",
+      "] e": "editor::GoToDiagnostic",         // Zed has no severity-filtered jump; nearest = next diagnostic
+      "[ e": "editor::GoToPreviousDiagnostic", // ditto for prev
+      "] h": "editor::GoToHunk",
+      "[ h": "editor::GoToPreviousHunk",
+      "] ]": "editor::GoToNextReference",      // plugins/snacks.lua Snacks.words.jump(+1)
+      "[ [": "editor::GoToPreviousReference",  // plugins/snacks.lua Snacks.words.jump(-1)
+
+      // -----------------------------------------------------------------------
+      // LSP jumps — plugins/snacks.lua picker.lsp_* + keymaps.lua gh hover
+      // -----------------------------------------------------------------------
+      "g d": "editor::GoToDefinition",          // snacks.lua: Snacks.picker.lsp_definitions
+      "g shift-d": "editor::GoToDeclaration",   // snacks.lua: Snacks.picker.lsp_declarations
+      "g r": "editor::FindAllReferences",       // snacks.lua: Snacks.picker.lsp_references
+      "g shift-i": "editor::GoToImplementation",// snacks.lua: Snacks.picker.lsp_implementations
+      "g y": "editor::GoToTypeDefinition",      // snacks.lua: Snacks.picker.lsp_type_definitions
+      "g h": "editor::Hover",                   // keymaps.lua: gh -> vim.lsp.buf.hover
+
+      // -----------------------------------------------------------------------
+      // Window zoom — keymaps.lua / smart-splits zoom pattern.
+      // -----------------------------------------------------------------------
+      "ctrl-w m": "workspace::ToggleZoom",
+      "ctrl-/": ["workspace::ToggleBottomDock", null], // snacks.lua: <C-/> Snacks.terminal()
+
+      // =======================================================================
+      // <leader> = ","   chords (settings.lua mapleader)
+      // =======================================================================
+
+      // Top-level leader bindings (snacks.lua keys block)
+      ", ,": "tab_switcher::Toggle",            // snacks.lua: <leader>, picker.buffers
+      ", space": "file_finder::Toggle",         // snacks.lua: <leader><space> picker.smart
+      ", /": "pane::DeploySearch",              // snacks.lua: <leader>/ picker.grep (project search)
+      ", `": "pane::AlternateFile",             // keymaps.lua: <leader>` -> :e # (alt buffer)
+      ", .": "diagnostics::Deploy",             // vscode/settings.lua: <leader>. quickFix; Zed's nearest is the diagnostics panel
+
+      // ---- +file (<leader>f*) — snacks.lua picker.* + keymaps.lua ----------
+      ", f f": "file_finder::Toggle",           // snacks.lua: <leader>ff picker.files
+      ", f g": "git_panel::ToggleFocus",        // snacks.lua: <leader>fg picker.git_files — TODO: Zed has no git-files filter in core; opens git panel as the nearest analog
+      ", f r": "projects::OpenRecent",          // snacks.lua: <leader>fr picker.recent
+      ", f n": "workspace::NewFile",            // keymaps.lua: <leader>fn -> :enew
+      ", f p": "projects::OpenRecent",          // snacks.lua: <leader>fp picker.projects
+
+      // ---- +search (<leader>s*) — snacks.lua pickers ----------------------
+      ", s g": "pane::DeploySearch",            // snacks.lua: <leader>sg picker.grep (project)
+      ", s w": ["buffer_search::Deploy", { "selection_search_enabled": true }], // snacks.lua: <leader>sw picker.grep_word
+      ", s b": "buffer_search::Deploy",         // snacks.lua: <leader>sb picker.lines (current buffer)
+      ", s s": "outline::Toggle",               // snacks.lua: <leader>ss picker.lsp_symbols
+      ", s shift-s": "project_symbols::Toggle", // snacks.lua: <leader>sS picker.lsp_workspace_symbols
+      ", s d": "diagnostics::Deploy",           // snacks.lua: <leader>sd picker.diagnostics
+      ", s k": "command_palette::Toggle",       // snacks.lua: <leader>sk picker.keymaps — Zed's command palette doubles as keymap browser
+      ", s c": "command_palette::Toggle",       // snacks.lua: <leader>sc picker.command_history
+      ", s shift-c": "command_palette::Toggle", // snacks.lua: <leader>sC picker.commands
+      ", s r": "pane::DeploySearch",            // snacks.lua: <leader>sR picker.resume — Zed has no resume; reopens project search
+
+      // ---- +code / LSP (<leader>c*) ---------------------------------------
+      ", c a": "editor::ToggleCodeActions",     // vscode/settings.lua + tiny-code-action: <leader>ca code action
+      ", c r": "editor::Rename",                // keymaps.lua: <leader>cr -> vim.lsp.buf.rename
+      ", c f": "editor::Format",                // vscode/settings.lua: <leader>cf format document
+      ", c d": "editor::GoToDiagnostic",        // keymaps.lua: <leader>cd vim.diagnostic.open_float — closest is jumping to it
+
+      // ---- +git (<leader>g*) — snacks.lua + gitsigns ----------------------
+      ", g g": ["terminal_panel::ToggleFocus", null], // snacks.lua: <leader>gg Snacks.lazygit — TODO: Zed core has no embedded lazygit; user can run `lazygit` in the bottom terminal
+      ", g s": "git_panel::ToggleFocus",        // snacks.lua: <leader>gs picker.git_status
+      ", g b": "git::Branch",                   // snacks.lua: <leader>gb picker.git_branches — Zed's action is singular (zed_actions::git::Branch)
+      ", g d": "git::Diff",                     // snacks.lua: <leader>gd picker.git_diff
+      ", g shift-b": "editor::OpenPermalinkToLine", // snacks.lua: <leader>gB Snacks.gitbrowse
+
+      // ---- +buffer (<leader>b*) — snacks.lua + keymaps.lua ----------------
+      ", b b": "pane::AlternateFile",           // keymaps.lua: <leader>bb -> :e #
+      ", b d": "pane::CloseActiveItem",         // snacks.lua: <leader>bd Snacks.bufdelete
+      ", b o": "pane::CloseOtherItems",         // vscode/settings.lua: <leader>bo close other buffers — pane::CloseOtherItems is the canonical name (CloseInactiveItems is a deprecated alias)
+      ", b p": "tab_switcher::Toggle",          // bufferline.lua: <leader>bp BufferLinePick
+
+      // ---- +window (<leader>w* + - / |) — keymaps.lua window block --------
+      ", w w": "workspace::ActivateNextPane",   // keymaps.lua: <leader>ww <C-W>p (other window)
+      ", w d": "pane::CloseActiveItem",         // keymaps.lua: <leader>wd <C-W>c (delete window) — Zed maps closest as closing the active item
+      ", -": "pane::SplitDown",                 // keymaps.lua: <leader>- <C-W>s
+      ", |": "pane::SplitRight",                // keymaps.lua: <leader>| <C-W>v
+
+      // ---- +tab (<leader><tab>*) — keymaps.lua tab block ------------------
+      ", tab tab": "workspace::NewFile",        // keymaps.lua: <leader><tab><tab> -> :tabnew
+      ", tab ]": "workspace::ActivateNextWindow", // keymaps.lua: <leader><tab>] -> :tabnext
+      ", tab [": "workspace::ActivatePreviousWindow", // keymaps.lua: <leader><tab>[ -> :tabprevious
+      ", tab d": "workspace::CloseWindow",      // keymaps.lua: <leader><tab>d -> :tabclose
+
+      // ---- +ui (<leader>u*) — keymaps.lua + snacks.toggle init() ----------
+      ", u f": "zed::OpenSettings",             // keymaps.lua: <leader>uf toggle autoformat — TODO: Zed has no runtime per-buffer FormatDisable; opens settings as the workaround
+      // TODO: keymaps.lua <leader>ui -> vim.show_pos (inspect highlights/treesitter
+      // node at cursor) has no first-class Zed equivalent. Closest honest analog
+      // would be a workspace::OpenLog or dev::ToggleInspector, but neither
+      // matches the per-symbol introspection the nvim mapping provides. Left
+      // unbound until a Zed extension fills this gap.
+      ", u i": null,                            // keymaps.lua: <leader>ui vim.show_pos — no clean Zed analog
+      ", u d": "diagnostics::ToggleWarnings",   // snacks toggle init: <leader>ud Snacks.toggle.diagnostics
+      ", u h": "editor::ToggleInlayHints",      // snacks toggle init: <leader>uh Snacks.toggle.inlay_hints
+      // TODO: snacks toggle init <leader>uT -> Snacks.toggle.treesitter has no
+      // Zed equivalent. Zed's treesitter is always on and not user-toggleable
+      // from the keymap; `editor::SelectAllMatches` is one-shot, not a toggle.
+      // Left unbound rather than silently mismapped.
+      ", u shift-t": null,                      // snacks toggle init: <leader>uT — no Zed analog
+      ", u shift-c": "theme_selector::Toggle",  // snacks.lua: <leader>uC picker.colorschemes
+
+      // ---- misc ------------------------------------------------------------
+      ", q q": "workspace::CloseWindow",        // keymaps.lua: <leader>qq -> :qa
+      ", z z": "zed::OpenSettings",             // keymaps.lua: <leader>zz Lazy panel — Zed analog is the settings file
+      ", shift-k": "editor::Hover",             // keymaps.lua: <leader>K -> norm! K — closest IDE analog is hover
+
+      // =======================================================================
+      // <localleader> = <space>   chords (settings.lua maplocalleader)
+      // =======================================================================
+
+      // ---- +diagnostics (<localleader>d*) — plugins/trouble.lua -----------
+      "space d shift-t": "diagnostics::Deploy", // trouble.lua: <localleader>dT Trouble diagnostics toggle
+      "space d b": "diagnostics::Deploy",       // trouble.lua: <localleader>db Trouble diagnostics filter.buf=0 — Zed's panel is project-wide
+      "space d shift-l": "diagnostics::Deploy", // trouble.lua: <localleader>dL Trouble loclist — Zed has no loclist; reuses diagnostics panel
+      "space d q": "diagnostics::Deploy",       // trouble.lua: <localleader>dq Trouble qflist — same caveat
+
+      // ---- +format (<localleader>f) — conform.lua autoformat -------------
+      "space f": "editor::Format",              // conform.lua: format current buffer
+
+      // ---- +git (<localleader>g*) — gitsigns.lua + ideavimrc -------------
+      "space g c": "git::Commit",               // ideavimrc: <space>gc commit
+      "space g s": "git_panel::ToggleFocus",    // ideavimrc: <space>gs git status panel
+      "space g b": "git::Branch",               // ideavimrc: <space>gb branches — zed_actions::git::Branch (singular)
+      "space g b l": "git::Blame",              // gitsigns.lua: <localleader>gbl blame_line — git::Blame is the canonical name (editor::ToggleGitBlame is a deprecated alias)
+      "space g h s": "git::StageAndNext",       // gitsigns.lua: <localleader>ghs stage_hunk
+      "space g h r": "git::Restore",            // gitsigns.lua: <localleader>ghr reset_hunk
+
+      // ---- +search (<localleader>s) — project search --------------------
+      "space s": "pane::DeploySearch",          // mirrors snacks <leader>sg for localleader namespace
+
+      // ---- +yazi (<localleader>y) — plugins/yazi.lua --------------------
+      "space y": ["terminal_panel::ToggleFocus", null], // yazi opens in a terminal pane; user runs `yazi` there
+
+      // ---- fold + search clear (ideavimrc + keymaps.lua) ----------------
+      "space z": "editor::Fold",                // keymaps.lua: <localleader>z [[zMzvzz]] (refocus folds)
+      "space l": "buffer_search::Dismiss",      // ideavimrc: <space>l :nohlsearch — Zed analog dismisses any active search overlay
+
+      // -----------------------------------------------------------------------
+      // TODO: flash.nvim `s` jump (plugins/flash.lua) has no first-class Zed
+      // equivalent. Leaving `s` bound to its vim default (substitute char) so
+      // muscle memory at least does not produce a destructive surprise. The
+      // closest Zed primitives are `editor::SelectLargerSyntaxNode` (tree-
+      // sitter expand) and a custom labeled-jump extension, neither of which
+      // matches flash's two-keystroke target-jump semantics. Revisit if an
+      // extension lands.
+      // -----------------------------------------------------------------------
+    }
+  },
+
+  // ===========================================================================
+  // Vim VISUAL mode — variants of leader chords that nvim binds to both n + v
+  // ===========================================================================
+  {
+    "context": "Editor && VimControl && !menu && vim_mode == visual",
+    "bindings": {
+      // snacks.lua: <leader>sw picker.grep_word also in visual mode
+      ", s w": ["buffer_search::Deploy", { "selection_search_enabled": true }],
+      // snacks.lua: <leader>gB Snacks.gitbrowse also in visual mode
+      ", g shift-b": "editor::OpenPermalinkToLine",
+      // settings.lua + keymaps.lua: <A-a> select all also from visual
+      "alt-a": "editor::SelectAll"
+    }
+  },
+
+  // ===========================================================================
+  // Vim INSERT mode
+  // ===========================================================================
+  {
+    "context": "Editor && vim_mode == insert",
+    "bindings": {
+      // keymaps.lua: map('i', 'jk', '<esc>') — escape to normal mode
+      "j k": "vim::NormalBefore"
+    }
+  }
+]
