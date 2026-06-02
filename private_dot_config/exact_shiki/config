@@ -1,0 +1,89 @@
+# vim:ft=gitconfig
+# ============================================================================
+# Shiki container git config — baked into the image at build time.
+#
+# This file deliberately contains NO identity, signing key, or per-project
+# routing. Identity is layered in at runtime by mounting a host-side file at
+# /etc/xdg/git/identity (see compose.template.yaml, env `SHIKI_GIT_IDENTITY`,
+# default `~/.config/git/profile`). The `[include]` directive below pulls it
+# in.
+#
+# After the include, this file re-asserts a few `[gpg "ssh"]` keys to NEUTRALIZE
+# host-only values (e.g. 1Password's op-ssh-sign path, ~/.config/git/allowed_signers).
+# In the container, signing flows through SSH_AUTH_SOCK -> the mounted
+# 1Password agent socket, using ssh-keygen's built-in signer. Verification is
+# not configured in-container — perform it on the host.
+# ============================================================================
+
+[core]
+  excludesfile = /etc/xdg/git/ignore
+  editor = nvim
+  pager = cat
+  autocrlf = input
+  # Make `git rebase` safer (cross-filesystem mounts in containers can have
+  # imprecise ctime; trustctime=false matches the host config rationale).
+  trustctime = false
+  # Speed up `git status` and friends when many files are untracked.
+  untrackedCache = true
+
+[status]
+  submoduleSummary = true
+
+[branch]
+  # Most recently changed branches first — matches host UX.
+  sort = -committerdate
+
+[diff]
+  colorMoved = default
+  navigate = true
+  renames = copies
+
+[merge]
+  log = true
+  conflictstyle = zdiff3
+
+[pretty]
+  signed = format:%C(yellow)%h%C(reset) %C(bold blue)[%G?]%C(reset) %C(red)%d%C(reset) %s %C(green)(%cr)%C(reset) %C(dim white)<%an>%C(reset)
+
+[push]
+  default = current
+  followTags = true
+
+[pull]
+  default = current
+  rebase = true
+
+[rebase]
+  autoStash = true
+
+[fetch]
+  prune = true
+
+[rerere]
+  enabled = false
+
+[init]
+  defaultBranch = main
+
+[safe]
+  # Project bind-mounts can land with owner-mismatched uids in containers;
+  # trust everything mounted into this image.
+  directory = *
+
+# ── Identity layer ──────────────────────────────────────────────────────────
+# Mounted from the host at runtime. See compose.template.yaml for the bind.
+# Expected to provide at minimum: [user] name/email, optionally [user] signingkey,
+# [gpg] format = ssh, [commit] gpgsign, [tag] gpgsign.
+[include]
+  path = /etc/xdg/git/identity
+
+# ── Container-side signing overrides ────────────────────────────────────────
+# Re-asserted AFTER the include so they neutralize host-only values like
+# op-ssh-sign and the host's allowed_signers path. Git applies the
+# last-seen value for a key, so blank values here win.
+#
+# With these cleared, ssh-based signing uses the default ssh-keygen flow,
+# which forwards to SSH_AUTH_SOCK (the mounted 1Password agent socket).
+[gpg "ssh"]
+  program =
+  allowedSignersFile =
