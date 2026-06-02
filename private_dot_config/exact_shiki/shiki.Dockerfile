@@ -28,19 +28,31 @@ ARG AIDER_DESK_EXTENSIONS_APPEND=""
 ARG AIDER_DESK_EXTENSIONS_OVERRIDE=""
 
 # ── 1) XDG_CONFIG_HOME wiring ──────────────────────────────────────────
-#    Entrypoint generates git config here from env vars at runtime.
+#    The container ships a baked-in /etc/xdg/git/config holding only
+#    container-wide defaults (pager, editor, push/pull/rebase behavior,
+#    excludesfile pointer, safe.directory). Identity, signing key, and
+#    per-project routing are layered in at runtime by mounting a host
+#    file at /etc/xdg/git/identity (see compose.template.yaml,
+#    SHIKI_GIT_IDENTITY). The baked config ends with
+#    `[include] path = /etc/xdg/git/identity` so the mount takes effect.
 ENV XDG_CONFIG_HOME=/etc/xdg
 
-# Move safe.directory to system-level config so it doesn't conflict
-# with the generated XDG config.  Remove upstream's user-level gitconfig.
+# Defensively keep safe.directory at --system level too. Harmless if also
+# present in /etc/xdg/git/config; survives if the XDG config ever fails to
+# parse. Remove upstream's user-level gitconfig so it can't shadow
+# /etc/xdg/git/config.
 RUN git config --system --add safe.directory "*" \
     && rm -f /root/.gitconfig /root/.config/git/config \
     && mkdir -p /etc/xdg/git
 
-# Global gitignore: patterns for OS artifacts, editor swap files, and tool
-# caches that should never be committed. The entrypoint-generated git config
-# references this via core.excludesfile.
-COPY gitignore /etc/xdg/git/ignore
+# Bake the container-default git config and the global ignore file.
+# - `config` is hand-authored next to this Dockerfile and contains no
+#   identity. It ends with `[include] path = /etc/xdg/git/identity`,
+#   which compose mounts read-only from the host.
+# - `ignore` is chezmoi-rendered from private_dot_config/exact_git/private_ignore
+#   so the host and the container share one source of truth for ignore patterns.
+COPY config /etc/xdg/git/config
+COPY ignore /etc/xdg/git/ignore
 
 # ── 2) Use bash + pipefail for safer RUN steps ────────────────────────
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]

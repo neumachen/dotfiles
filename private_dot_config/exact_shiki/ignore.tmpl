@@ -1,0 +1,9 @@
+{{- /*
+  Container global gitignore — baked into the image at /etc/xdg/git/ignore.
+
+  Single source of truth: private_dot_config/exact_git/private_ignore.
+  Editing the source file regenerates this one on `chezmoi apply`. After
+  applying, rebuild the Shiki image (`docker compose build`) to refresh
+  the baked copy.
+*/ -}}
+{{ include "private_dot_config/exact_git/private_ignore" -}}
