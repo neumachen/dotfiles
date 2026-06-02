@@ -2,11 +2,33 @@ local function augroup(name)
   return vim.api.nvim_create_augroup('neumachenvim_' .. name, { clear = true })
 end
 
--- Check if we need to reload the file when it changed
-vim.api.nvim_create_autocmd({ 'FocusGained', 'TermClose', 'TermLeave' }, {
-  group = augroup('checktime'),
+-- Check if we need to reload the file when it changed.
+-- Paired with `vim.o.autoread = true` in config/settings.lua.
+-- CursorHold uses updatetime (200ms here) so sitting idle in a buffer
+-- still picks up external edits (CLI, formatters, other agents, etc.).
+-- NOTE: cache the augroup id; calling augroup('checktime') twice would
+-- re-create the group with { clear = true } and wipe the previous autocmd.
+local checktime_group = augroup('checktime')
+
+vim.api.nvim_create_autocmd(
+  { 'FocusGained', 'TermClose', 'TermLeave', 'BufEnter', 'CursorHold' },
+  {
+    group = checktime_group,
+    callback = function()
+      if vim.o.buftype ~= 'nofile' then vim.cmd('checktime') end
+    end,
+  }
+)
+
+-- Notify when a buffer is reloaded because its file changed on disk.
+vim.api.nvim_create_autocmd('FileChangedShellPost', {
+  group = checktime_group,
   callback = function()
-    if vim.o.buftype ~= 'nofile' then vim.cmd('checktime') end
+    vim.notify(
+      'File changed on disk. Buffer reloaded.',
+      vim.log.levels.INFO,
+      { title = 'autoread' }
+    )
   end,
 })
 

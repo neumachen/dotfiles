@@ -16,6 +16,7 @@ vim.g.loaded_node_provider = 0
 vim.g.loaded_python3_provider = 0
 -- Borrow those settings from LazyVim
 opt.autowrite = true -- Enable auto write
+opt.autoread = true -- Reload buffers when files change on disk (paired with FocusGained/CursorHold :checktime autocmds)
 -- only set clipboard if not in ssh, to make sure the OSC 52
 -- integration works automatically. Requires Neovim >= 0.10.0
 opt.clipboard = vim.env.SSH_TTY and '' or 'unnamedplus' -- Sync with system clipboard

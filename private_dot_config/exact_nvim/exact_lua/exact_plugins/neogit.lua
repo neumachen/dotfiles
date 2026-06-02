@@ -38,6 +38,14 @@ return {
       disable_line_numbers = false,
       disable_relative_line_numbers = false,
       process_spinner = false,
+      -- Watch `.git/` via libuv so the Neogit status buffer auto-refreshes
+      -- when changes happen outside Neovim (CLI commits, lazygit, IDE
+      -- stages, stash/merge operations, etc.). This is the upstream
+      -- default; pinned here so the behavior is obvious and resilient to
+      -- future default changes.
+      filewatcher = {
+        enabled = true,
+      },
       floating = {
         relative = 'editor',
         width = 0.8,
