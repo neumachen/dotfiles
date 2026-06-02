@@ -1,5 +1,10 @@
 <%*
-const quickAddApi = app.plugins.plugins.quickadd.api;
+// QuickAdd provides the only suggester this template needs (Templater's
+// own suggester has no "type a new value" affordance). If QuickAdd is
+// disabled or uninstalled, fall through to a Notice rather than throwing
+// a ReferenceError on the missing `.api` property.
+const quickAddApi = app.plugins.plugins?.quickadd?.api;
+if (!quickAddApi) { new Notice("QuickAdd is not enabled."); return; }
 
 const existingTags = Object.keys(app.metadataCache.getTags())
   .map(t => t.replace(/^#/, ""))
