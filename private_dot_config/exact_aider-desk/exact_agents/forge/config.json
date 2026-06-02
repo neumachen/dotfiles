@@ -2,7 +2,7 @@
   "id": "f2b4a443-c6d9-4864-a72d-908e2ea57ae6",
   "name": "Forge",
   "provider": "anthropic",
-  "model": "claude-sonnet-4-6",
+  "model": "claude-sonnet-4-7",
   "maxIterations": 250,
   "minTimeBetweenToolCalls": 0,
   "toolApprovals": {
