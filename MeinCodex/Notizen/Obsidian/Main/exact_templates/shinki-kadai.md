@@ -1,4 +1,6 @@
 <%*
+const utils = tp.user.obsidian_utils();
+
 // Canonical task status enum (matches the meta-bind dropdown rendered in
 // the task body). Lowercase kebab — keeps values stable for grep / Bases /
 // shell scripts. Done semantics: only `completed` and `discarded` count as
@@ -40,37 +42,6 @@ const buildTaskBaseBlock = (refKey, refValue, scopeLabel) => [
   "      - { property: task.due-date, direction: ASC }",
   "```",
 ].join("\n");
-
-const sectionHasBaseScope = (lines, headingIdx, sectionEnd, refKey, refValue) => {
-  const target = `note["${refKey}"] == "${refValue}"`;
-  let inBase = false;
-  for (let i = headingIdx + 1; i < sectionEnd; i++) {
-    const trimmed = lines[i].trim();
-    if (!inBase && /^```base\b/.test(trimmed)) { inBase = true; continue; }
-    if (inBase && trimmed === "```") { inBase = false; continue; }
-    if (inBase && lines[i].includes(target)) return true;
-  }
-  return false;
-};
-
-const insertBaseBlockIntoSection = async (file, baseBlock, headingText, refKey, refValue) => {
-  const content = await app.vault.read(file);
-  const lines = content.split("\n");
-  const headingIdx = lines.findIndex(l => l.trim() === headingText);
-  if (headingIdx === -1) {
-    const trailing = content.endsWith("\n") ? "" : "\n";
-    await app.vault.modify(file, content + trailing + "\n" + headingText + "\n\n" + baseBlock + "\n");
-    return;
-  }
-  let sectionEnd = lines.length;
-  for (let i = headingIdx + 1; i < lines.length; i++) {
-    if (/^#{1,2}\s+/.test(lines[i])) { sectionEnd = i; break; }
-  }
-  if (sectionHasBaseScope(lines, headingIdx, sectionEnd, refKey, refValue)) return;
-  while (sectionEnd > headingIdx + 1 && lines[sectionEnd - 1].trim() === "") sectionEnd--;
-  lines.splice(sectionEnd, 0, "", ...baseBlock.split("\n"));
-  await app.vault.modify(file, lines.join("\n"));
-};
 
 const RUN_MODE_CREATE_NEW = 0;
 const isCreateMode = tp.config.run_mode === RUN_MODE_CREATE_NEW;
@@ -147,35 +118,9 @@ if (mode === MODE_FULL) {
   description = (await tp.system.prompt("Description (optional)")) || "";
 }
 
-const now = new Date();
-const pad = n => String(n).padStart(2, "0");
-const YYYY = now.getFullYear();
-const MM = pad(now.getMonth() + 1);
-const DD = pad(now.getDate());
-const hh = pad(now.getHours());
-const mm = pad(now.getMinutes());
-const ss = pad(now.getSeconds());
+const { YYYY, MM, DD, localIso, utcIso, startIso } = utils.getTimestamps();
 
-const tzMin = -now.getTimezoneOffset();
-const tzSign = tzMin >= 0 ? "+" : "-";
-const tzAbs = Math.abs(tzMin);
-const tzOff = `${tzSign}${pad(Math.floor(tzAbs / 60))}:${pad(tzAbs % 60)}`;
-const localIso = `${YYYY}-${MM}-${DD}T${hh}:${mm}:${ss}${tzOff}`;
-const utcIso = now.toISOString().replace(/\.\d{3}Z$/, "Z");
-const startIso = `${YYYY}-${MM}-${DD}T${hh}:${mm}:${ss}`;
-
-let slug = title
-  .normalize("NFD")
-  .replace(/[̀-ͯ]/g, "")
-  .toLowerCase()
-  .replace(/[^a-z0-9]+/g, "-")
-  .replace(/^-+|-+$/g, "");
-if (slug.length > 60) {
-  slug = slug.slice(0, 60).replace(/-+$/g, "");
-  const lastDash = slug.lastIndexOf("-");
-  if (lastDash > 30) slug = slug.slice(0, lastDash);
-}
-if (!slug) slug = "untitled";
+const slug = utils.slugify(title);
 
 let uid = crypto.randomUUID().replace(/-/g, "");
 let uid6 = uid.slice(0, 6);
@@ -237,6 +182,13 @@ const statusOpts = STATUS_OPTIONS.map(o => `option(${o})`).join(", ");
 const statusWidget = "`INPUT[inlineSelect(" + statusOpts + "):[\"task.status\"]]`";
 const doneWidget = "`VIEW[(({[\"task.status\"]} == \"completed\") or ({[\"task.status\"]} == \"discarded\")) ? \"☑ Done\" : \"☐ Not done\"]`";
 
+// Trailing newline geometry: see neuer-akten.md. The `taskContent` literal
+// (used directly as a new file's content via app.vault.create or appended
+// to tR) ends with `-\n` after the `## Notes` bullet — only one trailing
+// newline so the file's last bytes are `\n-\n` (the bullet line terminated
+// by a single \n). In tR-mode, Templater's post-block newline supplies the
+// final EOF newline; in create-mode (app.vault.create), the file is
+// written verbatim and the single trailing \n keeps the file POSIX-clean.
 const taskContent = `---
 id: ${documentId}
 path: ${taskPath}
@@ -280,7 +232,9 @@ ${description}
 
 if (isCreateMode) {
   await tp.file.move(`${folder}/${stem}`);
-  tR += taskContent;
+  // Strip the lone trailing newline so Templater's post-block newline is
+  // the document's sole EOF marker (matches neuer-akten/neuer-zakki).
+  tR += taskContent.replace(/\n$/, "");
   return;
 }
 
@@ -314,7 +268,7 @@ const inVimNormalMode = !!editorEl?.querySelector(".cm-fat-cursor");
 // irrelevant for the base path. Only the wikilink fallback respects the
 // vim/non-vim split: vim appends under the section, non-vim drops at cursor.
 if (baseBlock) {
-  await insertBaseBlockIntoSection(active, baseBlock, TASKS_HEADING, refKey, refValue);
+  await utils.insertBaseBlockIntoSection(app, active, baseBlock, TASKS_HEADING, refKey, refValue);
 } else if (inVimNormalMode) {
   const content = await app.vault.read(active);
   const lines = content.split("\n");
@@ -325,9 +279,12 @@ if (baseBlock) {
     const trailing = content.endsWith("\n") ? "" : "\n";
     await app.vault.modify(active, content + trailing + "\n" + TASKS_HEADING + "\n\n" + item + "\n");
   } else {
+    // Match any heading level (H1..H6) so H3+ subheadings under ## Tasks
+    // terminate the section instead of being absorbed into it. Mirrors the
+    // shared insertBaseBlockIntoSection scan.
     let sectionEnd = lines.length;
     for (let i = headingIdx + 1; i < lines.length; i++) {
-      if (/^#{1,2}\s+/.test(lines[i])) { sectionEnd = i; break; }
+      if (/^#{1,6}\s+/.test(lines[i])) { sectionEnd = i; break; }
     }
     while (sectionEnd > headingIdx + 1 && lines[sectionEnd - 1].trim() === "") sectionEnd--;
     lines.splice(sectionEnd, 0, item);
