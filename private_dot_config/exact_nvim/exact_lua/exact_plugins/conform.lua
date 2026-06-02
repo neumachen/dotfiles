@@ -82,6 +82,13 @@ return {
         end
       end,
       ruby = { 'rubocop' },
+      -- BEAM languages: `mix` is a built-in conform formatter that shells out
+      -- to `mix format -`; erlfmt is a standalone escript (see
+      -- exact_mise/exact_conf.d/60-github.toml for the provisioning note).
+      elixir = { 'mix' },
+      eelixir = { 'mix' },
+      heex = { 'mix' },
+      erlang = { 'erlfmt' },
       json = { 'biome', 'dprint', 'prettierd', 'prettier', stop_after_first = true },
       markdown = { 'prettierd', 'prettier', 'dprint', stop_after_first = true },
       ['markdown.mdx'] = {
