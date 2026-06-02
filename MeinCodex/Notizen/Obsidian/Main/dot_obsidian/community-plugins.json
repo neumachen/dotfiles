@@ -18,5 +18,6 @@
   "obsidian-meta-bind-plugin",
   "obsidian-vimrc-support",
   "shiki-highlighter",
-  "quickadd"
+  "quickadd",
+  "mein-codex-sync"
 ]
