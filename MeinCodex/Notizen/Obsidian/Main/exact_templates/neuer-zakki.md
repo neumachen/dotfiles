@@ -1,16 +1,16 @@
 <%*
+const utils = tp.user.obsidian_utils();
+
 const ZAKKI_HEADING = "## Zakki";
 const RUN_MODE_CREATE_NEW = 0;
 const isCreateMode = tp.config.run_mode === RUN_MODE_CREATE_NEW;
-
-const AKTE_DIR_RE = /^akten\/\d{4}\/\d{2}\/[a-z0-9]+-[a-z0-9-]+$/;
 
 const findEnclosingAkte = (path) => {
   if (!path) return null;
   const parts = path.split("/");
   for (let i = parts.length; i >= 3; i--) {
     const candidate = parts.slice(0, i).join("/");
-    if (AKTE_DIR_RE.test(candidate)) return candidate;
+    if (utils.AKTE_DIR_RE.test(candidate)) return candidate;
   }
   return null;
 };
@@ -42,37 +42,6 @@ const buildZakkiBaseBlock = (akteUid) => [
   "```",
 ].join("\n");
 
-const sectionHasBaseScope = (lines, headingIdx, sectionEnd, refKey, refValue) => {
-  const target = `note["${refKey}"] == "${refValue}"`;
-  let inBase = false;
-  for (let i = headingIdx + 1; i < sectionEnd; i++) {
-    const trimmed = lines[i].trim();
-    if (!inBase && /^```base\b/.test(trimmed)) { inBase = true; continue; }
-    if (inBase && trimmed === "```") { inBase = false; continue; }
-    if (inBase && lines[i].includes(target)) return true;
-  }
-  return false;
-};
-
-const insertBaseBlockIntoSection = async (file, baseBlock, headingText, refKey, refValue) => {
-  const content = await app.vault.read(file);
-  const lines = content.split("\n");
-  const headingIdx = lines.findIndex(l => l.trim() === headingText);
-  if (headingIdx === -1) {
-    const trailing = content.endsWith("\n") ? "" : "\n";
-    await app.vault.modify(file, content + trailing + "\n" + headingText + "\n\n" + baseBlock + "\n");
-    return;
-  }
-  let sectionEnd = lines.length;
-  for (let i = headingIdx + 1; i < lines.length; i++) {
-    if (/^#{1,2}\s+/.test(lines[i])) { sectionEnd = i; break; }
-  }
-  if (sectionHasBaseScope(lines, headingIdx, sectionEnd, refKey, refValue)) return;
-  while (sectionEnd > headingIdx + 1 && lines[sectionEnd - 1].trim() === "") sectionEnd--;
-  lines.splice(sectionEnd, 0, "", ...baseBlock.split("\n"));
-  await app.vault.modify(file, lines.join("\n"));
-};
-
 // In CREATE_NEW mode Templater opens the new (temp) file before running the
 // template, so app.workspace.getActiveFile() returns that new file rather
 // than the Akte the user triggered from. Scan all open leaves for an Akte
@@ -103,34 +72,9 @@ const aktePath = findEnclosingAkte(active?.parent?.path ?? null)
 const title = await tp.system.prompt("Zakki title");
 if (!title) return;
 
-const now = new Date();
-const pad = n => String(n).padStart(2, "0");
-const YYYY = now.getFullYear();
-const MM = pad(now.getMonth() + 1);
-const DD = pad(now.getDate());
-const hh = pad(now.getHours());
-const mm = pad(now.getMinutes());
-const ss = pad(now.getSeconds());
+const { YYYY, MM, DD, localIso, utcIso } = utils.getTimestamps();
 
-const tzMin = -now.getTimezoneOffset();
-const tzSign = tzMin >= 0 ? "+" : "-";
-const tzAbs = Math.abs(tzMin);
-const tzOff = `${tzSign}${pad(Math.floor(tzAbs / 60))}:${pad(tzAbs % 60)}`;
-const localIso = `${YYYY}-${MM}-${DD}T${hh}:${mm}:${ss}${tzOff}`;
-const utcIso = now.toISOString().replace(/\.\d{3}Z$/, "Z");
-
-let slug = title
-  .normalize("NFD")
-  .replace(/[̀-ͯ]/g, "")
-  .toLowerCase()
-  .replace(/[^a-z0-9]+/g, "-")
-  .replace(/^-+|-+$/g, "");
-if (slug.length > 60) {
-  slug = slug.slice(0, 60).replace(/-+$/g, "");
-  const lastDash = slug.lastIndexOf("-");
-  if (lastDash > 30) slug = slug.slice(0, lastDash);
-}
-if (!slug) slug = "untitled";
+const slug = utils.slugify(title);
 
 let uid = crypto.randomUUID().replace(/-/g, "");
 let uid6 = uid.slice(0, 6);
@@ -171,6 +115,10 @@ reference.akten.link: "${akteLink}"
 
 await tp.file.move(`${folder}/${stem}`);
 
+// Trailing newline geometry: see the comment in neuer-akten.md. Literal
+// ends with "# ${title}" (no trailing newline inside the backticks);
+// Templater appends the file's post-block newline as the document's sole
+// trailing newline.
 tR += `---
 id: ${documentId}
 path: ${path}
@@ -186,16 +134,14 @@ modified_at.utc: "${utcIso}"
 modified_at.local: "${localIso}"
 ---
 
-# ${title}
-
-`;
+# ${title}`;
 
 if (aktePath) {
   const indexPath = `${aktePath}/index.md`;
   const indexFile = app.vault.getAbstractFileByPath(indexPath);
   if (indexFile) {
     const baseBlock = buildZakkiBaseBlock(akteUid);
-    await insertBaseBlockIntoSection(indexFile, baseBlock, ZAKKI_HEADING, "reference.akten.id", akteUid);
+    await utils.insertBaseBlockIntoSection(app, indexFile, baseBlock, ZAKKI_HEADING, "reference.akten.id", akteUid);
   } else {
     new Notice(`Akte's index.md not found at ${indexPath}; Bases view not inserted.`);
   }
