@@ -29,6 +29,10 @@
 
 [pretty]
   signed = format:%C(yellow)%h%C(reset) %C(bold blue)[%G?]%C(reset) %C(red)%d%C(reset) %s %C(green)(%cr)%C(reset) %C(dim white)<%an>%C(reset)
+  unsigned = format:%C(yellow)%h%C(reset) %C(red)%d%C(reset) %s %C(green)(%cr)%C(reset) %C(dim white)<%an>%C(reset)
+
+[format]
+  pretty = unsigned
 
 [alias]
   # via http://blog.apiaxle.com/post/handy-git-tips-to-stop-you-getting-fired/
@@ -36,8 +40,9 @@
   snapshots = !git stash list --grep snapshot
 
   # log
-  l = log --graph --decorate --date=relative --pretty=signed
+  l = log --graph --decorate --date=relative --pretty=unsigned
   ls = log --graph --decorate --date=relative --pretty=signed
+  log-signed = log --pretty=signed
   changes = log --pretty=format:\"%h %cr %cn %C(bold blue)[%G?]%Creset %Cgreen%s%Creset\" --name-status
 
   # View the current working tree status using the short format.
