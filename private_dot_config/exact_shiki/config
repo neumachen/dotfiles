@@ -79,11 +79,22 @@
 
 # ── Container-side signing overrides ────────────────────────────────────────
 # Re-asserted AFTER the include so they neutralize host-only values like
-# op-ssh-sign and the host's allowed_signers path. Git applies the
-# last-seen value for a key, so blank values here win.
+# 1Password's op-ssh-sign (a macOS-only binary) and the host's
+# allowed_signers path. Git applies the last-seen value for a key, so
+# values here win over the included identity.
 #
-# With these cleared, ssh-based signing uses the default ssh-keygen flow,
-# which forwards to SSH_AUTH_SOCK (the mounted 1Password agent socket).
+# IMPORTANT: do NOT leave `program` empty. An empty value makes git try to
+# `exec ""` which fails with "cannot run : No such file or directory".
+# Setting it to `ssh-keygen` explicitly is what git's documented default
+# would resolve to, and the binary is installed via openssh-client in the
+# Dockerfile. Signing then forwards through SSH_AUTH_SOCK -> the mounted
+# 1Password agent socket on the host.
+#
+# `allowedSignersFile` is only consulted by signature *verification*
+# (e.g. `git log --show-signature`); signing does not read it. We leave
+# it blank to neutralize the host's `~/.config/git/allowed_signers` path
+# (which does not exist inside the container) and leave verification to
+# the host.
 [gpg "ssh"]
-  program =
+  program = ssh-keygen
   allowedSignersFile =
