@@ -16,7 +16,7 @@
   ],
   "enable_system_commands": false,
   "shell_path": "",
-  "user_scripts_folder": "",
+  "user_scripts_folder": "scripts",
   "enable_folder_templates": false,
   "folder_templates": [],
   "enable_file_templates": false,
