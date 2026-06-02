@@ -16,6 +16,13 @@ return {
     notifier = {
       enabled = true,
       timeout = 3000,
+      -- Uniform-width notifications anchored to the top-right.
+      -- New notifications stack downward and fade out after `timeout`.
+      width = { min = 50, max = 50 },
+      height = { min = 1, max = 10 },
+      margin = { top = 0, right = 1, bottom = 0 },
+      top_down = true,
+      style = 'compact',
     },
     picker = {
       enabled = true,
