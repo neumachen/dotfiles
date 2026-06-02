@@ -82,6 +82,7 @@ return {
       { '<leader>gh', group = '+hunk', desc = 'Git hunk operations' },
       { '<leader>gl', group = '+log', desc = 'Git Log operations' },
       { '<leader>gn', group = '+neogit', desc = 'Neogit operations' },
+      { '<leader>go', group = '+octo', desc = 'Octo (GitHub) operations' },
       { '<leader>gt', group = '+toggle', desc = 'Git toggle operations' },
       -- Subgroups - Localleader
       {
