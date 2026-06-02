@@ -20,12 +20,12 @@ ueberzug_offset = [0, 0, 0, 0]
 [opener]
 edit = [
   { run = '${EDITOR:=nvim} "$@"', desc = "$EDITOR", block = true },
-  { run = 'code "$@"', orphan = true },
+  { run = 'zed "$@"', desc = "Zed", orphan = true },
 ]
 open = [
-  { run = 'xdg-open "$@"', desc = "Open", for = "linux" },
-  { run = 'open "$@"', desc = "Open", for = "macos" },
-  { run = 'start "%1"', orphan = true, desc = "Open", for = "windows" },
+  { run = 'xdg-open "$@"', desc = "System default", for = "linux" },
+  { run = 'open "$@"', desc = "System default", for = "macos" },
+  { run = 'start "%1"', orphan = true, desc = "System default", for = "windows" },
 ]
 play = [
   { run = 'mpv --force-window "$@"' },
@@ -41,8 +41,14 @@ rules = [
     "open",
     "reveal",
   ] },
+  { mime = "text/html", use = [
+    "open",
+    "edit",
+    "reveal",
+  ] },
   { mime = "text/*", use = [
     "edit",
+    "open",
     "reveal",
   ] },
   { mime = "image/*", use = [
@@ -59,14 +65,17 @@ rules = [
   ] },
   { mime = "inode/x-empty", use = [
     "edit",
+    "open",
     "reveal",
   ] },
   { mime = "application/json", use = [
     "edit",
+    "open",
     "reveal",
   ] },
   { mime = "*/javascript", use = [
     "edit",
+    "open",
     "reveal",
   ] },
   { mime = "application/zip", use = [
