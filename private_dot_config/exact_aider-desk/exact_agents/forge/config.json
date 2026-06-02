@@ -2,7 +2,7 @@
   "id": "f2b4a443-c6d9-4864-a72d-908e2ea57ae6",
   "name": "Forge",
   "provider": "anthropic",
-  "model": "claude-sonnet-4-7",
+  "model": "claude-opus-4-7",
   "maxIterations": 250,
   "minTimeBetweenToolCalls": 0,
   "toolApprovals": {
@@ -55,7 +55,7 @@
     "invocationMode": "on-demand",
     "color": "#3368a8",
     "description": "Primary coding agent — implementation, bug fixes, refactoring, TDD. Claude Sonnet 4.6 (1M context, Instinct).",
-    "contextMemory": "session"
+    "contextMemory": "full-context"
   },
   "autoCompactThresholdPercentage": 85,
   "autoCompactionType": "handoff",
