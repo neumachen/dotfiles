@@ -11,9 +11,7 @@
     "templates/neuer-zakki.md",
     "templates/shinki-kadai.md"
   ],
-  "startup_templates": [
-    "templates/sync-system-frontmatter.md"
-  ],
+  "startup_templates": [],
   "enable_system_commands": false,
   "shell_path": "",
   "user_scripts_folder": "scripts",
