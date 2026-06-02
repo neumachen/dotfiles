@@ -13,9 +13,13 @@ MeinCodex/Notizen/Obsidian/Main/kadai/*
 !MeinCodex/Notizen/Obsidian/Main/kadai/_bases/
 MeinCodex/Notizen/Obsidian/Main/assets/
 
-# Obsidian plugin compiled files — downloaded by Obsidian on first launch, not tracked in git
+# Obsidian plugin compiled files — downloaded by Obsidian on first launch, not tracked in git.
+# Exception: local-only plugins (those not in the community store) must ship their
+# own main.js because Obsidian has nothing to download. List each as an explicit
+# !-negation so the directory glob keeps catching upstream community-plugin builds.
 MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/**/main.js
 MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/**/styles.css
+!MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/mein-codex-sync/main.js
 
 # Obsidian runtime-generated state files — written by Obsidian at runtime
 MeinCodex/Notizen/Obsidian/Main/dot_obsidian/workspace.json
