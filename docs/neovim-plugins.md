@@ -365,7 +365,7 @@ Auto-installs parsers on `FileType`. Parsers are batch-installed after `LazyDone
 
 **Custom predicate:** `is-mise?` — matches `*mise*.toml` filenames (used in queries).
 
-**Installed parsers:** bash, c, cmake, cpp, css, csv, diff, dockerfile, editorconfig, elixir, erlang, git_config, git_rebase, gitcommit, gleam, go, goctl, gomod, gosum, gotmpl, gowork, gpg, haskell, helm, html, hurl, javascript, jsdoc, json, jsonc, just, lua, luadoc, luap, markdown, markdown_inline, printf, proto, python, query, regex, ruby, rust, slim, ssh_config, toml, tsx, typescript, vim, vimdoc, xml, yaml.
+**Installed parsers:** bash, c, cmake, cpp, css, csv, diff, dockerfile, editorconfig, eex, elixir, erlang, gleam, go, goctl, gosum, gotmpl, gowork, gpg, heex, html, hurl, ini, java, javascript, jsdoc, json, just, latex, lua, luap, make, markdown, markdown_inline, printf, proto, python, regex, ruby, rust, slim, ssh_config, toml, tsx, typescript, vim, vimdoc, xml, yaml.
 
 **Dependencies:** `nvim-treesitter-context` (max 4 lines, multiline threshold 2)
 
@@ -429,6 +429,8 @@ Format on save with LSP fallback (500ms timeout). Also runs after save with LSP 
 | `go` | `goimports`, `gofumpt` |
 | `python` | `ruff_format` or `isort`+`black` |
 | `ruby` | `rubocop` |
+| `elixir` / `eelixir` / `heex` | `mix` (runs `mix format -`) |
+| `erlang` | `erlfmt` |
 | `json` | `biome` → `dprint` (first available) |
 | `markdown` | `prettierd` → `prettier` → `dprint` |
 | `javascript` | `biome` → `deno_fmt` → `prettierd` → `prettier` → `dprint` |
@@ -1532,7 +1534,12 @@ Diagnostic mode: `openFilesOnly`.
 
 ### `erlang_ls` — Erlang Language Server
 **Filetypes:** `erlang`  
-**Root markers:** `rebar.config`, `erlang.mk`, `.git`
+**Root markers:** `rebar.config`, `erlang.mk`, `mix.exs`, `.git`
+
+### `elixirls` — Elixir Language Server
+**Filetypes:** `elixir`, `eelixir`, `heex`  
+**Root markers:** `mix.exs`, `.git`  
+Settings: `dialyzerEnabled=true`, `fetchDeps=false`, `enableTestLenses=false`, `suggestSpecs=true`.
 
 ### `harper_ls` — Harper Grammar/Spell Checker
 **Filetypes:** c, cpp, cs, gitcommit, go, html, java, js, lua, markdown, nix, python, ruby, rust, swift, toml, ts, tsx, haskell, cmake, typst, php, dart, clojure, sh  
