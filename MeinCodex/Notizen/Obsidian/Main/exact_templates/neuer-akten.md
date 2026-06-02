@@ -1,39 +1,17 @@
 <%*
+const utils = tp.user.obsidian_utils();
+
 const title = await tp.system.prompt("Akten project title");
 if (!title) return;
 
-const now = new Date();
-const pad = n => String(n).padStart(2, "0");
-const YYYY = now.getFullYear();
-const MM = pad(now.getMonth() + 1);
-const DD = pad(now.getDate());
-const hh = pad(now.getHours());
-const mm = pad(now.getMinutes());
-const ss = pad(now.getSeconds());
-
-const tzMin = -now.getTimezoneOffset();
-const tzSign = tzMin >= 0 ? "+" : "-";
-const tzAbs = Math.abs(tzMin);
-const tzOff = `${tzSign}${pad(Math.floor(tzAbs / 60))}:${pad(tzAbs % 60)}`;
-const localIso = `${YYYY}-${MM}-${DD}T${hh}:${mm}:${ss}${tzOff}`;
-const utcIso = now.toISOString().replace(/\.\d{3}Z$/, "Z");
+const ts = utils.getTimestamps();
+const { YYYY, MM, localIso, utcIso } = ts;
 
 const uid = crypto.randomUUID().replace(/-/g, "");
 const uid6 = uid.slice(0, 6);
 const documentId = uid;
 
-let slug = title
-  .normalize("NFD")
-  .replace(/[̀-ͯ]/g, "")
-  .toLowerCase()
-  .replace(/[^a-z0-9]+/g, "-")
-  .replace(/^-+|-+$/g, "");
-if (slug.length > 60) {
-  slug = slug.slice(0, 60).replace(/-+$/g, "");
-  const lastDash = slug.lastIndexOf("-");
-  if (lastDash > 30) slug = slug.slice(0, lastDash);
-}
-if (!slug) slug = "untitled";
+const slug = utils.slugify(title);
 
 const dirName = `${uid6}-${slug}`;
 const dirPath = `akten/${YYYY}/${MM}/${dirName}`;
@@ -45,6 +23,12 @@ if (!(await app.vault.adapter.exists(dirPath))) {
 
 await tp.file.move(`${dirPath}/index`);
 
+// Trailing newline geometry: this template literal ends with "# ${title}"
+// (no trailing newline inside the backticks). Templater emits the newline
+// that follows this file's closing percent-greater-than delimiter, which
+// becomes the document's sole trailing newline. Adding another newline
+// inside the literal would stack a second blank line at EOF (the original
+// bug). Same pattern applies to neuer-zakki.md and shinki-kadai.md.
 tR += `---
 id: ${documentId}
 path: ${path}
@@ -60,7 +44,5 @@ modified_at.utc: "${utcIso}"
 modified_at.local: "${localIso}"
 ---
 
-# ${title}
-
-`;
+# ${title}`;
 %>
