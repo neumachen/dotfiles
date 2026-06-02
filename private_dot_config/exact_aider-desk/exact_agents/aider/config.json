@@ -2,7 +2,7 @@
   "id": "aider",
   "name": "Aider (Structured Edit)",
   "provider": "anthropic",
-  "model": "claude-sonnet-4-6",
+  "model": "claude-opus-4-8",
   "maxIterations": 100,
   "minTimeBetweenToolCalls": 0,
   "toolApprovals": {
