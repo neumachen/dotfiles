@@ -65,8 +65,9 @@ codebook.toml
 # Note content is never tracked, but _bases/ subdirectories ARE tracked for Obsidian Bases.
 # assets/ is created by Obsidian on first attachment drop; never tracked.
 #
-# Chezmoi does not support negation patterns, so we explicitly ignore year subdirs
-# (where notes live) while allowing _bases/ to pass through.
+# Although chezmoi does support !-negation in .chezmoiignore, the vault-content
+# layout here is cleaner expressed by explicitly ignoring the year subdirs
+# (where notes live) so _bases/ passes through without an extra unignore rule.
 MeinCodex/Notizen/Obsidian/Main/akten/[0-9]*
 MeinCodex/Notizen/Obsidian/Main/zakki/[0-9]*
 MeinCodex/Notizen/Obsidian/Main/kadai/[0-9]*
@@ -74,8 +75,13 @@ MeinCodex/Notizen/Obsidian/Main/assets/**
 
 # Obsidian plugin compiled/bundled files — downloaded by Obsidian on first launch, not tracked.
 # manifest.json (tracked) is sufficient for Obsidian to detect and download missing plugins.
+# Exception: local-only plugins (those not in the community store) must ship their own
+# main.js because Obsidian has nothing to download. Chezmoi DOES support !-negation
+# in .chezmoiignore (since v2.0); list each local plugin's main.js as an explicit
+# allow so the directory glob keeps catching upstream community-plugin builds.
 MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/**/main.js
 MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/**/styles.css
+!MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/mein-codex-sync/main.js
 
 # Obsidian runtime-generated files inside .obsidian — volatile state written by Obsidian at runtime.
 # These are created/updated by Obsidian itself; not configuration we author.
