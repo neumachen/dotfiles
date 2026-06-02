@@ -21,6 +21,7 @@ snippets, and templates.
 ├── assets/         attachments (images, PDFs, files)
 ├── kadai/          task notes — file-per-task with `task:` frontmatter, filed by creation date
 │   └── YYYY/MM/DD/ created on demand by the new-task template
+├── scripts/        Templater user scripts — shared helpers exposed via tp.user
 ├── templates/      Templater templates (also tracked by Chezmoi)
 ├── zakki/          general notes — filed by creation date under YYYY/MM/DD/, categorized by tags
 │   └── YYYY/MM/DD/ created on demand by the new-zakki template
@@ -95,9 +96,9 @@ The `path` field carries the document's full vault-relative path (with `.md`),
 so a note's canonical location can be read straight from frontmatter without
 walking the filesystem. The `filename` field is the bare stem (no `.md`):
 `index` for Akten, `<uid6>-<slug>` for Zakki / Kadai. Both fields
-stay in sync with the file's actual location via
-`templates/sync-system-frontmatter.md`, a Templater startup hook that
-installs **two** vault-wide listeners:
+stay in sync with the file's actual location via the
+**`mein-codex-sync`** local plugin (see [Local Plugins](#local-plugins) below),
+which installs **two** vault-wide listeners at vault open:
 
 1. **`vault.on("rename", ...)`** — when a file is renamed/moved (by the
    user, by Obsidian's link-update side effects, or by listener #2),
@@ -113,11 +114,27 @@ installs **two** vault-wide listeners:
    migration goes through the one-off scripts in
    `~/MeinCodex/Codekiste/obsidian/scripts/one-off/`.
 
+Listeners are registered via the plugin's `this.registerEvent(...)`,
+so Obsidian disposes them automatically on plugin unload/reload — no
+`globalThis` bookkeeping required (the previous Templater-startup
+implementation kept its own `offref` guards because nothing else
+managed the listener lifetime).
+
 Obsidian's built-in `alwaysUpdateLinks` setting rewrites wikilink
 targets in tandem with the rename, so the link graph and per-note
 frontmatter both follow. Caveat: only in-Obsidian renames fire the
 events — renames done outside Obsidian (e.g., via shell) leave both
 wikilinks and frontmatter stale.
+
+**Coupling note for Bases authors:** the `path:` frontmatter field can
+go stale if the sync plugin isn't running or if a file is renamed
+outside Obsidian. When writing Bases filters or formulas that need a
+note's location, prefer computing it dynamically from `file.path`
+rather than reading the stored `path:` field — `file.path` is sourced
+from Obsidian's file-tree at query time and is always current. Existing
+Bases under `*/_bases/` already do this (none read `note["path"]`); the
+stored `path:` field is kept for human readability in the Properties
+UI and for shell/grep workflows, not for query correctness.
 
 Timestamp keys use flat dotted names (`created_at.utc`, `modified_at.local`, …) — same
 reason as the `task.*` fields: Obsidian's Properties UI flattens nested YAML objects into
@@ -170,12 +187,43 @@ Located at `<vault-root>/templates/`. All templates use Templater syntax.
 | `neuer-zakki.md` | `Cmd+N` | — | General note — prompts for title, lands in `zakki/YYYY/MM/DD/<uuid6>-<slug>.md` with tags `[zakki]`. Frontmatter `id` is the full 32-char UUID; filename uses the 6-hex prefix plus a sanitized title slug (slug rules identical to `neuer-akten.md`). **Akte-aware:** if an Akte's `index.md` is open in another pane when the template fires, the new Zakki is treated as a child of that Akte — its frontmatter gets `reference.akten.id` and `reference.akten.link` and the parent Akte's UUID6 is appended to `tags`. The `id` field is hidden from the Properties UI by `ui-hide-system-frontmatter.css` (Bases queries still see it); only the link surfaces. The Akte's `index.md` also gets a Bases code block inserted under a `## Zakki` section (created on first use, reused thereafter) scoped to that Akte's UUID6, so the index shows a live table of its Zakki children. Without an Akte in context, the Zakki is created standalone with no back-reference. |
 | `neuer-akten.md` | — | `Akten: Neue Akte` | Project folder — prompts for title, creates `akten/YYYY/MM/<uuid6>-<slug>/index.md` with tags `[akten]`. Folder name uses the first 6 hex chars of the UUID; the full 32-char UUID lives in frontmatter `id`. |
 | `shinki-kadai.md` | `Cmd+Shift+T` | `Kadai: Shinki Kadai (新規課題)` | Task note — runs in **insert mode** by default (the hotkey is bound to `templater-obsidian:templates/shinki-kadai.md`), so the active document stays open and a wikilink to the new task is dropped into it. Two creation modes: `Title only` (just title prompt) and `Full document` (also prompts an optional description, then opens the new task after the link is inserted — priority and due date can be edited later in the task file or via the Tasks plugin). Where the link goes depends on Vim mode: in **insert mode**, the link is inserted at the cursor; in **normal mode**, the link is appended under a `## Inserted Tasks` section at the end of the active document (created on first use, reused on subsequent inserts). The task file itself always lives at `kadai/YYYY/MM/DD/<uuid6>-<slug>.md` (slug rules match `neuer-akten.md`). The task body's `## Status` section embeds two `meta-bind` widgets: an `INPUT[inlineSelect(...):task.status]` dropdown constrained to the 6 canonical options (`incipient`, `in-progress`, `completed`, `discarded`, `blocked`, `abandoned`) and a derived `VIEW` field rendering `☑ Done` / `☐ Not done` based on whether `task.status` is `completed` or `discarded`. Status defaults to `incipient` at creation; change it via the dropdown. **Context-aware label and references:** the mode picker's placeholder reflects the active document context — `Add to new Akten` (active = Akte index), `Add to new Zakki` (active = Zakki), or `Task creation` (no context). Reference fields follow the label: Akten → `reference.akten.id`; Zakki → `reference.zakki.id`, plus `reference.akten.id` if the Zakki itself is linked to an Akte; no context → no reference fields. **Standalone fallback:** invoking `Templater: Create new note from template → templates/shinki-kadai.md` (or any create-mode wrapper) skips the insert path entirely and creates the task as a standalone open file — same prompts, no reference fields, no link insertion. |
-| `add-tag.md` | `Cmd+Alt+T` | — | Adds a tag to the current note's frontmatter. First shows a suggester populated from `app.metadataCache.getTags()` so existing tags fuzzy-autocomplete as you type; press `Esc` on the suggester to fall through to a free-form prompt for a brand-new tag. |
-| `sync-system-frontmatter.md` | — (startup template) | — | Registered in Templater's `startup_templates`. Runs once on vault open to install **two** vault-wide listeners: (1) `app.vault.on("rename", ...)` — keeps each note's `path:` / `filename:` frontmatter aligned with its current location after any rename or move; (2) `app.metadataCache.on("changed", ...)` — when `title:` changes on a managed note (Kadai / Zakki), recomputes `<uid6>-<slug>` and renames the file via `app.fileManager.renameFile`, which then triggers Obsidian's `alwaysUpdateLinks` to rewrite wikilinks vault-wide. The first metadata-changed event per file is treated as the indexing pass and skipped, so legacy bare-`<uid6>.md` files are NOT mass-renamed silently at startup. Idempotent across plugin reloads via `globalThis` guards + `app.vault.offref()` / `app.metadataCache.offref()`. Produces no file output. |
+| `add-tag.md` | `Cmd+Alt+T` | — | Adds a tag to the current note's frontmatter. First shows a suggester populated from `app.metadataCache.getTags()` so existing tags fuzzy-autocomplete as you type; press `Esc` on the suggester to fall through to a free-form prompt for a brand-new tag. Guarded against a missing QuickAdd dependency: if the QuickAdd plugin is disabled, the template surfaces a `Notice` and returns instead of throwing. |
+
+The vault-wide rename + title-driven file-rename listeners that previously lived
+in a `sync-system-frontmatter.md` Templater startup template now ship as the
+[`mein-codex-sync` local plugin](#local-plugins) — listener semantics are
+identical, but the Plugin lifecycle owns cleanup on reload.
+
+All three creation templates (`neuer-akten`, `neuer-zakki`, `shinki-kadai`) and
+`add-tag` share helpers (`slugify`, timestamp bundle, section/Bases-block
+helpers) via `tp.user.obsidian_utils()` — defined once in
+[`scripts/obsidian_utils.js`](#shared-templater-helpers) and exposed by
+Templater's `user_scripts_folder` setting (`scripts`).
 
 To pick any template interactively (including `neuer-akten`), use `Cmd+Shift+N`
 (Templater → *Create new note from template*). To insert a template into the
 current note, use `Cmd+Shift+I`.
+
+### Shared Templater helpers
+
+Vault-relative path: `scripts/obsidian_utils.js`. Templater discovers it via
+the `user_scripts_folder: "scripts"` setting in
+`dot_obsidian/plugins/templater-obsidian/data.json` and exposes it as
+`tp.user.obsidian_utils()`. The module returns a helper object with:
+
+| Helper | Purpose |
+|---|---|
+| `slugify(title)` | NFD-fold to ASCII, lowercase, collapse non-`[a-z0-9]` to `-`, truncate to 60 chars on a `-` boundary, fall back to `untitled`. The single source of truth for filename slug rules. |
+| `getTimestamps()` | Returns `{ YYYY, MM, DD, hh, mm, ss, localIso, utcIso, startIso }` from a single `new Date()` call — covers every frontmatter timestamp this vault writes. |
+| `sectionHasBaseScope(lines, headingIdx, sectionEnd, refKey, refValue)` | Detects whether a section already contains a ` ```base ` block scoped to a given `note["<refKey>"] == "<refValue>"` filter — used to make Bases-block insertion idempotent. |
+| `insertBaseBlockIntoSection(app, file, baseBlock, headingText, refKey, refValue)` | Inserts a Bases block under `headingText`, idempotently. Section end is detected with `/^#{1,6}\s+/`, so H3+ subheadings under the section heading correctly terminate the section instead of being absorbed. |
+| `expectedStem(file, title)` | Recomputes the `<uid6>-<slug>` stem for a managed Kadai / Zakki file. Reused by the sync plugin (which keeps its own copy because Obsidian plugins can't `require()` a vault-relative `.js`). |
+| `AKTE_DIR_RE`, `KADAI_PATH_RE`, `ZAKKI_PATH_RE`, `UID6_RE` | The path-shape regexes. Centralized so they can't drift between consumers. |
+
+Editing rules: keep `slugify`, `expectedStem`, and the path regexes
+byte-identical between `scripts/obsidian_utils.js` and
+`dot_obsidian/plugins/mein-codex-sync/main.js`. The plugin reproduces them
+because the Obsidian plugin loader can't pull in vault-relative `.js` modules.
 
 ### Custom command labels (Commander plugin)
 
@@ -286,6 +334,19 @@ Examples:
 | `templater-obsidian` | Template engine — powers all note creation flows |
 | `obsidian-tasks-plugin` | Cross-vault task tracking — global filter: `#task` |
 | `obsidian-meta-bind-plugin` | Inline property widgets — provides the `task.status` dropdown and derived done indicator in Kadai files. `excludedFolders: ["templates"]` keeps backticked widget syntax inert inside template source files. JS view fields are disabled (`enableJs: false`); current widgets only need math-mode `VIEW` and `INPUT[inlineSelect]`. **Important**: when binding to a flat YAML key with a literal dot (`task.status`, `created_at.utc`, etc.), use bracket notation: `INPUT[...:["task.status"]]` and `{["task.status"]}` inside view expressions. Unbracketed `task.status` is interpreted as nested-object access and silently fails to bind. |
+
+### Local Plugins
+
+Local plugins live under `dot_obsidian/plugins/<id>/` alongside the
+community plugins, but their `main.js` is authored in this repository
+rather than downloaded from the Obsidian community store. The
+`.gitignore` and `.chezmoiignore` `plugins/**/main.js` wildcards each
+carry an explicit `!`-negation for every local plugin's `main.js` so
+the source ships with `chezmoi apply`.
+
+| Plugin ID | Purpose |
+|---|---|
+| `mein-codex-sync` | Installs two vault-wide listeners at vault open: (1) `vault.on("rename", ...)` — rewrites each note's `path:` / `filename:` frontmatter after any rename or move; (2) `metadataCache.on("changed", ...)` — when `title:` changes on a managed Kadai / Zakki note, recomputes `<uid6>-<slug>` and renames the file via `app.fileManager.renameFile` (which triggers `alwaysUpdateLinks` to fix wikilinks vault-wide). The first metadata-changed event per file is treated as the indexing pass and skipped, so legacy bare-`<uid6>.md` files are NOT mass-renamed silently at startup. Listeners are owned by the Plugin lifecycle via `this.registerEvent(...)`, so cleanup on unload/reload is automatic — no `globalThis` bookkeeping. **Editing rule:** `slugify`, `expectedStem`, and the `KADAI_PATH_RE` / `ZAKKI_PATH_RE` / `UID6_RE` constants are duplicated verbatim in `scripts/obsidian_utils.js` (the tp.user helper module). Obsidian plugins can't `require()` vault-relative `.js` files, so both copies must stay in sync. |
 
 ---
 
