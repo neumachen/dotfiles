@@ -273,14 +273,9 @@ unset _fzf_key_bindings_path
 # Environment Variables (command-dependent, belongs in zshrc)
 #############################
 
-# Go — GOPATH explicitly set to XDG_DATA_HOME/go so workspace and module
-# cache land under ~/.local/share rather than defaulting to ~/go.
-# Set unconditionally: go is managed by mise so the binary may not be on
-# PATH at this point, but the variable is valid regardless.
-export GOPATH="${XDG_DATA_HOME:-$HOME/.local/share}/go"
-export GOBIN="${GOPATH}/bin"
-[[ ! -d "$GOPATH" ]] && mkdir -p "$GOPATH"
-path=("${GOBIN}" ${path})
+# Go — GOPATH/GOBIN and the PATH placement of GOBIN are handled in
+# dot_zprofile.tmpl so the user-controlled ~/.local prefix is positioned
+# as a single ordered block. Nothing else to do here.
 
 # Override zimfw's utility module grep colours. The utility module sets
 # GREP_COLOR='37;45' (white on magenta background) which renders as a
@@ -448,6 +443,43 @@ fi
 
 if command_exists shfmt; then
   alias my-shfmt="shfmt -i 2 -w -ci"
+fi
+
+# Homebrew / Cask aliases — inlined from the upstream zimfw/homebrew module
+# (https://github.com/zimfw/homebrew). The module itself is deliberately not
+# loaded in zimrc.zsh because it re-prepends brew/bin and brew/sbin to PATH
+# position 1, defeating the zprofile cascade. The aliases stay because they
+# are pure shell sugar and have no PATH side effects.
+if command_exists brew; then
+  alias brewa='brew autoremove'
+  alias brewc='brew cleanup'
+  alias brewC='brew cleanup -s'
+  alias brewd='brew doctor --verbose'
+  alias brewe='brew edit --formula'
+  alias brewi='brew info --formula'
+  alias brewI='brew install --formula'
+  alias brewl='brew list --formula'
+  alias brewL='brew leaves'
+  alias brewo='brew outdated --formula'
+  alias brewr='brew reinstall --formula'
+  alias brews='brew search --formula'
+  alias brewS='brew services'
+  alias brewu='brew update'
+  alias brewU='brew upgrade --formula'
+  alias brewx='brew uninstall --formula'
+  alias brewX='brew uninstall --formula --force'
+
+  alias caske='brew edit --cask'
+  alias caski='brew info --cask'
+  alias caskI='brew install --cask'
+  alias caskl='brew list --cask'
+  alias casko='brew outdated --cask'
+  alias caskr='brew reinstall --cask'
+  alias casks='brew search --cask'
+  alias caskU='brew upgrade --cask'
+  alias caskx='brew uninstall --cask'
+  alias caskX='brew uninstall --cask --force'
+  alias caskz='brew uninstall --cask --zap'
 fi
 
 if command_exists docker; then

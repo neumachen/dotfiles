@@ -20,8 +20,31 @@ manual_pathmunge "${BREW_PREFIX}/share/man"
 info_pathmunge "${BREW_PREFIX}/share/info"
 manual_pathmunge "${BREW_PREFIX}/opt/coreutils/libexec/gnuman"
 manual_pathmunge "${BREW_PREFIX}/opt/make/libexec/gnuman"
+{{ end -}}
 
-# Force-front all Homebrew and GNU override paths.
+# Local bin directories - create silently if missing.
+# Declared early so the force-front cascade below can reference LOCAL_BIN /
+# LOCAL_SBIN by name and so chezmoi-managed scripts that source this file can
+# rely on the exports regardless of where the cascade ends.
+_local_bin="${HOME}/.local/bin"
+[[ ! -d "${_local_bin}" ]] && mkdir -p "${_local_bin}"
+export LOCAL_BIN="${_local_bin}"
+
+_local_sbin="${HOME}/.local/sbin"
+[[ ! -d "${_local_sbin}" ]] && mkdir -p "${_local_sbin}"
+export LOCAL_SBIN="${_local_sbin}"
+
+# GOBIN — declared here (not in zshrc) so the force-front cascade below can
+# position it. mirrors the GOPATH/GOBIN block formerly in zshrc.
+# Both GOPATH and GOBIN are created if missing so the [[ -d ${GOBIN} ]]
+# guard in the cascade below succeeds on a fresh checkout (before any
+# `go install` has populated GOBIN).
+export GOPATH="${XDG_DATA_HOME:-$HOME/.local/share}/go"
+export GOBIN="${GOPATH}/bin"
+[[ ! -d "$GOPATH" ]] && mkdir -p "$GOPATH"
+[[ ! -d "$GOBIN" ]]  && mkdir -p "$GOBIN"
+
+# Force-front every user-controlled and Homebrew path.
 # path_force_front unconditionally moves an entry to the front of PATH even if
 # path_helper or a parent process already injected it at the wrong position.
 #
@@ -29,14 +52,36 @@ manual_pathmunge "${BREW_PREFIX}/opt/make/libexec/gnuman"
 # The LAST call wins position 1 in the final PATH.
 #
 # Desired final order (left = highest priority / position 1):
-#   coreutils → make → m4 → file-formula → unzip → flex → bison → libressl
+#   mise/shims
+#   → ~/.local/bin → ~/.local/sbin
+#   → ~/.local/share/go/bin (GOBIN)
+#   → ~/.local/share/zim/modules/git-fuzzy/bin
+#   → coreutils → make → m4 → file-formula → unzip → flex → bison → libressl
 #   → ed → findutils → gcc → gawk → gnu-indent → gnu-sed → gnu-tar → gnu-which
-#   → grep → [ncurses arm64] → /opt/homebrew/bin → /opt/homebrew/sbin → (system)
+#   → grep → [ncurses arm64] → /opt/homebrew/bin → /opt/homebrew/sbin
+#   → (system: /usr/local/bin, /usr/bin, /bin, …)
 #
-# ~/.local/bin and ~/.local/sbin are handled below with pathmunge after
-# and must always appear after all of the above.
+# Rationale for ordering:
+#   - mise wins position 1 so Homebrew formula installs that shell out to
+#     ruby/go/python/node during build resolve to the mise-managed versions.
+#   - The user-controlled ~/.local prefix (incl. GOBIN and the zim modules
+#     dir) sits ahead of Homebrew so user-installed tools always beat
+#     Homebrew formulas with the same name.
+#   - All of Homebrew (GNU overrides + bin/sbin) sits behind ~/.local but
+#     ahead of system /usr/bin so GNU sed/grep/tar/make still win over the
+#     BSD versions Apple ships.
+#   - mise activate (run later by joke/zim-mise in zshrc) prepends each
+#     active install's bin dir; those land at the head of PATH grouped with
+#     the shims already there.
 
-# Homebrew bin/sbin first (lowest priority among forced entries — called first)
+{{ if eq .chezmoi.os "darwin" -}}
+# --- Homebrew block (darwin only). Force-fronted first so it ends up
+# --- behind everything force-fronted afterwards (i.e. behind ~/.local
+# --- and mise) but ahead of the system paths path_helper left at the
+# --- front of PATH. Within this block, coreutils is called last so it
+# --- lands at the top of the Homebrew slice.
+
+# Homebrew bin/sbin (lowest priority within Homebrew — called first)
 path_force_front "${BREW_PREFIX}/sbin"
 path_force_front "${BREW_PREFIX}/bin"
 
@@ -93,10 +138,44 @@ path_force_front "${BREW_PREFIX}/bin"
 # GNU make
 [[ -d "${BREW_PREFIX}/opt/make/libexec/gnubin" ]]       && path_force_front "${BREW_PREFIX}/opt/make/libexec/gnubin"
 
-# GNU coreutils — highest priority, called last so it lands at position 1
+# GNU coreutils — highest priority within the Homebrew slice, called last
+# so it lands at the top of that slice.
 [[ -d "${BREW_PREFIX}/opt/coreutils/libexec/gnubin" ]]  && path_force_front "${BREW_PREFIX}/opt/coreutils/libexec/gnubin"
 
 {{ end -}}
+
+# --- User-controlled ~/.local prefix. Force-fronted after Homebrew so the
+# --- whole prefix sits ahead of the Homebrew slice in the final order.
+# --- Within this block, ordering ascends from least to most important so
+# --- the last call (mise shims) lands at position 1.
+
+# Zim module bins — currently only bigH/git-fuzzy exposes one. Add new
+# entries here if/when other Zim modules ship a bin/ directory.
+# ZIM_HOME is set in zshenv.
+[[ -d "${ZIM_HOME}/modules/git-fuzzy/bin" ]] && path_force_front "${ZIM_HOME}/modules/git-fuzzy/bin"
+
+# GOBIN — `go install` output. Behind GOBIN-less ~/.local/bin so manually
+# managed scripts in ~/.local/bin can shadow a go-installed tool of the
+# same name if ever needed.
+[[ -d "${GOBIN}" ]] && path_force_front "${GOBIN}"
+
+# ~/.local/sbin then ~/.local/bin (bin called last → bin sits ahead of sbin).
+path_force_front "${LOCAL_SBIN}"
+path_force_front "${LOCAL_BIN}"
+
+# mise shims — force-fronted LAST so they land at position 1 in PATH.
+# Done outside the darwin guard so Linux shells also get position-1
+# placement. Re-asserts the prepend from zshenv because macOS path_helper
+# (invoked between zshenv and zprofile by /etc/zprofile) shoves /usr/bin
+# ahead of mise's shims. MISE_DATA_DIR is set in zshenv; this is just a
+# position fix, not a re-export.
+#
+# mise activate (run later by joke/zim-mise in zshrc) additionally prepends
+# every active install's bin directory; those land at the head grouped
+# with the shims this line anchors here.
+if [[ -d "${MISE_DATA_DIR}/shims" ]]; then
+  path_force_front "${MISE_DATA_DIR}/shims"
+fi
 
 if [[ -z "${CHEZMOI_CONFIG_DIR}" ]]; then
   if command_exists chezmoi; then
@@ -107,19 +186,6 @@ fi
 
 # GPG TTY for signing (required when gpg installed via brew)
 [[ -z "${GPG_TTY}" ]] && export GPG_TTY=$(command tty 2>/dev/null)
-
-# Local bin directories - create silently if missing
-_local_bin="${HOME}/.local/bin"
-[[ ! -d "${_local_bin}" ]] && mkdir -p "${_local_bin}"
-export LOCAL_BIN="${_local_bin}"
-
-_local_sbin="${HOME}/.local/sbin"
-[[ ! -d "${_local_sbin}" ]] && mkdir -p "${_local_sbin}"
-export LOCAL_SBIN="${_local_sbin}"
-
-# Local bins go after system and Homebrew paths
-pathmunge "${LOCAL_BIN}" after
-pathmunge "${LOCAL_SBIN}" after
 
 
 {{- if (hasKey . "envvars") }}
