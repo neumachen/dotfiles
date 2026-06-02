@@ -71,30 +71,16 @@
   directory = *
 
 # ── Identity layer ──────────────────────────────────────────────────────────
-# Mounted from the host at runtime. See compose.template.yaml for the bind.
-# Expected to provide at minimum: [user] name/email, optionally [user] signingkey,
-# [gpg] format = ssh, [commit] gpgsign, [tag] gpgsign.
+# The entrypoint copies the read-only host mount at /etc/xdg/git/identity
+# into /run/shiki/git-identity and strips host-only `[gpg "ssh"]` keys
+# (e.g. macOS-only op-ssh-sign program, host's allowed_signers path) so
+# git inside the container falls back to its compiled-in default
+# (ssh-keygen), which speaks to SSH_AUTH_SOCK -> the mounted 1Password
+# agent socket.
+#
+# We deliberately do NOT add a container-side `[gpg "ssh"]` override
+# block here: an empty `program =` makes git try to exec "" and fail.
+# Removing the key entirely (in the sanitized copy) is the only safe
+# way to get git's default behavior.
 [include]
-  path = /etc/xdg/git/identity
-
-# ── Container-side signing overrides ────────────────────────────────────────
-# Re-asserted AFTER the include so they neutralize host-only values like
-# 1Password's op-ssh-sign (a macOS-only binary) and the host's
-# allowed_signers path. Git applies the last-seen value for a key, so
-# values here win over the included identity.
-#
-# IMPORTANT: do NOT leave `program` empty. An empty value makes git try to
-# `exec ""` which fails with "cannot run : No such file or directory".
-# Setting it to `ssh-keygen` explicitly is what git's documented default
-# would resolve to, and the binary is installed via openssh-client in the
-# Dockerfile. Signing then forwards through SSH_AUTH_SOCK -> the mounted
-# 1Password agent socket on the host.
-#
-# `allowedSignersFile` is only consulted by signature *verification*
-# (e.g. `git log --show-signature`); signing does not read it. We leave
-# it blank to neutralize the host's `~/.config/git/allowed_signers` path
-# (which does not exist inside the container) and leave verification to
-# the host.
-[gpg "ssh"]
-  program = ssh-keygen
-  allowedSignersFile =
+  path = /run/shiki/git-identity

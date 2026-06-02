@@ -5,8 +5,9 @@
 # Checks:
 #   1. `git` is installed and on PATH
 #   2. /etc/xdg/git/config resolves a non-empty user.name and user.email
-#      (these come from the mounted identity file at /etc/xdg/git/identity —
-#      see compose.template.yaml `SHIKI_GIT_IDENTITY`)
+#      (these come from the sanitized identity at /run/shiki/git-identity,
+#      derived from the read-only mount at /etc/xdg/git/identity — see
+#      compose.template.yaml `SHIKI_GIT_IDENTITY`)
 #   3. If the resolved git config declares a user.signingkey:
 #      a. SSH_AUTH_SOCK is set and points to a live agent socket
 #      b. (best-effort) report how many identities the agent holds
@@ -17,6 +18,10 @@
 #     generates git config from env vars.
 #   - All bind mounts (project dir, AiderDesk config, SSH agent socket,
 #     /etc/xdg/git/identity) are the caller's responsibility.
+#   - Before any git config query runs, the mounted identity is sanitized
+#     into a writable copy so host-only `[gpg "ssh"]` keys (e.g. macOS
+#     op-ssh-sign program path, host allowed_signers path) cannot break
+#     in-container signing. See sanitize_git_identity() below.
 # ============================================================================
 set -euo pipefail
 
@@ -36,6 +41,73 @@ if [ "${errors}" -gt 0 ]; then
   echo "Startup aborted — ${errors} preflight check(s) failed." >&2
   exit 1
 fi
+
+# ── Sanitize the mounted git identity ──────────────────────────────────
+# The read-only bind at /etc/xdg/git/identity comes from the host's
+# chezmoi-rendered ~/.config/git/profile. On macOS hosts using 1Password
+# SSH signing it declares:
+#
+#   [gpg "ssh"]
+#     program = /Applications/1Password.app/Contents/MacOS/op-ssh-sign
+#     allowedSignersFile = ~/.config/git/allowed_signers
+#
+# Neither value is valid inside the container:
+#   - op-ssh-sign is a macOS binary, not installed in this image.
+#   - The allowed_signers path is host-relative and unused here
+#     (verification happens on the host).
+#
+# We copy the identity to a writable path and unset only the host-only
+# `[gpg "ssh"]` keys, leaving the rest of [user]/[gpg]/[commit]/[tag]
+# untouched. After this, git falls back to its compiled-in default
+# signer (ssh-keygen), which talks to SSH_AUTH_SOCK -> the mounted
+# 1Password agent socket.
+#
+# Strategy: remove the keys outright rather than overriding with empty
+# values. Git treats `program =` (empty) as "exec the empty string" and
+# fails with `error: cannot run : No such file or directory`. Removing
+# the key is the only way to get the documented default behavior.
+sanitize_git_identity() {
+  local src="/etc/xdg/git/identity"
+  local dst="/run/shiki/git-identity"
+
+  mkdir -p "$(dirname "${dst}")"
+
+  if [ ! -e "${src}" ]; then
+    # No identity mounted; write an empty file so the [include] in the
+    # baked config still resolves and the user.name/email check below
+    # emits a clear FATAL rather than an opaque "missing file" warning.
+    : >"${dst}"
+    return 0
+  fi
+
+  cp "${src}" "${dst}"
+  chmod u+w "${dst}"
+
+  # Remove host-only program path unless it's already `ssh-keygen` (in
+  # which case the value is valid both on the host and in-container).
+  local program
+  program="$(git config --file "${dst}" --get gpg.ssh.program || true)"
+  if [ -n "${program}" ] && [ "${program}" != "ssh-keygen" ]; then
+    echo "→ identity sanitize: drop gpg.ssh.program=${program}"
+    # --unset-all tolerates duplicate keys; --unset would error if more
+    # than one is present.
+    git config --file "${dst}" --unset-all gpg.ssh.program || true
+    # `git config --unset` can leave an empty `[gpg "ssh"]` section
+    # behind, which is harmless but noisy. Best-effort cleanup.
+    git config --file "${dst}" --remove-section 'gpg "ssh"' 2>/dev/null || true
+  fi
+
+  # allowedSignersFile is only used by signature verification, which we
+  # don't do in-container. Drop it unconditionally so a host-relative
+  # path can never trip up future verify-style commands.
+  if git config --file "${dst}" --get gpg.ssh.allowedSignersFile >/dev/null 2>&1; then
+    echo "→ identity sanitize: drop gpg.ssh.allowedSignersFile"
+    git config --file "${dst}" --unset-all gpg.ssh.allowedSignersFile || true
+    git config --file "${dst}" --remove-section 'gpg "ssh"' 2>/dev/null || true
+  fi
+}
+
+sanitize_git_identity
 
 # ── Resolve identity from the layered XDG git config ───────────────────
 # /etc/xdg/git/config (baked) ends with `[include] path = /etc/xdg/git/identity`,
