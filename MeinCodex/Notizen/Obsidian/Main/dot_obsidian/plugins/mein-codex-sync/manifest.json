@@ -1,0 +1,10 @@
+{
+  "id": "mein-codex-sync",
+  "name": "MeinCodex Sync",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Keeps system frontmatter (path, filename) aligned with file location and renames Kadai/Zakki notes when their title changes.",
+  "author": "neumachen",
+  "authorUrl": "https://github.com/neumachen/dotfiles",
+  "isDesktopOnly": false
+}
