@@ -167,6 +167,42 @@
         "source.organizeImports": true
       }
     },
+    // exact_lsp/elixirls.lua + conform.lua: elixir/eelixir/heex -> { 'mix' }
+    // Zed's elixir extension picks up elixir-ls from $PATH (provisioned via mise).
+    // The `!next-ls` / `!lexical` entries explicitly disable the alternatives so
+    // the extension does not race to start a different server.
+    "Elixir": {
+      "tab_size": 2,
+      "hard_tabs": false,
+      "format_on_save": "on",
+      "language_servers": ["elixir-ls", "!next-ls", "!lexical"],
+      "formatter": {
+        "external": {
+          "command": "mix",
+          "arguments": ["format", "-"]
+        }
+      }
+    },
+    "HEEX": {
+      "tab_size": 2,
+      "hard_tabs": false,
+      "format_on_save": "on",
+      "language_servers": ["elixir-ls", "!next-ls", "!lexical"],
+      "formatter": {
+        "external": {
+          "command": "mix",
+          "arguments": ["format", "-"]
+        }
+      }
+    },
+    // exact_lsp/erlang_ls.lua + conform.lua: erlang -> { 'erlfmt' }
+    // The erlang extension uses erlang_ls from $PATH (provisioned via mise).
+    "Erlang": {
+      "tab_size": 4,
+      "hard_tabs": false,
+      "format_on_save": "on",
+      "language_servers": ["erlang-ls"]
+    },
     // exact_lsp/lua_ls.lua + conform.lua: lua -> { 'stylua' }
     // Zed delegates to stylua via the external formatter command.
     "Lua": {
