@@ -83,7 +83,14 @@ zmodule environment
 zmodule exa
 zmodule fzf
 zmodule git
-zmodule homebrew
+# zmodule homebrew  — deliberately omitted.
+#   The upstream module does `typeset -gU path=(brew/bin brew/sbin ${path})`
+#   unconditionally, which shoves Homebrew to PATH position 1 every interactive
+#   shell, defeating the carefully ordered force-front cascade in
+#   dot_zprofile.tmpl (which places brew BEHIND mise/shims and ~/.local/*).
+#   Homebrew completions are handled explicitly in dot_zshrc (fpath line 42),
+#   BREW_PREFIX is set in dot_zprofile.tmpl, and the brew/cask aliases the
+#   module used to provide are inlined in dot_zshrc.
 zmodule input
 zmodule magic-enter
 zmodule termtitle
@@ -100,7 +107,9 @@ zmodule joke/zim-minikube
 zmodule joke/zim-skaffold
 zmodule shanwker1223/zim-alias-finder
 zmodule wfxr/forgit
-zmodule bigH/git-fuzzy --cmd 'path=({}/bin ${path})'
+# PATH for git-fuzzy/bin is managed in dot_zprofile.tmpl alongside the rest
+# of the ~/.local prefix; no --cmd path injection needed here.
+zmodule bigH/git-fuzzy
 
 # Prompt
 zmodule joke/zim-starship
