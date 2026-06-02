@@ -10,10 +10,6 @@ services:
         AIDER_DESK_EXTENSIONS_APPEND: ${AIDER_DESK_EXTENSIONS_APPEND:-}
         AIDER_DESK_EXTENSIONS_OVERRIDE: ${AIDER_DESK_EXTENSIONS_OVERRIDE:-}
     environment:
-      GIT_USER_NAME: ${GIT_USER_NAME}
-      GIT_USER_EMAIL: ${GIT_USER_EMAIL}
-      GIT_SIGNING_KEY: ${GIT_SIGNING_KEY:-}
-      GIT_SIGN_COMMITS: ${GIT_SIGN_COMMITS:-}
       AIDER_DESK_PROJECTS: ${AIDER_DESK_PROJECTS}
       AIDER_DESK_DATA_DIR: /app/state
       # Aider history files — store in session data dir instead of project dir
@@ -32,6 +28,19 @@ services:
       # mount makes the chezmoi-managed settings.json visible inside the
       # container. Read-only — settings.json is canonical on the host.
       - ${CLAUDE_HOST}/settings.json:/root/.claude/settings.json:ro
+      # Git identity layer. The container's baked /etc/xdg/git/config ends
+      # with `[include] path = /etc/xdg/git/identity`; this mount supplies
+      # that file. Default is the host's chezmoi-rendered profile (which
+      # holds [user] name/email/signingkey, [gpg] format=ssh, [commit]
+      # gpgsign=true). Override per session by exporting SHIKI_GIT_IDENTITY
+      # to any file with a compatible shape (e.g. a work identity, or an
+      # ad-hoc file). Read-only — identity belongs to the host.
+      #
+      # Container-side overrides in /etc/xdg/git/config neutralize host-only
+      # values like [gpg "ssh"] program (op-ssh-sign) and allowedSignersFile,
+      # so signing in the container flows through SSH_AUTH_SOCK -> the
+      # mounted 1Password agent socket.
+      - ${SHIKI_GIT_IDENTITY:-${HOME}/.config/git/profile}:/etc/xdg/git/identity:ro
       - ${SESSION_MISE_CONFIG}:/root/.config/mise
       - ${SESSION_MISE_DATA}:/root/.local/share/mise
       - ${SESSION_MISE_CACHE}:/root/.cache/mise
