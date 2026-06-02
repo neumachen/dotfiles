@@ -168,7 +168,7 @@ printf "<!-- macos-defaults-snapshot\n"
 printf "     host:      %s\n" "$HOSTNAME"
 printf "     timestamp: %s\n" "$TIMESTAMP"
 printf "     restore:   defaults import <domain> <file.plist>\n"
-printf "-->\n\n"
+printf '%s\n\n' "-->"
 
 EXPORTED=0
 SKIPPED=0
@@ -185,9 +185,9 @@ for domain in "${DOMAINS[@]}"; do
     # Pretty-print the XML so it's human-readable even when piped to a file.
     pretty=$(echo "$plist" | plutil -convert xml1 - -o - 2>/dev/null) || pretty="$plist"
 
-    printf "<!-- ============================================================\n"
+    printf '%s\n' "<!-- ============================================================"
     printf "     DOMAIN: %s\n" "$domain"
-    printf "     ============================================================ -->\n"
+    printf '%s\n' "     ============================================================ -->"
     printf "%s\n\n" "$pretty"
     (( EXPORTED++ )) || true
   else
