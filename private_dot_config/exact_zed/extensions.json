@@ -1,0 +1,24 @@
+// Zed extension auto-install manifest.
+//
+// Zed reads this file on launch and installs any listed extension that is not
+// yet present. Mirrors the Neovim theme + icon stack:
+//
+//   * catppuccin       -> provides Latte / Frappé / Macchiato / Mocha
+//                          (mirrors plugins/themes/catpuccin.lua flavour=mocha,
+//                           background={ light=latte, dark=mocha })
+//   * catppuccin-icons -> matching icon theme (mirrors nvim-web-devicons +
+//                          mini.icons stack used in which-key.lua)
+//   * tokyo-night      -> ssaunderss's pack; ships Tokyo Night, Tokyo Night
+//                          Storm, and Tokyo Night Light in a single extension
+//                          (mirrors plugins/themes/tokyonight.lua style='storm')
+//
+// All three Tokyo Night variants ship with the single `tokyo-night` slug; no
+// custom theme JSON is required to switch between them. Pick the active
+// variant in settings.json `theme.dark`.
+{
+  "auto_install_extensions": {
+    "catppuccin": true,
+    "catppuccin-icons": true,
+    "tokyo-night": true
+  }
+}
