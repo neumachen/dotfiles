@@ -2,7 +2,22 @@
 
 Write idiomatic, deterministic Go tests.
 
-Prefer the standard `testing` package unless the repository already uses another testing framework.
+Use the standard `testing` package as the test driver (`func TestXxx(t *testing.T)`, `t.Run`, `t.Helper`, `t.TempDir`, `t.Cleanup`, `t.Parallel`, etc.).
+
+## Assertions
+
+Use the `testify` assertion libraries for all comparisons and error checks:
+
+- `github.com/stretchr/testify/assert` for non-fatal checks (the test continues after a failure, so multiple assertions can report at once).
+- `github.com/stretchr/testify/require` for preconditions and fatal checks where continuing would be meaningless or unsafe (e.g. setup failed, returned value is `nil`, error must be absent before dereferencing).
+
+Guidelines:
+
+- Prefer `require.NoError(t, err)` immediately after any call that returns an error you don't expect — never dereference a value before that check.
+- Use `assert.Equal`, `assert.ElementsMatch`, `assert.ErrorIs`, `assert.ErrorContains`, etc. instead of hand-rolled `if got != want { t.Fatalf(...) }` comparisons.
+- Always pass `t` as the first argument. Do not use the deprecated package-level forms (`assert.Equal(...)` without `t`).
+- Provide a message argument when the failure cause would not be obvious from the values alone.
+- If a repository already uses a different assertion library consistently, follow that style instead of mixing — but new repositories and new test files should use `testify`.
 
 ## General testing guidance
 
@@ -21,6 +36,13 @@ Use table-driven tests when testing multiple cases.
 Example:
 
 ```go
+import (
+    "testing"
+
+    "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
+)
+
 func TestParseUser(t *testing.T) {
     tests := []struct {
         name    string
@@ -39,17 +61,11 @@ func TestParseUser(t *testing.T) {
         t.Run(tt.name, func(t *testing.T) {
             got, err := ParseUser(tt.input)
             if tt.wantErr {
-                if err == nil {
-                    t.Fatal("expected error")
-                }
+                assert.Error(t, err)
                 return
             }
-            if err != nil {
-                t.Fatalf("unexpected error: %v", err)
-            }
-            if got != tt.want {
-                t.Fatalf("got %+v, want %+v", got, tt.want)
-            }
+            require.NoError(t, err)
+            assert.Equal(t, tt.want, got)
         })
     }
 }
@@ -61,7 +77,8 @@ func TestParseUser(t *testing.T) {
 - Use `t.TempDir()` for temporary files.
 - Use `httptest` for HTTP handlers and clients.
 - Use subtests with clear names.
-- Prefer explicit assertions using the style already present in the repo.
+- In helpers that perform setup, use `require` so a setup failure aborts the test immediately (e.g. `require.NoError(t, err)` after opening a fixture file).
+- In the body of a test, prefer `assert` so multiple failures surface in a single run; switch to `require` only when later assertions depend on the current one being true.
 
 ## Integration tests
 
