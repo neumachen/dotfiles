@@ -1,4 +1,14 @@
-# npm: — global npm packages installed against mise's managed node.
+# npm: — global packages from npmjs.org, installed via the npm backend.
+#
+# Installer driver: Bun (configured in ../private_config.toml under
+# [settings.npm].package_manager). The `npm:` prefix is the mise backend
+# identifier and does not change when the underlying package manager changes —
+# there is no separate `bun:` backend in mise.
+#
+# If a package below fails to install because it depends on a postinstall
+# lifecycle script (Bun denies these by default), switch that single entry to
+# the table form and add `bun_args = "--trust"`, e.g.:
+#   "npm:@mermaid-js/mermaid-cli" = { version = "latest", bun_args = "--trust" }
 [tools]
 "npm:@fsouza/prettierd"            = "latest"
 "npm:@mermaid-js/mermaid-cli"      = "latest"

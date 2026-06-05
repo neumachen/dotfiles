@@ -19,6 +19,20 @@ idiomatic_version_file_enable_tools = [
   "zig",
 ]
 
+[settings.npm]
+# Use Bun as the install driver for the npm backend (i.e. `npm:*` entries in
+# conf.d/50-npm.toml). The backend identity stays "npm" — mise still resolves
+# packages from npmjs.org — but installs go through `bun add --global` instead
+# of `npm install -g`. Bun must be installed (see conf.d/10-registry.toml).
+#
+# Notable behavior differences vs. npm:
+#   - Bun does NOT execute dependency lifecycle scripts by default. Packages
+#     that rely on postinstall (e.g. @mermaid-js/mermaid-cli downloading
+#     Chromium) may need `bun_args = "--trust"` on that specific entry.
+#   - `allow_builds` is ignored under Bun (Bun uses its own trustedDependencies
+#     model, not pnpm/aube-style per-package build approvals).
+package_manager = "bun"
+
 [tools]
 # Convention:
 #   - Language runtimes live here.
