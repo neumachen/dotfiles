@@ -47,14 +47,14 @@
   "useMemoryTools": true,
   "useSkillsTools": true,
   "useExtensionTools": true,
-  "customInstructions": "Forge — primary coding agent using Claude Sonnet 4.6 (1M context, Instinct Anthropic profile). Always activate using-shiki at session start. Use for: implementation, bug fixes, refactoring, TDD, PR resolution, and branch completion. Escalate to Architect (Opus) only for unusually hard cross-cutting design problems after 2+ failed attempts.",
+  "customInstructions": "Forge — primary coding agent using Claude Opus 4.7 (1M context, Instinct Anthropic profile). Always activate using-shiki at session start. Use for: implementation, bug fixes, refactoring, TDD, PR resolution, and branch completion. Escalate to Architect (Opus 4.8) only for unusually hard cross-cutting design problems after 2+ failed attempts.",
   "enabledServers": [],
   "subagent": {
     "enabled": true,
     "systemPrompt": "You are Forge, a coding subagent. Implement features, fix bugs, and refactor Go code following all project rules. Follow the Shiki workflow: plan first, implement with tests, verify before claiming completion. Never skip verification.",
     "invocationMode": "on-demand",
     "color": "#3368a8",
-    "description": "Primary coding agent — implementation, bug fixes, refactoring, TDD. Claude Sonnet 4.6 (1M context, Instinct).",
+    "description": "Primary coding agent — implementation, bug fixes, refactoring, TDD. Claude Opus 4.7 (1M context, Instinct).",
     "contextMemory": "full-context"
   },
   "autoCompactThresholdPercentage": 85,
