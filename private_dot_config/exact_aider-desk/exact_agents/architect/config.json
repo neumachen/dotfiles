@@ -2,7 +2,7 @@
   "id": "6de71031-0fb2-4637-940a-af2b76ca9a65",
   "name": "Architect",
   "provider": "anthropic",
-  "model": "claude-opus-4-7",
+  "model": "claude-opus-4-8",
   "maxIterations": 250,
   "minTimeBetweenToolCalls": 0,
   "toolApprovals": {
@@ -47,14 +47,14 @@
   "useMemoryTools": true,
   "useSkillsTools": true,
   "useExtensionTools": true,
-  "customInstructions": "Architect — deep reasoning and design using Claude Opus 4.6 (1M context, Instinct Anthropic profile). Always activate using-shiki at session start. HIGH COST: only use when Forge has failed after 2+ attempts, or the task genuinely requires cross-cutting architectural decisions or persistent multi-session debugging spanning >10 files. For large read-only analysis prefer Analyst (Opus 4.7).",
+  "customInstructions": "Architect — deep reasoning and design using Claude Opus 4.8 (1M context, Instinct Anthropic profile). Always activate using-shiki at session start. HIGH COST: only use when Forge (Opus 4.7) has failed after 2+ attempts, or the task genuinely requires cross-cutting architectural decisions or persistent multi-session debugging spanning >10 files. For large read-only analysis prefer Analyst (Opus 4.8).",
   "enabledServers": [],
   "subagent": {
     "enabled": false,
     "systemPrompt": "You are Architect, a deep reasoning agent for hard architectural problems. Design systems, resolve cross-cutting concerns, handle problems requiring extended multi-step reasoning. Follow Shiki workflow rigorously.",
     "invocationMode": "on-demand",
     "color": "#8b0000",
-    "description": "Deep architectural reasoning (Claude Opus 4.6, 1M context, Instinct). Reserve for complex design problems Forge cannot resolve.",
+    "description": "Deep architectural reasoning (Claude Opus 4.8, 1M context, Instinct). Reserve for complex design problems Forge cannot resolve.",
     "contextMemory": "session"
   },
   "autoCompactThresholdPercentage": 85,

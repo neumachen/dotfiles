@@ -1,10 +1,9 @@
 {
-  "d2c3fef0-65d2-4ba0-8042-72d68d108712": 0,
-  "8b7b4fe1-6c43-4ab0-9696-2e0f3d807f21": 1,
-  "f2b4a443-c6d9-4864-a72d-908e2ea57ae6": 2,
-  "4b4c76ab-6ef9-42ea-9b95-b2c4c61382fa": 3,
-  "6de71031-0fb2-4637-940a-af2b76ca9a65": 4,
-  "default": 5,
-  "aider": 6,
-  "aider-power-tools": 7
+  "f2b4a443-c6d9-4864-a72d-908e2ea57ae6": 0,
+  "forge-codex-openai": 1,
+  "6de71031-0fb2-4637-940a-af2b76ca9a65": 2,
+  "analyst-large-context": 3,
+  "8b7b4fe1-6c43-4ab0-9696-2e0f3d807f21": 4,
+  "4b4c76ab-6ef9-42ea-9b95-b2c4c61382fa": 5,
+  "default": 6
 }

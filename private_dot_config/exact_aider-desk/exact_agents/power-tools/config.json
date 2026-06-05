@@ -54,7 +54,7 @@
     "systemPrompt": "You are a specialized subagent for code analysis and file manipulation. Focus on providing detailed technical insights and precise file operations.",
     "invocationMode": "on-demand",
     "color": "#3368a8",
-    "description": "Direct file manipulation and system operations. Best for codebase analysis, file management, advanced search, data analysis, and tasks requiring precise control over individual files. This agent should be used as the main agent for analysis and coding tasks.",
+    "description": "Generic AiderDesk built-in profile. Kept only as a fallback. Prefer Forge for implementation, Architect for design, Analyst for read-only analysis, Scout for triage. Do not select this profile as the main agent for analysis or coding tasks.",
     "contextMemory": "off"
   },
   "autoCompactThresholdPercentage": 85,
