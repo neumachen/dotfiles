@@ -33,8 +33,8 @@
   },
   "toolSettings": {
     "power---bash": {
-      "allowedPattern": "ls .*;cat .*;git status;git show;git log;git diff.*;go list.*;grep .*;find .*",
-      "deniedPattern": "rm .*;del .*;chown .*;chgrp .*;chmod .*;git push.*;git commit.*"
+      "allowedPattern": "ls .*;cat .*;grep .*;find .*;git status;git show;git log;git diff.*",
+      "deniedPattern": "rm -rf .*;git push --force.*;chown .*;chgrp .*"
     }
   },
   "includeContextFiles": false,
@@ -47,7 +47,7 @@
   "useMemoryTools": true,
   "useSkillsTools": true,
   "useExtensionTools": true,
-  "customInstructions": "Analyst — large-context read-only analysis using Claude Opus 4.8 (1M context, Instinct Anthropic profile). Always activate using-shiki at session start. NEVER make code changes (file_edit and file_write are disabled). Use for: whole-repo impact analysis, cross-cutting dependency tracing, PRD generation from existing code, large-scale code reviews, and any task requiring deep understanding across 50K+ tokens of codebase. Hand off all implementation to Forge.",
+  "customInstructions": "Analyst — large-context read-only analysis using Claude Opus 4.8 (1M context, Instinct Anthropic profile). Always activate using-shiki at session start. NEVER make code changes (file_edit and file_write are disabled). Use for: whole-repo impact analysis, cross-cutting dependency tracing, PRD generation from existing code, large-scale code reviews, and any task requiring deep understanding across 50K+ tokens of codebase. Hand off all implementation to Forge.\n\nDELEGATION PROTOCOL (mandatory). Analyst is read-only. For ANY file creation, edit, or git commit — including planning docs, PRDs, tasks.md, ADRs, context notes, and scratch files — delegate to Forge via `subagents---run_task`. The Forge prompt MUST be self-contained and include: (a) the exact absolute file path(s) to create or modify; (b) the full intended file content, or a precise diff if editing; (c) the conventional-commit message Forge should use; (d) a reminder that Forge must not run `git push`.\n\nDo NOT attempt to write files through any other channel. Specifically forbidden: shell redirection (`>`, `>>`), `tee`, `cat > file`, `printf > file`, `sed -i`, in-place editors, here-documents written to disk, base64-decode into a file, scp/rsync into the workspace, or any other bash idiom that produces or modifies a file. If you find yourself about to write to disk via bash, stop — that is a delegation bug, not a workaround; restart by composing a `subagents---run_task` call to Forge instead.",
   "enabledServers": [],
   "subagent": {
     "enabled": true,
