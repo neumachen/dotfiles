@@ -75,11 +75,12 @@ Do not use when:
 - Orchestrator uses report for recovery decisions
 
 **Research scope:**
-- Scan for shiki artifacts
+- Scan for shiki artifacts (PRDs, tasks.md)
+- Scan `{SAVE_BASE}/handoff/` for the most recent handoff doc produced by `shiki-handoff`
 - Determine current mode from artifacts
 - Identify active project
 - Extract task progress
-- Return structured recovery data
+- Return structured recovery data, including the latest handoff doc path if any
 
 ## Mode: Recovery
 
@@ -105,13 +106,14 @@ Do not use when:
 
    **CRITICAL: Do not scan artifacts directly in orchestrator**
    - Use subagents---run_task with power-agent
-   - Research objective: "Scan shiki artifacts and determine current workflow state"
+   - Research objective: "Scan shiki artifacts (including `{SAVE_BASE}/handoff/`) and determine current workflow state"
    - Subagent returns structured report with:
      - Active project name
      - Current mode (Implementation/Planning/Verification/Complete)
      - Task progress (completed/total, percentage)
      - Next task or action
-     - Artifact locations
+     - Artifact locations (PRD, tasks.md)
+     - Latest handoff doc path and timestamp, if any (most recent file under `{SAVE_BASE}/handoff/`)
 
 3. **Process research results:**
 
@@ -216,12 +218,23 @@ After completing this skill, verify:
 - Ask user to confirm correct mode
 - Default to Implementation Mode if tasks exist with unchecked items
 
+**Situation:** Handoff doc present
+
+**Pattern:**
+- Subagent report includes the most recent handoff doc under `{SAVE_BASE}/handoff/`
+- Treat the handoff doc as the primary context source (it captures goal, in-progress stopping point, next actions, key files)
+- Use `tasks.md` and PRD only as supporting evidence and for TODO restoration via `todo---set_items`
+- Surface the handoff doc path in the recovery message so the user can confirm it is the right one
+- If multiple handoff docs exist, prefer the lexically-latest filename (timestamps are encoded in the name); on ambiguity, ask the user
+
 ## Integration
 
 Works with:
 
 - **using-shiki** - Meta-skill that defines recovery protocol
 - **shiki-mode-enforcer** - Automatic compact detection before mode declaration
+- **shiki-worktree-utils** - Resolves `SAVE_BASE` and provides the `find` commands that include `{SAVE_BASE}/handoff/`
+- **shiki-handoff** - Upstream producer; recovery scans `{SAVE_BASE}/handoff/` for the latest doc and uses it as primary resume context
 - **TODO tools** - Restore task tracking after recovery
 
 **Activation order:**
@@ -243,5 +256,7 @@ Works with:
 
 - **using-shiki** - Meta-skill establishing workflow rules and recovery protocol
 - **shiki-mode-enforcer** - Automatic compact detection and mode enforcement
+- **shiki-handoff** - Produces the handoff docs this skill consumes on resume
+- **shiki-worktree-utils** - Path resolution and artifact discovery (includes `handoff/`)
 - **shiki-implement** - Continue implementation after recovery
 - **shiki-verify** - Verify implementation after recovery
