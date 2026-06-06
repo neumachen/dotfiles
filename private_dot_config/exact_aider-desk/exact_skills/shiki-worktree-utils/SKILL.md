@@ -38,6 +38,20 @@ WORKTREE_PATH=""; PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || ec
 find "$WORKTREE_PATH/.aider-desk/shiki/outputs" "$PROJECT_ROOT/.aider-desk/shiki/outputs" "$PROJECT_ROOT/.aider-desk/task/*/worktree/.aider-desk/shiki/outputs" -type f \( -name "full-prd.md" -o -name "quick-prd.md" -o -name "tasks.md" \) 2>/dev/null | sort
 ```
 
+**Find handoff docs across all locations:**
+
+Handoff documents are written by `shiki-handoff` under `{SAVE_BASE}/handoff/` with the pattern `{YYYY-MM-DD-HHMM}-{slug}.md`. They are a peer of the PRD/tasks outputs and must be discoverable on resume.
+
+```bash
+find "$WORKTREE_PATH/.aider-desk/shiki/outputs/handoff" "$PROJECT_ROOT/.aider-desk/shiki/outputs/handoff" "$PROJECT_ROOT/.aider-desk/task/*/worktree/.aider-desk/shiki/outputs/handoff" -type f -name "*.md" 2>/dev/null | sort
+```
+
+To select the most recent handoff doc (filenames are timestamped, so lexical sort = chronological):
+
+```bash
+find "$WORKTREE_PATH/.aider-desk/shiki/outputs/handoff" "$PROJECT_ROOT/.aider-desk/shiki/outputs/handoff" "$PROJECT_ROOT/.aider-desk/task/*/worktree/.aider-desk/shiki/outputs/handoff" -type f -name "*.md" 2>/dev/null | sort | tail -n 1
+```
+
 **Determine save location:**
 ```bash
 if [ -n "$WORKTREE_PATH" ] && [ -d "$WORKTREE_PATH/.aider-desk" ]; then SAVE_BASE="$WORKTREE_PATH/.aider-desk/shiki/outputs"; else SAVE_BASE="$PROJECT_ROOT/.aider-desk/shiki/outputs"; fi
@@ -57,13 +71,14 @@ When any shiki skill needs to find or save PRDs/tasks:
 
 This utility should be referenced by:
 - shiki-refine - Finding existing PRDs
-- shiki-compact-recovery - Scanning for artifacts
+- shiki-compact-recovery - Scanning for artifacts (PRDs, tasks, and handoff docs)
 - shiki-prd - Saving PRDs
 - shiki-verify - Finding PRDs and tasks
 - shiki-plan - Finding PRDs
 - shiki-summarize - Saving outputs
 - shiki-implement - Finding tasks
 - shiki-archive - Listing PRDs
+- shiki-handoff - Saving and discovering handoff docs under `{SAVE_BASE}/handoff/`
 
 ## See Also
 
