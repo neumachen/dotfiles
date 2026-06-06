@@ -24,12 +24,168 @@ local function first(bufnr, ...)
   return select(1, ...)
 end
 
+---Manual "Format as…" presets. Each entry maps a human label to a fallback
+---chain of conform formatters; the first one available on $PATH wins.
+---Used by `<leader>cF` to format the whole buffer or a visual selection
+---regardless of the buffer's filetype (handy for scratch buffers, kulala
+---scratchpads, or a JSON blob embedded inside a Lua/Go/Python comment).
+---@type { label: string, formatters: string[], filetypes: string[] }[]
+local format_as = {
+  {
+    label = 'JSON',
+    formatters = { 'biome', 'prettierd', 'prettier', 'dprint', 'jq' },
+    filetypes = { 'json', 'jsonc', 'json5' },
+  },
+  {
+    label = 'YAML',
+    formatters = { 'prettierd', 'prettier', 'yamlfmt' },
+    filetypes = { 'yaml' },
+  },
+  { label = 'TOML', formatters = { 'taplo' }, filetypes = { 'toml' } },
+  {
+    label = 'JS/TS',
+    formatters = { 'biome', 'deno_fmt', 'prettierd', 'prettier', 'dprint' },
+    filetypes = {
+      'javascript',
+      'javascriptreact',
+      'typescript',
+      'typescriptreact',
+      'svelte',
+    },
+  },
+  {
+    label = 'HTML',
+    formatters = { 'prettierd', 'prettier' },
+    filetypes = { 'html' },
+  },
+  {
+    label = 'CSS',
+    formatters = { 'prettierd', 'prettier' },
+    filetypes = { 'css', 'scss' },
+  },
+  {
+    label = 'Markdown',
+    formatters = { 'prettierd', 'prettier', 'dprint' },
+    filetypes = { 'markdown', 'markdown.mdx' },
+  },
+  {
+    label = 'SQL',
+    formatters = { 'sql_formatter', 'sqlfluff' },
+    filetypes = { 'sql' },
+  },
+  { label = 'Lua', formatters = { 'stylua' }, filetypes = { 'lua' } },
+  {
+    label = 'Shell',
+    formatters = { 'shfmt' },
+    filetypes = { 'sh', 'bash', 'zsh' },
+  },
+  {
+    label = 'Python',
+    formatters = { 'ruff_format', 'black' },
+    filetypes = { 'python' },
+  },
+  {
+    label = 'Go',
+    formatters = { 'goimports', 'gofumpt' },
+    filetypes = { 'go' },
+  },
+  {
+    label = 'XML',
+    formatters = { 'xmlformatter', 'prettier' },
+    filetypes = { 'xml' },
+  },
+}
+
+---Returns a copy of `format_as` rotated so the entry matching `ft` is first.
+---@param ft string
+---@return { label: string, formatters: string[], filetypes: string[] }[]
+local function prioritize(ft)
+  local head, tail = {}, {}
+  for _, entry in ipairs(format_as) do
+    if ft ~= '' and vim.tbl_contains(entry.filetypes, ft) then
+      table.insert(head, entry)
+    else
+      table.insert(tail, entry)
+    end
+  end
+  return vim.list_extend(head, tail)
+end
+
+---Open a picker and run conform with the chosen formatter chain.
+---@param mode 'n'|'x'
+local function format_as_picker(mode)
+  local bufnr = vim.api.nvim_get_current_buf()
+  local ft = vim.bo[bufnr].filetype or ''
+  local ordered = prioritize(ft)
+
+  -- Capture visual range BEFORE ui.select, because opening the picker leaves
+  -- visual mode and the '<,'> marks may otherwise be stale by the callback.
+  local range
+  if mode == 'x' then
+    -- Leave visual mode so '<,'> marks are written, then read the range.
+    vim.api.nvim_feedkeys(
+      vim.api.nvim_replace_termcodes('<Esc>', true, false, true),
+      'nx',
+      false
+    )
+    local s = vim.fn.getpos("'<")
+    local e = vim.fn.getpos("'>")
+    range = { start = { s[2], s[3] - 1 }, ['end'] = { e[2], e[3] } }
+  end
+
+  vim.ui.select(ordered, {
+    prompt = 'Format as:',
+    format_item = function(item)
+      if ft ~= '' and vim.tbl_contains(item.filetypes, ft) then
+        return item.label .. '  (matches filetype: ' .. ft .. ')'
+      end
+      return item.label
+    end,
+  }, function(choice)
+    if not choice then return end
+    local opts = {
+      formatters = choice.formatters,
+      lsp_format = 'never',
+      stop_after_first = true,
+    }
+    if range then
+      -- Range formatting must be synchronous; positions would otherwise drift.
+      opts.range = range
+      opts.async = false
+      opts.timeout_ms = 3000
+    else
+      opts.async = true
+    end
+    require('conform').format(opts, function(err)
+      if err then
+        vim.notify(
+          'Format as ' .. choice.label .. ' failed: ' .. tostring(err),
+          vim.log.levels.ERROR,
+          { title = 'conform: format-as' }
+        )
+      end
+    end)
+  end)
+end
+
 return {
   'stevearc/conform.nvim',
   event = { 'BufWritePre' },
   cmd = { 'ConformInfo' },
   keys = {
     { '<leader>cn', '<cmd>ConformInfo<cr>', desc = 'Conform Info' },
+    {
+      '<leader>cF',
+      function() format_as_picker('n') end,
+      mode = 'n',
+      desc = 'Format as… (buffer)',
+    },
+    {
+      '<leader>cF',
+      function() format_as_picker('x') end,
+      mode = 'x',
+      desc = 'Format as… (selection)',
+    },
   },
   opts = {
     format_on_save = function(bufnr)
@@ -89,7 +245,13 @@ return {
       eelixir = { 'mix' },
       heex = { 'mix' },
       erlang = { 'erlfmt' },
-      json = { 'biome', 'dprint', 'prettierd', 'prettier', stop_after_first = true },
+      json = {
+        'biome',
+        'dprint',
+        'prettierd',
+        'prettier',
+        stop_after_first = true,
+      },
       markdown = { 'prettierd', 'prettier', 'dprint', stop_after_first = true },
       ['markdown.mdx'] = {
         'prettierd',
