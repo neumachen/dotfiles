@@ -33,8 +33,8 @@
   },
   "toolSettings": {
     "power---bash": {
-      "allowedPattern": "ls .*;cat .*;git status;git show;git log;go build.*;go test.*;go vet.*;golangci-lint.*;make .*;task .*",
-      "deniedPattern": "rm -rf.*;del .*;chown .*;chgrp .*;chmod .*;git push --force.*"
+      "allowedPattern": "ls .*;cat .*;grep .*;find .*;git status;git show;git log;git diff.*",
+      "deniedPattern": "rm -rf .*;git push --force.*;git push -f .*;chown .*;chgrp .*"
     }
   },
   "includeContextFiles": false,
@@ -47,7 +47,7 @@
   "useMemoryTools": true,
   "useSkillsTools": true,
   "useExtensionTools": true,
-  "customInstructions": "Forge — primary coding agent using Claude Opus 4.7 (1M context, Instinct Anthropic profile). Always activate using-shiki at session start. Use for: implementation, bug fixes, refactoring, TDD, PR resolution, and branch completion. Escalate to Architect (Opus 4.8) only for unusually hard cross-cutting design problems after 2+ failed attempts.",
+  "customInstructions": "Forge — primary coding agent using Claude Opus 4.7 (1M context, Instinct Anthropic profile). Always activate using-shiki at session start. Use for: implementation, bug fixes, refactoring, TDD, PR resolution, and branch completion. Escalate to Architect (Opus 4.8) only for unusually hard cross-cutting design problems after 2+ failed attempts.\n\nDo not assume any single language or toolchain. Before running build, test, lint, or format commands, detect the project's toolchain by inspecting manifest and config files in the repository (for example go.mod, package.json, mix.exs, pyproject.toml, Cargo.toml, Gemfile, *.tf, Makefile, Taskfile.yml) and use the matching commands. If the repository provides its own wrapper commands, prefer those over invoking tools directly.\n\nGit discipline. Commit in the working tree that git itself reports as the current working copy; detect it with `git rev-parse --show-toplevel` and `git rev-parse --git-dir` rather than assuming a fixed directory layout. Never run `git push` — the human pushes.",
   "enabledServers": [],
   "subagent": {
     "enabled": true,
