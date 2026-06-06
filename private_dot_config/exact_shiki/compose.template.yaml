@@ -19,6 +19,11 @@ services:
       SHIKI_NETWORK_MODE: ${SHIKI_NETWORK_MODE}
       SHIKI_HOST_LOCALHOST: ${SHIKI_HOST_LOCALHOST}
       SHIKI_HOST_GATEWAY: ${SHIKI_HOST_GATEWAY}
+      # 1Password SSH agent socket — forwarded from the host so git SSH
+      # signing and ssh/git operations use the host's 1Password agent.
+      # The socket is mounted read-only below; this env var tells ssh/git
+      # where to find it inside the container.
+      SSH_AUTH_SOCK: /run/1password/agent.sock
     volumes:
       - ${SESSION_DATA}:/app/state
       - ${SESSION_CLAUDE}:/root/.claude
@@ -52,6 +57,14 @@ services:
       - ${AIDER_DESK_GLOBAL}/rules:/root/.aider-desk/rules
       - ${AIDER_DESK_GLOBAL}/skills:/root/.aider-desk/skills
       - ${CODEX_AUTH_HOST_PATH}:${CODEX_AUTH_CONTAINER_PATH}
+      # 1Password SSH agent socket.
+      # macOS default: ~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock
+      # Linux default: ~/.1password/agent.sock
+      # Override by setting SHIKI_1PASSWORD_AGENT_SOCK in your environment.
+      - type: bind
+        source: ${SHIKI_1PASSWORD_AGENT_SOCK:-~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock}
+        target: /run/1password/agent.sock
+        read_only: true
     ports:
       - "${HOST_PORT}:24337"
     restart: "no"

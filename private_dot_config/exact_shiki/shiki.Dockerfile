@@ -89,6 +89,31 @@ RUN apt-get update \
         dnsutils \
         aggregate \
         nano \
+        # ── Erlang/OTP build deps (required by asdf/mise erlang plugin) ──
+        # build-essential/autoconf/m4: C toolchain + autotools
+        # libncurses5-dev: terminal support (erl REPL)
+        # libssl-dev: crypto/TLS (OTP ssl app)
+        # libwxgtk3.2-dev + libgl1-mesa-dev + libglu1-mesa-dev: wx GUI (observer)
+        # libpng-dev: wx dependency
+        # libssh-dev: OTP ssh app
+        # unixodbc-dev: OTP odbc app
+        # xsltproc + fop + libxml2-utils: OTP documentation build
+        # inotify-tools: Phoenix live-reload (fs watcher)
+        build-essential \
+        autoconf \
+        m4 \
+        libncurses5-dev \
+        libssl-dev \
+        libwxgtk3.2-dev \
+        libgl1-mesa-dev \
+        libglu1-mesa-dev \
+        libpng-dev \
+        libssh-dev \
+        unixodbc-dev \
+        xsltproc \
+        fop \
+        libxml2-utils \
+        inotify-tools \
     && rm -rf /var/lib/apt/lists/*
 
 # Claude SDK invokes `check-ignore` as a bare command (not `git check-ignore`),
