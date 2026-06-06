@@ -116,6 +116,42 @@ RUN apt-get update \
         inotify-tools \
         cmake \
         pkg-config \
+        # ── General build utilities ───────────────────────────────────────
+        # wget: fallback downloader used by many mise plugins and install scripts
+        # file: magic-byte detection used by build scripts and mise plugin checks
+        # patch: source patching during OTP/Erlang compilation
+        wget \
+        file \
+        patch \
+        # ── C/C++ runtime and dev libraries ──────────────────────────────
+        # libreadline-dev: erl REPL line editing; also needed by Ruby/Python builds
+        # zlib1g-dev: required by Erlang, Ruby, Python, and many C extensions
+        # libffi-dev: required by Python ctypes, Ruby FFI, and Elixir NIFs
+        # libyaml-dev: required by Ruby psych gem and some Elixir YAML libs
+        # libgmp-dev: required by Erlang crypto and some NIF builds
+        libreadline-dev \
+        zlib1g-dev \
+        libffi-dev \
+        libyaml-dev \
+        libgmp-dev \
+        # ── Locale and timezone ───────────────────────────────────────────
+        # locales: required to generate en_US.UTF-8; Elixir/mix fail without UTF-8
+        # tzdata: required by Elixir DateTime/Timex and Phoenix apps
+        locales \
+        tzdata \
+        # ── Database clients ──────────────────────────────────────────────
+        # postgresql-client: psql for mix ecto.create/migrate and DB inspection
+        postgresql-client \
+        # ── Interactive / debugging utilities ─────────────────────────────
+        # tree: directory structure inspection
+        # bash-completion: tab completion in interactive bash sessions
+        # lsof: debug port conflicts (Phoenix default 4000)
+        # strace: low-level debugging of NIF/port/syscall issues
+        tree \
+        bash-completion \
+        lsof \
+        strace \
+    && locale-gen en_US.UTF-8 \
     && rm -rf /var/lib/apt/lists/*
 
 # Claude SDK invokes `check-ignore` as a bare command (not `git check-ignore`),
@@ -135,7 +171,13 @@ RUN mkdir -p /etc/claude-code \
     && printf '%s\n' '{"sandbox":{"enabled":true}}' \
         >/etc/claude-code/managed-settings.json
 
-# ── 4) Install mise ───────────────────────────────────────────────────
+# ── 4) Locale ─────────────────────────────────────────────────────────
+#    Elixir, mix, and Phoenix require a UTF-8 locale. Without it, mix
+#    can emit encoding errors and some string operations misbehave.
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
+
+# ── 6) Install mise ───────────────────────────────────────────────────
 ENV MISE_INSTALL_PATH=/usr/local/bin/mise
 ENV MISE_CONFIG_DIR=/root/.config/mise
 ENV MISE_DATA_DIR=/root/.local/share/mise
@@ -152,7 +194,7 @@ RUN mkdir -p "${MISE_CONFIG_DIR}" "${MISE_DATA_DIR}" "${MISE_CACHE_DIR}" /etc/mi
 # entrypoint.sh into the per-session MISE_DATA_DIR bind mount.
 COPY shiki-mise.toml /etc/mise/config.toml
 
-# ── 5) Preinstall AiderDesk extensions into the image ─────────────────
+# ── 7) Preinstall AiderDesk extensions into the image ─────────────────
 #    Default extensions are baked into the image. At build time you can
 #    either append more via AIDER_DESK_EXTENSIONS_APPEND or fully replace
 #    the defaults via AIDER_DESK_EXTENSIONS_OVERRIDE.
@@ -167,7 +209,7 @@ RUN chmod +x /usr/local/bin/install-aiderdesk-extensions.sh \
         "${AIDER_DESK_EXTENSIONS_APPEND}" \
         "${AIDER_DESK_EXTENSIONS_OVERRIDE}"
 
-# ── 6) Upstream env / volumes / port / healthcheck ────────────────────
+# ── 8) Upstream env / volumes / port / healthcheck ────────────────────
 #    Re-declared for clarity; inherited from upstream.
 ENV NODE_ENV=production
 ENV AIDER_DESK_HEADLESS=true
@@ -185,7 +227,7 @@ EXPOSE ${AIDER_DESK_PORT}
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD node -e "require('http').get('http://localhost:${AIDER_DESK_PORT}/', (r) => {process.exit(r.statusCode === 200 || r.statusCode === 404 ? 0 : 1)}).on('error', () => process.exit(1))"
 
-# ── 7) Entrypoint ────────────────────────────────────────────────────
+# ── 9) Entrypoint ────────────────────────────────────────────────────
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 

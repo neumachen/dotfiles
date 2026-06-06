@@ -2,8 +2,17 @@
 pin = true
 
 [tools]
+# ── Core utilities (original baseline) ───────────────────────────────
+delta = "latest"
 fzf = "latest"
 github-cli = "latest"
 jq = "latest"
 vim = "latest"
-delta = "latest"
+# ── Extended dev tooling ──────────────────────────────────────────────
+bat = "latest"        # better cat; syntax highlighting (matches host Tokyo Night theme)
+eza = "latest"        # better ls; matches host dotfiles
+fd = "latest"         # fast find; used by fzf integrations and scripts
+lazygit = "latest"    # interactive git TUI
+shellcheck = "latest" # shell script linter (used by this image's own .sh files)
+shfmt = "latest"      # shell script formatter
+yq = "latest"         # YAML processor; complement to jq for compose/config work
