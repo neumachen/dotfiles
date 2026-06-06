@@ -114,6 +114,8 @@ RUN apt-get update \
         fop \
         libxml2-utils \
         inotify-tools \
+        cmake \
+        pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # Claude SDK invokes `check-ignore` as a bare command (not `git check-ignore`),
