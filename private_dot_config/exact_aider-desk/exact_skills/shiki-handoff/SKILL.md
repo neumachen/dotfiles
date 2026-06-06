@@ -269,7 +269,7 @@ This skill is successful when:
 Works with:
 
 - **shiki-worktree-utils** — resolves save paths and project root (required first step)
-- **shiki-compact-recovery** — the resume side; recovery should look in `{SAVE_BASE}/handoff/` in addition to `outputs/` (wire in a follow-up change)
+- **shiki-compact-recovery** — the resume side; recovery scans `{SAVE_BASE}/handoff/` (via shiki-worktree-utils) and uses the most recent handoff doc as primary resume context
 - **shiki-memory-storage** — section 9 lists candidates; actual storage happens on resume, not here
 - **shiki-dispatching-parallel-agents** — if available, use it to run jobs A–D in parallel during dispatched mode
 - **shiki-archive** — different lifecycle stage. Archive = work is done. Handoff = work is paused.
