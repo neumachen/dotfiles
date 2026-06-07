@@ -1,31 +1,54 @@
 ARG AIDER_DESK_IMAGE=aider-desk:local
 FROM ${AIDER_DESK_IMAGE}
 
-ARG AIDER_DESK_EXTENSIONS_DEFAULT="bmad,\
+ARG AIDER_DESK_EXTENSIONS_DEFAULT="auggie-sdk,\
+    bmad,\
+    checkpoints,\
+    chunkhound-on-semantic-search-tool,\
     chunkhound-search,\
+    claude-agent-sdk,\
+    codegraph,\
     context-autocompletion-words,\
+    cursor-sdk,\
+    external-rules,\
+    external-skills,\
     fff,\
     generate-tests,\
+    kanban,\
     lsp,\
     multi-model-run,\
     permission-gate,\
+    pirate,\
     plannotator,\
     programmatic-tool-calls,\
     protected-paths,\
     plan-mode,\
+    providers-quota-extension,\
     questions,\
     redact-secrets,\
     rtk,\
+    sandbox,\
+    searxng-search,\
     seek,\
     sound-notification,\
     theme,\
     tps-counter,\
     tree-sitter-repo-map,\
+    ui-placement-demo,\
     ultrathink,\
+    verifier,\
     wakatime,\
     https://github.com/neumachen/aiderdesk-codex-extension"
 ARG AIDER_DESK_EXTENSIONS_APPEND=""
 ARG AIDER_DESK_EXTENSIONS_OVERRIDE=""
+# Extensions baked into the image but disabled by default via AiderDesk's
+# config.json (settings.extensions.disabled). Seeded at container start by
+# entrypoint.sh. CSV of extension IDs. Defaults:
+#   pirate, ui-placement-demo  - example/demo extensions
+#   searxng-search             - auto-starts a Docker container (awkward
+#                                inside this container)
+# Override at build time, or set SHIKI_EXTENSIONS_DISABLED at runtime.
+ARG AIDER_DESK_EXTENSIONS_DISABLED="pirate,ui-placement-demo,searxng-search"
 
 # ── 1) XDG_CONFIG_HOME wiring ──────────────────────────────────────────
 #    The container ships a baked-in /etc/xdg/git/config holding only
@@ -221,6 +244,10 @@ VOLUME ["/app/data"]
 # The upstream VOLUME ["/app/data"] causes Docker to auto-create
 # anonymous volumes; using /app/state avoids that entirely.
 ENV AIDER_DESK_DATA_DIR=/app/state
+
+# Expose the default disabled-extensions list to the entrypoint so it can
+# seed settings.extensions.disabled in config.json on container start.
+ENV SHIKI_EXTENSIONS_DISABLED=${AIDER_DESK_EXTENSIONS_DISABLED}
 
 EXPOSE ${AIDER_DESK_PORT}
 
