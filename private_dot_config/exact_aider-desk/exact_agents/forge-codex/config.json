@@ -34,7 +34,7 @@
   "toolSettings": {
     "power---bash": {
       "allowedPattern": "ls .*;cat .*;git status;git show;git log;go build.*;go test.*;go vet.*;golangci-lint.*;make .*;task .*",
-      "deniedPattern": "rm -rf.*;del .*;chown .*;chgrp .*;chmod .*;git push --force.*"
+      "deniedPattern": "rm\\s+(-{1,2}[a-zA-Z-]+\\s+)*/(\\s|$);rm\\s+(-{1,2}[a-zA-Z-]+\\s+)*/\\*;rm\\s+(-{1,2}[a-zA-Z-]+\\s+)*/(bin|boot|dev|etc|lib|lib64|proc|root|run|sbin|srv|sys|usr|var|home)(/\\*?)?(\\s|$);rm\\s+(-{1,2}[a-zA-Z-]+\\s+)*(~|\\$HOME)(/\\*)?(\\s|$);:\\(\\)\\s*\\{.*\\};chmod\\s+(-{1,2}[a-zA-Z-]+\\s+|[0-7]{3,4}\\s+)*/(\\s|$);chown\\s+(-{1,2}[a-zA-Z-]+\\s+|[^/\\s]+\\s+)*/(\\s|$);chgrp\\s+(-{1,2}[a-zA-Z-]+\\s+|[^/\\s]+\\s+)*/(\\s|$);del .*;git push --force.*"
     }
   },
   "includeContextFiles": false,
