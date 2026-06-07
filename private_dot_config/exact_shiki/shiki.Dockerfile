@@ -182,6 +182,45 @@ RUN apt-get update \
 RUN printf '#!/bin/sh\nexec git check-ignore "$@"\n' >/usr/local/bin/check-ignore \
     && chmod +x /usr/local/bin/check-ignore
 
+# ── 3a) Docker CLI + compose plugin (Docker-out-of-Docker client) ─────
+#    Installs only the Docker CLI and the compose plugin — NO dockerd.
+#    The container drives the *host* engine via a bind-mounted UNIX socket
+#    when the user opts in with `shiki --docker-host` (see
+#    compose.docker-sock.template.yaml). Without that flag the binaries
+#    are dormant and there is no socket to talk to, so this layer is a
+#    pure image-size cost (~30 MB) with zero runtime effect.
+#
+#    Choice of source: Docker's official apt repo (`docker-ce-cli` +
+#    `docker-compose-plugin`) is preferred over Debian's `docker.io`
+#    because:
+#      • `docker.io` pulls ~80 MB of dockerd binaries this image will
+#        never run (DooD, not DinD).
+#      • Debian's `docker-compose-plugin` lags upstream by months and
+#        has shipped a broken `docker compose` subcommand on slim bases.
+#      • `docker-ce-cli` puts the compose plugin at
+#        /usr/libexec/docker/cli-plugins/docker-compose, which `docker
+#        compose <subcmd>` (modern compose, the one we test) finds
+#        automatically.
+#
+#    Security: the CLI is harmless without a socket. The socket bind is
+#    opt-in, per-session, at the compose layer — never baked into the
+#    image. See compose.docker-sock.template.yaml for the full security
+#    note.
+RUN install -m 0755 -d /etc/apt/keyrings \
+    && curl -fsSL https://download.docker.com/linux/debian/gpg \
+        | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
+    && chmod a+r /etc/apt/keyrings/docker.gpg \
+    && . /etc/os-release \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian ${VERSION_CODENAME} stable" \
+        >/etc/apt/sources.list.d/docker.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        docker-ce-cli \
+        docker-compose-plugin \
+    && rm -rf /var/lib/apt/lists/* \
+    && docker --version \
+    && docker compose version
+
 # Enterprise-managed Claude Code settings. The compose template bind-mounts
 # the host's user-level ~/.claude/settings.json (permissions, model, env)
 # into the container, but the sandbox toggle MUST live here so it only
