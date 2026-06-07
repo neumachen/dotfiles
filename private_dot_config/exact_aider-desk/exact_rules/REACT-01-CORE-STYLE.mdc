@@ -1,0 +1,241 @@
+---
+description: React 18/19 — function components, hooks, keys, controlled inputs, suspense, server components
+globs:
+  - "**/*.tsx"
+  - "**/*.jsx"
+  - "**/components/**/*.{ts,tsx,js,jsx,mts,mjs,cjs,cts}"
+  - "**/app/**/*.{tsx,jsx}"
+  - "**/pages/**/*.{tsx,jsx}"
+  - "**/src/**/*.{tsx,jsx}"
+  - "**/.storybook/**/*.{ts,tsx,js,jsx}"
+alwaysApply: false
+---
+
+# React Rule: Core Style
+
+When writing or modifying React, follow React 18+/19 conventions. For TypeScript-specific style, also load the `TYPESCRIPT-01-CORE-STYLE` rule.
+
+## Match the project
+
+- Function components only. No class components in new code.
+- Match the project's framework: Next.js (App Router or Pages Router), Remix, Vite + React Router, etc. The conventions differ enough that you must not mix them.
+- Match the project's state management: built-in (hooks + context), Zustand, Redux Toolkit, Jotai, TanStack Query. Do not introduce a second store.
+
+## Component shape
+
+```tsx
+import { useState, useEffect } from 'react';
+
+type Props = {
+  userId: string;
+  onSelect?: (user: User) => void;
+};
+
+export function UserCard({ userId, onSelect }: Props) {
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchUser(userId).then((u) => {
+      if (active) setUser(u);
+    });
+    return () => { active = false };
+  }, [userId]);
+
+  if (!user) return <Skeleton />;
+
+  return (
+    <button type="button" onClick={() => onSelect?.(user)}>
+      {user.name}
+    </button>
+  );
+}
+```
+
+- Co-locate `type Props` directly above the component.
+- Export the component as a named export. Default exports are fine for route files but lose intention everywhere else.
+- One component per file unless co-located helpers are tightly bound. Stories and tests are siblings: `UserCard.tsx`, `UserCard.test.tsx`, `UserCard.stories.tsx`.
+
+## Avoid
+
+- `React.FC<Props>` — adds an implicit `children`, obscures the generic, and creates inconsistency with components that don't use it.
+- Inline functions in JSX **when memo identity matters** (e.g., the prop is passed to a memoized child). Otherwise inline is fine — the supposed perf cost is dwarfed by other concerns.
+- Premature `useMemo`/`useCallback`. Add them when profiling shows a real cost or when identity is required for a `useEffect` dependency.
+
+## Hooks
+
+### Rules-of-hooks
+
+- Always call hooks at the top level of a function component or a custom hook.
+- Never inside conditions, loops, or after early returns.
+- Custom hooks start with `use`: `useUser(id)`, `useDebouncedValue(v, ms)`.
+
+### `useState`
+
+- One `useState` per logically independent piece of state. Combining unrelated values into one object causes unrelated re-renders.
+- For tightly coupled state with transitions, use `useReducer`:
+  ```tsx
+  type State = { kind: 'idle' } | { kind: 'loading' } | { kind: 'ready'; user: User };
+  type Action = { type: 'fetch' } | { type: 'success'; user: User };
+  ```
+- Lazy initial state for expensive computation: `useState(() => expensiveDefault())`.
+
+### `useEffect`
+
+- The dependency array is the **complete** list of values the effect reads from the render scope. Lint with `react-hooks/exhaustive-deps`.
+- Effects synchronise. They do not "react to user input." For user input, call functions in event handlers.
+- Cleanup is mandatory when the effect subscribes to anything: timers, sockets, observers, async fetches:
+  ```tsx
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(url, { signal: controller.signal }).then(...);
+    return () => controller.abort();
+  }, [url]);
+  ```
+- Race-safe async patterns: track an `active` flag in closure, or use `AbortController`.
+
+### `useMemo` / `useCallback`
+
+- Use only when:
+  1. Profiling shows the recomputation/recreation is expensive, or
+  2. The reference identity is part of a contract (memoized child, `useEffect` dep).
+- Neither is "free." They cost memory and add cognitive load.
+
+### `useRef`
+
+- For DOM nodes: `const ref = useRef<HTMLDivElement>(null)`.
+- For mutable values that don't trigger re-render. Never use `useRef` to hide state from React.
+- Reading `.current` during render is allowed but rare; usually it's read in effects or handlers.
+
+### Custom hooks
+
+- Encapsulate **stateful logic**, not just code organization. A custom hook that calls only `useMemo` once isn't earning its name.
+- Return an object when the hook produces multiple values: `const { user, loading, error } = useUser(id)`. Tuples are fine for state-setter pairs.
+
+## Keys
+
+- Stable, unique keys on lists. The array index is a key of **last resort** — it's wrong as soon as items reorder, get inserted in the middle, or get removed.
+- The right key is whatever uniquely identifies the data (`user.id`, `post.slug`, a UUID generated at item-creation time).
+- A key change forces unmount-remount. Use this to reset a component's state when an upstream identity changes: `<Form key={userId}>`.
+
+## Controlled vs uncontrolled
+
+- Controlled inputs are the default: `<input value={state} onChange={...} />`.
+- Uncontrolled (with `defaultValue` + `ref`) for one-off forms where you read the value once on submit and don't need live validation.
+- Don't mix controlled and uncontrolled on the same element — React warns about it, and the warning is real.
+
+## Forms
+
+- For non-trivial forms, use a library (React Hook Form, TanStack Form, Conform). Hand-rolling form state for 10+ fields is a known pit.
+- Validate with Zod (or whatever the project uses) and pipe the schema into both client-side validation and the request shape.
+
+## Data fetching
+
+- Server Components (App Router) — fetch directly in the component. Don't use TanStack Query in a Server Component.
+- Client Components — TanStack Query, SWR, or RSC + suspense. Do **not** roll your own cache, retry, dedupe, and revalidate logic by hand.
+- Always handle three states: loading, error, data. A component that only renders for "data" is incomplete.
+
+## Suspense and streaming
+
+- Wrap async boundaries in `<Suspense fallback={...}>`.
+- Use `<ErrorBoundary>` (from `react-error-boundary` or the framework's wrapper) at the same level.
+- Suspense + Server Components: streaming is the default in Next.js App Router; avoid blocking the whole route.
+
+## Server Components (Next.js App Router, etc.)
+
+- Default to Server Components. Add `'use client'` only when the component needs state, effects, or browser APIs.
+- Pass serialized data from Server → Client; pass server-only objects (DB clients, env vars) never.
+- Server Components can't use hooks. Client Components can't use `async` directly.
+
+## Context
+
+- Context is for **passing data through the tree**, not for state management. Three signs of misuse:
+  1. The context value is recomputed on every render → causes all consumers to re-render.
+  2. You have ten different contexts at the same level → flatten into one, or use a store.
+  3. You're updating context from many places → use a store.
+- Always provide a `useXxx()` hook that wraps `useContext(XxxContext)` and throws if used outside the provider:
+  ```tsx
+  const Ctx = createContext<Value | null>(null);
+  export function useValue() {
+    const v = useContext(Ctx);
+    if (!v) throw new Error('useValue must be inside <Provider>');
+    return v;
+  }
+  ```
+
+## Accessibility
+
+- Every interactive element is reachable by keyboard. `tabIndex={0}` on non-button elements that need to be focusable; `tabIndex={-1}` only on programmatically-focused elements.
+- Use semantic HTML: `<button>`, `<a>`, `<nav>`, `<main>`, `<article>` over `<div onClick>`.
+- `aria-*` attributes only when semantic HTML doesn't already convey the meaning.
+- Visible focus indicators are non-negotiable. If the design hides them, the design is wrong.
+
+## Performance
+
+- Profile before optimizing. The React DevTools Profiler is the source of truth.
+- `React.memo` is for genuinely expensive components whose props rarely change. Used carelessly, it slows things down.
+- Code-split with `lazy()` + `<Suspense>` at the route or feature boundary. Don't split individual components unless they're truly large.
+- For long lists, virtualize: `@tanstack/react-virtual` or `react-window`.
+
+## Testing
+
+- React Testing Library + Vitest (or Jest). Test what the user sees and does, not internal state.
+- Query by accessible role and name: `screen.getByRole('button', { name: /save/i })`. Avoid `getByTestId` except for last-resort hooks.
+- Don't test implementation details (state values, props passed to internal children).
+- `userEvent` over `fireEvent` — closer to real user interactions.
+
+## Examples
+
+### Good
+
+```tsx
+import { useState, useTransition } from 'react';
+
+type Props = { onSearch: (query: string) => Promise<void> };
+
+export function SearchBox({ onSearch }: Props) {
+  const [query, setQuery] = useState('');
+  const [isPending, startTransition] = useTransition();
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    startTransition(() => {
+      onSearch(query);
+    });
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <label>
+        <span>Search</span>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-busy={isPending}
+        />
+      </label>
+      <button type="submit" disabled={isPending}>
+        {isPending ? 'Searching…' : 'Search'}
+      </button>
+    </form>
+  );
+}
+```
+
+### Bad
+
+```tsx
+// any prop type, array-index key, no cleanup, no focus indicator, role-on-div:
+export default function Bad(props: any) {
+  const [items, setItems] = useState([]);
+  useEffect(() => {
+    fetch('/api/items').then(r => r.json()).then(setItems);
+  }, []);
+
+  return (
+    <div onClick={() => props.onClick()} style={{ outline: 'none' }}>
+      {items.map((it, idx) => <div key={idx}>{it.name}</div>)}
+    </div>
+  );
+}
+```
