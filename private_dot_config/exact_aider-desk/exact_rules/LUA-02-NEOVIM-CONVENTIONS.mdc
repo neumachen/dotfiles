@@ -1,0 +1,83 @@
+---
+description: Neovim Lua conventions — runtime API, plugin authoring, autocommands, keymaps, LSP
+globs:
+  - "**/init.lua"
+  - "**/plugin/*.lua"
+  - "**/lua/**/*.lua"
+  - "**/after/**/*.lua"
+  - "**/ftplugin/*.lua"
+  - "**/lazy-lock.json"
+  - "**/.nvim.lua"
+  - "**/.nvimrc"
+  - "**/.exrc"
+alwaysApply: false
+---
+
+# Lua Rule: Neovim Conventions
+
+When modifying Neovim configuration or plugin Lua code, follow these conventions in addition to the core Lua style rules.
+
+## Inspect first
+
+- Before adding a plugin, check whether a built-in (`vim.lsp`, `vim.diagnostic`, `vim.snippet`, `vim.lpeg`, `vim.iter`, `vim.fs`) already covers the capability.
+- Before changing keymaps, autocmds, LSP config, or runtime files, read the relevant existing module under `lua/` or `lsp/` — do not invent parallel structures.
+- Prefer extending the existing plugin manager (lazy.nvim LazySpec tables) over introducing a new manager.
+
+## Module layout
+
+- Reusable helpers live under `lua/utils/<name>.lua` and are required as `require('utils.<name>')`.
+- Plugin specs under `lua/plugins/*.lua` are lazy.nvim `LazySpec` tables that return a list of specs.
+- LSP server configurations are deployed `lsp/<server>.lua` files (Neovim 0.11+ `vim.lsp.enable`), each returning a flat table with a top-level `cmd = { ... }`.
+- Do not nest LSP config inside `lua/` — that's where module code lives, not runtime configuration files.
+
+## API usage
+
+- Prefer the modern `vim.*` API over Vimscript wrappers:
+  - `vim.keymap.set(mode, lhs, rhs, opts)` instead of `vim.api.nvim_set_keymap`.
+  - `vim.api.nvim_create_autocmd(event, opts)` with a named `group` instead of `:autocmd!`.
+  - `vim.fn.<name>(...)` only when no Lua-native equivalent exists.
+- Always provide `desc = "..."` on `vim.keymap.set` and `vim.api.nvim_create_autocmd`. Which-key uses these and so do future-you's `:Telescope keymaps`.
+- Group autocmds with `vim.api.nvim_create_augroup(name, { clear = true })`. Always clear; never leak handlers across `:source`.
+
+## LSP
+
+- Configure servers via `vim.lsp.enable(<server>)` on Neovim 0.11+. The per-server file in `lsp/` declares `cmd`, `filetypes`, `root_markers`, `settings`, `before_init`, `on_attach`.
+- Keep `on_attach` thin: register buffer-local keymaps + format-on-save toggles only. Push heavier logic into `utils/lsp.lua`.
+- Use `vim.diagnostic.config` and `vim.lsp.handlers` at the global level once; do not redefine per-server.
+
+## Performance
+
+- Wrap expensive plugin initialization in `lazy.nvim` `event`, `cmd`, `ft`, or `keys` triggers. Default-loaded plugins are a deliberate choice.
+- Defer `require` calls in startup paths; use `vim.schedule` or `vim.api.nvim_create_autocmd("VeryLazy", ...)` for non-critical setup.
+- Never call shell commands in startup. If you need a tool's version, gate the check behind an autocmd or `:CheckHealth`.
+
+## Health checks
+
+- New language toolchains, formatters, linters, or LSP servers should be reflected in `:checkhealth` via a `lua/<scope>/health.lua` module exporting `M.check()`.
+- Use `vim.health.start`, `vim.health.ok`, `vim.health.warn`, `vim.health.error`.
+
+## Examples
+
+### Good — keymap with description and grouped autocmd
+
+```lua
+vim.keymap.set("n", "<leader>w", "<cmd>write<cr>", { desc = "Write buffer" })
+
+local group = vim.api.nvim_create_augroup("UserFormatOnSave", { clear = true })
+vim.api.nvim_create_autocmd("BufWritePre", {
+  group = group,
+  pattern = { "*.go", "*.lua" },
+  callback = function() vim.lsp.buf.format({ async = false }) end,
+  desc = "Format Go and Lua buffers on save",
+})
+```
+
+### Bad — silent keymap, unnamed augroup
+
+```lua
+vim.api.nvim_set_keymap("n", "<leader>w", ":w<CR>", { noremap = true })
+
+vim.cmd([[
+  autocmd BufWritePre *.go,*.lua lua vim.lsp.buf.format()
+]])
+```

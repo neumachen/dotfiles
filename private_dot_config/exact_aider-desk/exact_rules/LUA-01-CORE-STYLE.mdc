@@ -1,0 +1,101 @@
+---
+description: Lua core style — clarity, naming, idiomatic stdlib usage
+globs:
+  - "**/*.lua"
+  - "**/.luarc.json"
+  - "**/stylua.toml"
+  - "**/.luacheckrc"
+alwaysApply: false
+---
+
+# Lua Rule: Core Style
+
+When modifying or generating Lua code, write idiomatic, simple, maintainable Lua.
+
+Follow these principles:
+
+- Prefer clarity over cleverness.
+- Use `local` for every variable you don't intend to expose. Global writes in a module are a bug unless the project declares otherwise.
+- Keep functions small and focused.
+- Use straightforward control flow; avoid metatable trickery where a plain function would do.
+- Follow the existing project style before introducing new patterns.
+- Keep changes minimal and directly related to the requested task.
+- Prefer the Lua standard library and the project's existing utility modules over new dependencies.
+
+## Naming
+
+- Snake_case for variables and functions: `local user_name`, `function read_file(...)`.
+- PascalCase for types/classes (when using `class`-style modules).
+- ALL_CAPS for module-level constants.
+- Boolean variables/functions named with a `is_`, `has_`, or `should_` prefix: `is_empty`, `has_lsp`, `should_format`.
+
+## Modules
+
+- One concept per module file. Return a single table at the end.
+- Group related helpers under a sub-table; do not export every internal function at the top level.
+- Use `local M = {}` … `return M` rather than assigning to globals.
+- `require` paths use dots, not slashes. Match the on-disk directory layout.
+
+## Control flow
+
+- Prefer early returns over deeply nested `if/then/end`.
+- Use `and`/`or` for simple defaults (`local x = arg or 10`); avoid clever short-circuit chains that change types.
+- `for k, v in pairs(t) do ... end` for unordered iteration; `for i, v in ipairs(t) do ... end` for arrays.
+- Avoid `next()`-based hand-rolled iteration when `pairs`/`ipairs` will do.
+
+## Strings
+
+- Prefer `string.format("...", a, b)` over chained concatenation when interpolating more than one value.
+- Use long brackets `[[ ... ]]` for multi-line literals; do not embed `\n` escape sequences when a literal newline reads better.
+
+## Tables
+
+- Prefer constructor-style initialization: `local opts = { mode = "n", silent = true }`.
+- Don't mix array and hash parts in the same table unless the project's API requires it.
+- For "set" semantics use `set[key] = true` and check `if set[key]`; do not loop.
+
+## Errors
+
+- Use `error("...")` for programmer mistakes (invariant violations, contract breaks).
+- Use `vim.notify(msg, vim.log.levels.WARN)` (Neovim) or return `nil, "reason"` (libraries) for expected, recoverable failures.
+- Wrap external/IO calls in `pcall` only when the caller can do something useful with the failure. Don't `pcall` to silence errors.
+
+## Examples
+
+### Good
+
+```lua
+local M = {}
+
+local function is_buffer_writable(bufnr)
+  return vim.bo[bufnr].modifiable and not vim.bo[bufnr].readonly
+end
+
+function M.write_if_safe(bufnr)
+  if not is_buffer_writable(bufnr) then
+    return false, "buffer is not writable"
+  end
+  vim.api.nvim_buf_call(bufnr, function() vim.cmd("write") end)
+  return true
+end
+
+return M
+```
+
+### Bad
+
+```lua
+-- global pollution, no early returns, conflated array/hash:
+function writeIfSafe(b)
+  if vim.bo[b].modifiable then
+    if not vim.bo[b].readonly then
+      vim.api.nvim_buf_call(b, function() vim.cmd("write") end)
+      return true
+    else
+      return false
+    end
+  else
+    return false
+  end
+end
+```
