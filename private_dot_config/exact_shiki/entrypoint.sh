@@ -11,6 +11,11 @@
 #   3. If the resolved git config declares a user.signingkey:
 #      a. SSH_AUTH_SOCK is set and points to a live agent socket
 #      b. (best-effort) report how many identities the agent holds
+#   4. If SHIKI_DOCKER_HOST=1 (set by `shiki --docker-host` in the
+#      launcher): the host Docker socket is mounted at
+#      /var/run/docker.sock, is a socket, and both `docker version`
+#      (client + server) and `docker compose version` succeed. Skipped
+#      entirely when the flag is not set.
 #
 # Notes:
 #   - Identity, signing key, and per-project profile routing live entirely
@@ -159,6 +164,50 @@ if [ -n "${git_signing_key}" ]; then
       echo "       ssh-add -l returned: ${agent_output}" >&2
       errors=$((errors + 1))
     fi
+  fi
+fi
+
+# ── Check: Docker host engine (only if SHIKI_DOCKER_HOST=1) ───────────
+# Gated on the explicit launcher flag so sessions that don't opt in pay
+# zero preflight cost and see no behavioral change. When the flag IS set:
+#   1. The compose overlay must have bound a host socket at
+#      /var/run/docker.sock (the in-container client default).
+#   2. `docker version` must talk to the host engine (verifies both the
+#      CLI install and the bind).
+#   3. `docker compose version` must succeed (footgun: the compose
+#      *plugin*, not the legacy `docker-compose` binary).
+# A one-line security reminder is printed so every DooD session start
+# surfaces the tradeoff. See compose.docker-sock.template.yaml and
+# private_dot_config/exact_aider-desk/exact_rules/DOCKER-01-HOST-ACCESS.md.
+if [ "${SHIKI_DOCKER_HOST:-0}" = "1" ]; then
+  docker_sock="/var/run/docker.sock"
+  if [ ! -e "${docker_sock}" ]; then
+    echo "FATAL: SHIKI_DOCKER_HOST=1 but ${docker_sock} does not exist." >&2
+    echo "       Check SHIKI_DOCKER_SOCK on the host (resolved path must" >&2
+    echo "       be a UNIX socket) and that the compose docker-sock" >&2
+    echo "       overlay was merged. Default host path is" >&2
+    echo "       /var/run/docker.sock (OrbStack/Docker Desktop symlink)." >&2
+    errors=$((errors + 1))
+  elif [ ! -S "${docker_sock}" ]; then
+    echo "FATAL: ${docker_sock} exists but is not a UNIX socket." >&2
+    errors=$((errors + 1))
+  elif ! command -v docker >/dev/null 2>&1; then
+    echo "FATAL: SHIKI_DOCKER_HOST=1 but 'docker' CLI is missing." >&2
+    echo "       Rebuild the image: shiki --rebuild" >&2
+    errors=$((errors + 1))
+  elif ! docker_version_output="$(docker version --format '{{.Server.Version}}' 2>&1)"; then
+    echo "FATAL: 'docker version' failed against ${docker_sock}." >&2
+    echo "       ${docker_version_output}" >&2
+    echo "       Is the host Docker engine running?" >&2
+    errors=$((errors + 1))
+  elif ! docker_compose_output="$(docker compose version --short 2>&1)"; then
+    echo "FATAL: 'docker compose version' failed." >&2
+    echo "       ${docker_compose_output}" >&2
+    echo "       The compose plugin should ship with the image." >&2
+    errors=$((errors + 1))
+  else
+    echo "✓ docker   ${docker_sock} (engine ${docker_version_output}, compose ${docker_compose_output})"
+    echo "  ↳ note   host engine access is enabled — agent commands can affect the host"
   fi
 fi
 
