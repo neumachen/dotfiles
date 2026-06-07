@@ -38,7 +38,8 @@ ARG AIDER_DESK_EXTENSIONS_DEFAULT="auggie-sdk,\
     ultrathink,\
     verifier,\
     wakatime,\
-    https://github.com/neumachen/aiderdesk-codex-extension"
+    https://github.com/neumachen/aiderdesk-codex-extension,\
+    https://github.com/neumachen/aiderdesk-conditional-rules"
 ARG AIDER_DESK_EXTENSIONS_APPEND=""
 ARG AIDER_DESK_EXTENSIONS_OVERRIDE=""
 # Extensions baked into the image but disabled by default via AiderDesk's
