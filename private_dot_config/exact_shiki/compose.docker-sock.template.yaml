@@ -1,0 +1,70 @@
+# ============================================================================
+# compose.docker-sock.template.yaml — Docker-out-of-Docker (DooD) overlay.
+#
+# Binds the host Docker UNIX socket into the container so the in-container
+# `docker` / `docker compose` CLI drives the *host* engine. No daemon runs
+# inside the container — this is DooD, not DinD.
+#
+# Activation:
+#   Applied by `dot_local/bin/executable_shiki` only when the session was
+#   launched with `--docker-host` (or `SHIKI_DOCKER_HOST=1`). Never merged
+#   into the base compose template, never baked into the image.
+#
+# ── SECURITY — read before enabling this overlay ─────────────────────────
+#   The Docker UNIX socket is an unauthenticated control plane. Any
+#   process that can read/write it is effectively root on the host:
+#
+#     docker run --rm --privileged -v /:/host alpine chroot /host sh
+#
+#   …reads/writes the host filesystem and escalates. With this overlay
+#   active, every command the AiderDesk agent (or any process in the
+#   container) can run has that blast radius. This is a deliberate
+#   tradeoff for a personal dev box; it must remain opt-in per session.
+#
+#   The image-level seccomp/apparmor=unconfined posture (set in
+#   compose.template.yaml for bwrap/Landlock) provides NO defense for the
+#   socket. Don't conflate them.
+#
+#   Future tightening — if you want to whitelist API endpoints (e.g.
+#   allow container create/start, deny `exec`, deny `--privileged`, deny
+#   bind mounts), front the socket with Tecnativa/docker-socket-proxy
+#   and bind that proxy's socket here instead. Not implemented; documented
+#   as the next ratchet.
+#
+# ── FOOTGUN — sibling `docker compose` and path symmetry ─────────────────
+#   The host daemon resolves bind sources literally on the host filesystem.
+#   If `~/code/proj/docker-compose.yml` declares `./data:/data` and you
+#   run `docker compose up` from inside the container at a path the host
+#   cannot reach, the daemon will fail with "bind source path does not
+#   exist."
+#
+#   The fix is to also enable `--docker-mount-home` (overlay:
+#   compose.docker-mount-home.template.yaml), which binds `$HOME:$HOME`
+#   so `cd ~/code/proj` inside the container resolves to the same string
+#   on the host. Without `--docker-mount-home`, sibling compose stacks
+#   only work with absolute, host-valid paths.
+#
+# ── DEFAULT SOCKET ──────────────────────────────────────────────────────
+#   /var/run/docker.sock is the canonical client default and works
+#   transparently on:
+#     • OrbStack (compatibility symlink → ~/.orbstack/run/docker.sock)
+#     • Docker Desktop (mac/Linux)
+#     • Native Linux dockerd
+#   Override per session with `SHIKI_DOCKER_SOCK=/path/to/docker.sock`.
+#   The launcher resolves `~` before exporting so a user-supplied
+#   ~/.orbstack/run/docker.sock works even though compose itself doesn't
+#   expand `~`.
+#
+# ── TODO (future hardening) ─────────────────────────────────────────────
+#   The container runs as root today (inherited from the upstream AiderDesk
+#   image), so socket perms are not an issue. If anyone ever drops the
+#   container to a non-root user, the socket will be inaccessible unless
+#   that user is in a `docker` group inside the container whose GID
+#   matches the socket owner's GID on the host.
+# ============================================================================
+services:
+  __SERVICE__:
+    volumes:
+      - type: bind
+        source: ${SHIKI_DOCKER_SOCK}
+        target: /var/run/docker.sock
