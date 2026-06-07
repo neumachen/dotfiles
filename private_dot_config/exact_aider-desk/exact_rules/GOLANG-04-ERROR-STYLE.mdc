@@ -1,3 +1,12 @@
+---
+description: Go error style — sentinel errors, %w wrapping, error types
+globs:
+  - "**/*.go"
+  - "**/go.mod"
+  - "**/go.sum"
+alwaysApply: false
+---
+
 # Go Rule: Error Style
 
 Use the repository's established error package and error style.

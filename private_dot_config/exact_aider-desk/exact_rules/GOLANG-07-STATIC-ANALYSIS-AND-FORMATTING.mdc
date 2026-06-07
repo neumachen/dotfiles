@@ -1,3 +1,12 @@
+---
+description: Go static analysis and formatting — gofmt, go vet, golangci-lint
+globs:
+  - "**/*.go"
+  - "**/go.mod"
+  - "**/go.sum"
+alwaysApply: false
+---
+
 # Go Rule: Static Analysis and Formatting
 
 Generated or modified Go code must be compatible with standard Go tooling and the repository's existing lint configuration.

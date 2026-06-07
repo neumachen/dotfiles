@@ -1,3 +1,12 @@
+---
+description: Go core style — clarity, naming, idiomatic stdlib usage
+globs:
+  - "**/*.go"
+  - "**/go.mod"
+  - "**/go.sum"
+alwaysApply: false
+---
+
 # Go Rule: Core Style
 
 When modifying or generating Go code, write idiomatic, simple, maintainable Go.
