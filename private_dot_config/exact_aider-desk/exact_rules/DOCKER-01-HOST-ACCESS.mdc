@@ -1,3 +1,17 @@
+---
+description: Docker host engine access — prohibited operations and required scoping when DooD is enabled
+globs:
+  - "**/Dockerfile"
+  - "**/Dockerfile.*"
+  - "**/*.Dockerfile"
+  - "**/docker-compose*.yml"
+  - "**/docker-compose*.yaml"
+  - "**/compose*.yml"
+  - "**/compose*.yaml"
+  - "**/.dockerignore"
+alwaysApply: false
+---
+
 # Docker Rule: Host Engine Access (Docker-out-of-Docker)
 
 When the shiki container is launched with `--docker-host`, the in-container

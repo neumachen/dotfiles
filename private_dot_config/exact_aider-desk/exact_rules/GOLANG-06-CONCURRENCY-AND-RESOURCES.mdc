@@ -1,3 +1,12 @@
+---
+description: Go concurrency and resource management — goroutines, channels, defer
+globs:
+  - "**/*.go"
+  - "**/go.mod"
+  - "**/go.sum"
+alwaysApply: false
+---
+
 # Go Rule: Concurrency and Resource Management
 
 Use goroutines, channels, locks, and resources carefully.
