@@ -177,7 +177,7 @@
                         ]
                     },
                     {
-                        "description": "Right Command + button7 double-press → Mission Control (ELECOM IST PRO only)",
+                        "description": "button7: hold → Mission Control; Right Command + double-press → Cmd+` (ELECOM IST PRO only)",
                         "manipulators": [
                             {
                                 "conditions": [
@@ -207,7 +207,10 @@
                                             "value": 0
                                         }
                                     },
-                                    { "apple_vendor_keyboard_key_code": "mission_control" }
+                                    {
+                                        "key_code": "grave_accent_and_tilde",
+                                        "modifiers": ["left_command"]
+                                    }
                                 ],
                                 "type": "basic"
                             },
@@ -254,6 +257,24 @@
                                         }
                                     ]
                                 },
+                                "to_if_alone": [{ "pointing_button": "button7" }],
+                                "type": "basic"
+                            },
+                            {
+                                "conditions": [
+                                    {
+                                        "identifiers": [
+                                            {
+                                                "product_id": 394,
+                                                "vendor_id": 1390
+                                            }
+                                        ],
+                                        "type": "device_if"
+                                    }
+                                ],
+                                "from": { "pointing_button": "button7" },
+                                "parameters": { "basic.to_if_held_down_threshold_milliseconds": 500 },
+                                "to_if_held_down": [{ "apple_vendor_keyboard_key_code": "mission_control" }],
                                 "to_if_alone": [{ "pointing_button": "button7" }],
                                 "type": "basic"
                             }
