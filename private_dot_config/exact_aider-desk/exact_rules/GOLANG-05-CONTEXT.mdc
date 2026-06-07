@@ -1,3 +1,12 @@
+---
+description: Go context.Context usage — propagation, cancellation, deadlines
+globs:
+  - "**/*.go"
+  - "**/go.mod"
+  - "**/go.sum"
+alwaysApply: false
+---
+
 # Go Rule: Context
 
 Use `context.Context` correctly.
