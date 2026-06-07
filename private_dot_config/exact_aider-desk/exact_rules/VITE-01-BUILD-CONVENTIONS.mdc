@@ -1,0 +1,239 @@
+---
+description: Vite build/dev conventions — env vars, plugins, aliases, optimizeDeps, SSR, library mode
+globs:
+  - "**/vite.config.{ts,js,mjs,cjs,mts,cts}"
+  - "**/vitest.config.{ts,js,mjs,cjs,mts,cts}"
+  - "**/.env"
+  - "**/.env.*"
+  - "**/index.html"
+  - "**/vite-env.d.ts"
+alwaysApply: false
+---
+
+# Vite Rule: Build Conventions
+
+When configuring or modifying a Vite project, follow these conventions. Vite's defaults are good — most configurations should be small.
+
+## Match the project
+
+- Match the project's Vite major version (5.x vs 6.x vs 7.x). Plugin APIs change between majors.
+- Match the framework plugin: `@vitejs/plugin-react`, `@vitejs/plugin-react-swc`, `@vitejs/plugin-vue`, `@sveltejs/kit`, etc. Don't introduce a second.
+- Match the project's test runner. Vitest is the default for Vite projects; if Jest is configured, treat it as legacy.
+
+## Config file
+
+Use the function form to access `mode` and `command`:
+
+```ts
+import { defineConfig, loadEnv } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'node:path';
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+
+  return {
+    plugins: [react()],
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, 'src'),
+      },
+    },
+    server: {
+      port: Number(env.VITE_PORT ?? 5173),
+      strictPort: true,
+    },
+    build: {
+      sourcemap: mode !== 'production',
+      target: 'es2022',
+    },
+  };
+});
+```
+
+- Always use `defineConfig` for IDE autocompletion.
+- Keep the config file under ~100 lines. Larger configs are a sign of accumulating misuse — split with `vite.config.dev.ts` / `vite.config.prod.ts` only when the deltas are genuinely large.
+
+## Environment variables
+
+- Only variables prefixed with `VITE_` are exposed to client code. This is a **security feature** — variables without the prefix stay server-only.
+- Access from client code via `import.meta.env.VITE_FOO` (not `process.env`).
+- Type them in `vite-env.d.ts`:
+  ```ts
+  /// <reference types="vite/client" />
+
+  interface ImportMetaEnv {
+    readonly VITE_API_URL: string;
+    readonly VITE_FEATURE_FLAGS: string;
+  }
+
+  interface ImportMeta {
+    readonly env: ImportMetaEnv;
+  }
+  ```
+- `.env` (committed defaults), `.env.local` (user overrides, gitignored), `.env.<mode>` (mode-specific). `.env.local` always overrides `.env.<mode>` overrides `.env`.
+- **Never commit secrets.** Even `VITE_*` prefixed values ship to the browser — they're effectively public.
+
+## Aliases
+
+- Define under `resolve.alias`. Match the alias in `tsconfig.json` `paths` so TS resolves them too:
+  ```json
+  { "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["src/*"] } } }
+  ```
+- Use `path.resolve(__dirname, 'src')` — relative paths break depending on where Vite is invoked.
+- Don't alias more than ~5 paths. Alias-soup hurts grep-ability.
+
+## Plugins
+
+- Add only plugins you need. Each plugin is a runtime cost and a moving part to maintain.
+- Plugin order matters. The framework plugin (React/Vue/Svelte) goes first; transform plugins (SVG, image optimization) go after.
+- Common useful plugins:
+  - `@vitejs/plugin-react` or `@vitejs/plugin-react-swc` — JSX transform.
+  - `vite-plugin-svgr` — import SVGs as React components.
+  - `vite-tsconfig-paths` — auto-mirror tsconfig `paths` into `resolve.alias`.
+  - `unplugin-icons` — icon libraries on-demand.
+  - `vite-plugin-pwa` — PWA setup.
+
+## Dev server
+
+- `server.port` for the local dev port. Use `server.strictPort: true` so Vite errors out instead of silently picking another port — port-roulette breaks tooling.
+- `server.proxy` for backend API proxying during dev:
+  ```ts
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  }
+  ```
+- HMR is on by default. If a file's changes don't hot-reload, the framework plugin is missing a `hot.accept` boundary — usually not your config's fault.
+
+## `optimizeDeps`
+
+- Vite pre-bundles `node_modules` on first dev-server start. Slow first start, fast subsequent navigation.
+- If a dep is mis-detected as ESM/CJS, force it:
+  ```ts
+  optimizeDeps: {
+    include: ['some-cjs-only-pkg'],
+    exclude: ['esm-only-pkg-that-vite-mis-bundles'],
+  }
+  ```
+- After changing `optimizeDeps`, delete `node_modules/.vite/` to force a re-bundle.
+
+## Build
+
+- `build.target` defaults to `'modules'` (modern browsers with native ESM). Override to `'es2020'`/`'es2022'`/`'esnext'` only when you know the target.
+- `build.sourcemap`:
+  - `true` (full sourcemaps) in development and staging.
+  - `'hidden'` in production if uploading to Sentry/Datadog and you don't want a sourcemap link in the bundle.
+  - `false` only if you genuinely never debug production.
+- `build.rollupOptions.output.manualChunks` for splitting vendor code — usually unnecessary; Vite's default is fine.
+- `build.assetsInlineLimit` controls the size threshold for inlining assets as data URIs (default 4 KB). Raise for icon-heavy apps; lower for asset-heavy ones.
+
+## SSR
+
+If the project uses SSR (Vite + Express, Vike, or framework SSR):
+
+- Mark server-only deps in `ssr.noExternal` (force bundling) or `ssr.external` (leave external).
+- Use `vite-plugin-ssr` / `vike` patterns for routing rather than hand-rolling.
+- Server entry (`entry-server.{ts,js}`) imports `render(...)`; client entry (`entry-client.{ts,js}`) imports `hydrate(...)`.
+
+## Library mode
+
+For publishing a library (not an app):
+
+```ts
+build: {
+  lib: {
+    entry: 'src/index.ts',
+    formats: ['es', 'cjs'],
+    fileName: (format) => `index.${format === 'es' ? 'mjs' : 'cjs'}`,
+  },
+  rollupOptions: {
+    external: ['react', 'react-dom'],
+    output: {
+      globals: { react: 'React', 'react-dom': 'ReactDOM' },
+    },
+  },
+},
+```
+
+- Mark every peer dep as `external`. Bundling React into a library is a famous footgun.
+- Emit both ESM (`.mjs`) and CJS (`.cjs`) for compatibility, or ESM-only if your users are modern.
+- Use `vite-plugin-dts` to emit type declarations alongside the build.
+
+## Testing (Vitest)
+
+- `vitest.config.ts` is separate from `vite.config.ts`. Extend it via `mergeConfig`:
+  ```ts
+  import { defineConfig, mergeConfig } from 'vitest/config';
+  import viteConfig from './vite.config';
+
+  export default mergeConfig(viteConfig, defineConfig({
+    test: {
+      environment: 'jsdom',
+      setupFiles: ['./src/test-setup.ts'],
+      globals: true,
+    },
+  }));
+  ```
+- Vitest reuses Vite's transform pipeline — no separate Babel/SWC config needed.
+
+## Anti-patterns
+
+- `process.env.FOO` in client code — use `import.meta.env.VITE_FOO`.
+- Committing `.env.local`.
+- Long, multi-mode `vite.config.ts` files when two config files would be clearer.
+- Adding `@vitejs/plugin-legacy` "just in case" — only add it if you actually have IE11 / old-Safari users.
+- Disabling HMR globally because one component misbehaves — fix the component.
+- `build.minify: false` shipped to production.
+
+## Examples
+
+### Good — full project config
+
+```ts
+// vite.config.ts
+import { defineConfig, loadEnv } from 'vite';
+import react from '@vitejs/plugin-react-swc';
+import tsconfigPaths from 'vite-tsconfig-paths';
+import path from 'node:path';
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+
+  return {
+    plugins: [react(), tsconfigPaths()],
+    resolve: {
+      alias: { '@': path.resolve(__dirname, 'src') },
+    },
+    server: {
+      port: Number(env.VITE_PORT ?? 5173),
+      strictPort: true,
+      proxy: {
+        '/api': { target: env.VITE_API_URL, changeOrigin: true },
+      },
+    },
+    build: {
+      sourcemap: mode === 'production' ? 'hidden' : true,
+      target: 'es2022',
+    },
+  };
+});
+```
+
+### Bad — committing secrets, no env types, mixed env access
+
+```ts
+// vite.config.ts
+export default {
+  plugins: [require('@vitejs/plugin-react')()],
+  define: {
+    'process.env.API_KEY': JSON.stringify('sk-live-abc123'),   // ⚠️ secret in source
+  },
+  server: { port: 5174 },                                       // no strictPort
+};
+```
