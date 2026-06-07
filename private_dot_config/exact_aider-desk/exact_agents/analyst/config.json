@@ -34,7 +34,7 @@
   "toolSettings": {
     "power---bash": {
       "allowedPattern": "ls .*;cat .*;grep .*;find .*;git status;git show;git log;git diff.*",
-      "deniedPattern": "rm -rf .*;git push --force.*;chown .*;chgrp .*"
+      "deniedPattern": "rm\\s+(-{1,2}[a-zA-Z-]+\\s+)*/(\\s|$);rm\\s+(-{1,2}[a-zA-Z-]+\\s+)*/\\*;rm\\s+(-{1,2}[a-zA-Z-]+\\s+)*/(bin|boot|dev|etc|lib|lib64|proc|root|run|sbin|srv|sys|usr|var|home)(/\\*?)?(\\s|$);rm\\s+(-{1,2}[a-zA-Z-]+\\s+)*(~|\\$HOME)(/\\*)?(\\s|$);:\\(\\)\\s*\\{.*\\};chmod\\s+(-{1,2}[a-zA-Z-]+\\s+|[0-7]{3,4}\\s+)*/(\\s|$);chown\\s+(-{1,2}[a-zA-Z-]+\\s+|[^/\\s]+\\s+)*/(\\s|$);chgrp\\s+(-{1,2}[a-zA-Z-]+\\s+|[^/\\s]+\\s+)*/(\\s|$);git push --force.*"
     }
   },
   "includeContextFiles": false,
