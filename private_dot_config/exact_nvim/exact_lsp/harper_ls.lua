@@ -11,6 +11,7 @@ return {
     'javascript',
     'lua',
     'markdown',
+    'markdown.mdc',
     'nix',
     'python',
     'ruby',

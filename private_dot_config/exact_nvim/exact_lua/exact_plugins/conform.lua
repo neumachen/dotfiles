@@ -66,7 +66,7 @@ local format_as = {
   {
     label = 'Markdown',
     formatters = { 'prettierd', 'prettier', 'dprint' },
-    filetypes = { 'markdown', 'markdown.mdx' },
+    filetypes = { 'markdown', 'markdown.mdx', 'markdown.mdc' },
   },
   {
     label = 'SQL',
@@ -254,6 +254,12 @@ return {
       },
       markdown = { 'prettierd', 'prettier', 'dprint', stop_after_first = true },
       ['markdown.mdx'] = {
+        'prettierd',
+        'prettier',
+        'dprint',
+        stop_after_first = true,
+      },
+      ['markdown.mdc'] = {
         'prettierd',
         'prettier',
         'dprint',

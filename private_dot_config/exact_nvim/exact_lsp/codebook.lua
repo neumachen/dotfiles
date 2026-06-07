@@ -13,6 +13,7 @@ return {
     'javascriptreact',
     'lua',
     'markdown',
+    'markdown.mdc',
     'php',
     'python',
     'ruby',
