@@ -1,0 +1,265 @@
+---
+description: Active Record efficiency — N+1 avoidance, includes vs preload vs eager_load, batching, pluck/pick, scopes, indexes
+globs:
+  - "**/app/models/**/*.rb"
+  - "**/app/controllers/**/*.rb"
+  - "**/app/services/**/*.rb"
+  - "**/app/operations/**/*.rb"
+  - "**/app/jobs/**/*.rb"
+  - "**/app/queries/**/*.rb"
+  - "**/db/migrate/*.rb"
+  - "**/db/schema.rb"
+  - "**/spec/**/*.rb"
+  - "**/test/**/*.rb"
+alwaysApply: false
+---
+
+# Active Record Rule: Query Efficiency
+
+When writing Rails code that touches the database, follow these efficiency rules. The cost difference between an idiomatic query and a naïve one is often 100–1000× in production.
+
+This rule applies in addition to the `RUBY-02-RAILS-CONVENTIONS` rule and the `SQL-01-CORE-STYLE` rule.
+
+## The N+1 problem
+
+```ruby
+# BAD — 1 query for users + N queries for each user's posts
+User.all.each { |u| puts u.posts.count }
+
+# GOOD — 1 query for users + 1 query for posts
+User.includes(:posts).each { |u| puts u.posts.count }
+```
+
+Rules:
+
+- Anywhere you iterate over an association inside a loop, eager-load it.
+- The `bullet` gem catches N+1 in dev/test. Keep it green.
+- Tests should assert query counts on hot paths: `expect { GET '/users' }.not_to exceed_query_limit(5)`.
+
+## `includes` vs `preload` vs `eager_load`
+
+All three eager-load, but they do it differently:
+
+| Method | Strategy | When to use |
+|---|---|---|
+| `preload` | Always 2 queries (SELECT ... IN (...)) | Default; no WHERE on the association |
+| `eager_load` | Always LEFT JOIN, single query | Need to WHERE/ORDER on the joined table |
+| `includes` | Chooses preload or eager_load based on whether you reference the association elsewhere | The "let Rails decide" form |
+
+```ruby
+# Just iterating? preload (or includes — same effect):
+User.preload(:posts).each { |u| u.posts.map(&:title) }
+
+# Filtering on the join? eager_load:
+User.eager_load(:posts).where(posts: { published: true })
+
+# Common bug — includes silently degrades to eager_load:
+User.includes(:posts).where("posts.published = true")  # ⚠️ Rails uses eager_load here
+User.includes(:posts).where(posts: { published: true }) # ✓ Same result, intent clear
+```
+
+**Bias**: prefer `preload` when you're iterating-then-reading, `eager_load` when you're WHERE/ORDER'ing on the join. Use `includes` only when you genuinely want Rails to decide.
+
+## Don't load what you won't use
+
+### `pluck` and `pick`
+
+`pluck` returns an array of scalar values without instantiating models. `pick` is the same but returns one row.
+
+```ruby
+# BAD — instantiates 10k User objects to throw away everything but the email:
+emails = User.where(active: true).map(&:email)
+
+# GOOD — returns an Array<String>, no model allocation:
+emails = User.where(active: true).pluck(:email)
+
+# Multi-column → Array<Array>:
+[name, email] = User.where(id: 1).pick(:name, :email)
+```
+
+`pluck` skips callbacks, validations, default scopes' associations — exactly what you want for read-only projections.
+
+### `select` for partial models
+
+When you do need a model but only a few columns:
+
+```ruby
+User.select(:id, :email).where(active: true)
+```
+
+Reads are cheap; instantiating bloated models with TEXT/BLOB columns is not. Be aware: accessing an unselected column on the instance raises `ActiveModel::MissingAttributeError` — which is the correct failure mode.
+
+## Batching — never load 10k records at once
+
+```ruby
+# BAD — loads every user into memory at once:
+User.where(active: true).each { |u| ... }
+
+# GOOD — loads in batches of 1000 (default), one batch at a time:
+User.where(active: true).find_each { |u| ... }
+
+# GOOD — same idea, but you operate on the batch as a whole:
+User.where(active: true).in_batches(of: 500) do |batch|
+  batch.update_all(last_seen_at: Time.current)
+end
+```
+
+Use `find_each` for per-record work. Use `in_batches` when you can issue one query per batch (`update_all`, `delete_all`, bulk export).
+
+`find_each` orders by `id` ascending and ignores any custom `ORDER BY` — pass `order: :desc` if needed.
+
+## `exists?` over `present?`/`any?`/`count > 0`
+
+```ruby
+# BAD — loads all matching records into memory:
+if User.where(active: true).present?
+
+# BAD — loads all into memory just to count:
+if User.where(active: true).any?
+
+# GOOD — SELECT 1 ... LIMIT 1:
+if User.where(active: true).exists?
+```
+
+For counting: use `count` (issues `SELECT COUNT(*)`), not `size` (loads and counts in Ruby) unless the relation is already loaded.
+
+## Aggregations in the database
+
+Push work into SQL. Don't paginate-then-sum.
+
+```ruby
+# BAD — loads N records to sum a column:
+Order.where(user: user).map(&:total_cents).sum
+
+# GOOD — SELECT SUM(total_cents):
+Order.where(user: user).sum(:total_cents)
+
+# GOOD — multi-aggregate in one query:
+stats = Order.where(user: user).pick(
+  Arel.sql("COUNT(*) AS count, SUM(total_cents) AS total, MAX(created_at) AS last")
+)
+```
+
+For grouped aggregates: `Order.group(:status).count` returns a Hash.
+
+## Joins vs includes vs both
+
+- `joins` filters by an association without loading it. Use when you don't need the joined data:
+  ```ruby
+  User.joins(:posts).where(posts: { published: true }).distinct
+  ```
+- `joins` + `includes` is fine when you both filter and load:
+  ```ruby
+  User.joins(:posts).includes(:posts).where(posts: { published: true })
+  ```
+- Avoid `joins` followed by `.where("posts.published = ?", true)` — use the hash form (`posts: { published: true }`) so the column reference survives table-prefix changes.
+
+## Scopes
+
+Scopes are first-class. They return relations, chain, and compose.
+
+```ruby
+scope :active,     -> { where(deleted_at: nil) }
+scope :recent,     -> (n = 30) { where(updated_at: n.days.ago..) }
+scope :for_account, ->(a) { where(account_id: a.id) }
+
+User.active.recent.for_account(current_account)
+```
+
+- A scope must always return a relation. If your "scope" returns nil sometimes, make it a class method.
+- Compose with `merge`:
+  ```ruby
+  Order.joins(:user).merge(User.active)
+  ```
+
+## Query objects
+
+When a query is more than ~3 chained methods or involves Arel, extract a query object:
+
+```ruby
+# app/queries/recent_high_value_orders.rb
+class RecentHighValueOrders
+  def self.call(...) = new(...).call
+
+  def initialize(account:, since: 30.days.ago, threshold_cents: 100_00)
+    @account = account
+    @since = since
+    @threshold_cents = threshold_cents
+  end
+
+  def call
+    Order
+      .where(account: @account)
+      .where(created_at: @since..)
+      .where("total_cents >= ?", @threshold_cents)
+      .order(created_at: :desc)
+      .includes(:user, :line_items)
+  end
+end
+```
+
+Returns a relation, so the caller can still `.limit`, `.pluck`, `.find_each`.
+
+## Indexes
+
+- Every column used in a `WHERE`, `ORDER BY`, or `JOIN ... ON` should have an index. Period.
+- Composite indexes for combined predicates: `add_index :orders, [:account_id, :created_at]`.
+- Foreign keys get indexes automatically in Rails 5.0+ if you use `references` in migrations. Verify in `db/schema.rb` if you're unsure.
+- Partial indexes for hot subsets:
+  ```ruby
+  add_index :users, :email, unique: true, where: "deleted_at IS NULL"
+  ```
+- For PostgreSQL: `using: :gin` on JSONB columns you query with `@>`.
+
+## Counter caches
+
+If you display `user.posts_count` in a list view, **add a counter cache** rather than `COUNT(*)`-ing per row:
+
+```ruby
+class Post < ApplicationRecord
+  belongs_to :user, counter_cache: true
+end
+
+add_column :users, :posts_count, :integer, null: false, default: 0
+```
+
+Rails maintains the count automatically. If the cache drifts (rare), `User.reset_counters(user.id, :posts)`.
+
+## Bulk operations
+
+For large inserts/updates, bypass per-record callbacks:
+
+```ruby
+# INSERT one row per record, no callbacks, no validations:
+Post.insert_all(posts_data)              # raises on conflict
+Post.upsert_all(posts_data, unique_by: :slug)
+
+# Update many rows by relation:
+User.where(active: false).update_all(archived_at: Time.current)
+
+# Delete by relation, no callbacks:
+User.where("created_at < ?", 1.year.ago).delete_all   # DELETE FROM
+User.where("created_at < ?", 1.year.ago).destroy_all  # SELECT + instantiate + destroy — slow
+```
+
+Pick `delete_all` for sheer speed, `destroy_all` when callbacks must fire (rarely).
+
+## Read replicas
+
+When the project has a read replica:
+
+```ruby
+ActiveRecord::Base.connected_to(role: :reading) do
+  RecentReports.call(...)
+end
+```
+
+Reports, exports, and analytics go to the replica. Mutations always go to the primary.
+
+## Profile before optimizing
+
+- `Rails.logger.debug` — log every SQL query in dev.
+- `bullet` gem — flags N+1 and unused eager loads.
+- `rack-mini-profiler` — per-request query breakdown.
+- `pg_stat_statements` — top queries by total time in production.
+- Don't add an index, don't add a counter cache, don't extract a query object without evidence that the current code is the bottleneck.

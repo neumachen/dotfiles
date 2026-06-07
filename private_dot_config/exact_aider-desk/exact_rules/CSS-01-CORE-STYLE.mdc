@@ -1,0 +1,281 @@
+---
+description: Modern CSS — custom properties, logical properties, layers, nesting, container queries, Tailwind
+globs:
+  - "**/*.css"
+  - "**/*.scss"
+  - "**/*.sass"
+  - "**/*.less"
+  - "**/*.postcss"
+  - "**/postcss.config.*"
+  - "**/tailwind.config.*"
+  - "**/tailwind.config.{ts,js,mjs,cjs}"
+  - "**/.stylelintrc*"
+  - "**/stylelint.config.*"
+alwaysApply: false
+---
+
+# CSS Rule: Core Style
+
+When writing or modifying CSS, prefer modern, native CSS over preprocessor features and JS-driven workarounds. Most of what people reach for SCSS to do (nesting, custom properties, color functions) is now in baseline CSS.
+
+## Match the project
+
+- Match the project's framework: vanilla CSS, CSS Modules, Tailwind, styled-components, vanilla-extract, Open Props. Do not mix paradigms in the same component.
+- If Tailwind is configured: prefer utility classes for layout, spacing, and typography. Reach for custom CSS only for behavioural CSS (animations, container queries, complex selectors) where utilities are awkward.
+- Match the BEM (or other) naming convention if the project uses one.
+
+## Selectors
+
+- Prefer single-class selectors. Element selectors only on resets and global typography.
+- Specificity wars are won by **using lower specificity**, not by adding more. `!important` is almost always a sign you took a wrong turn three commits ago.
+- Avoid IDs as styling hooks. IDs are unique by spec and unbeatable on specificity — they make overrides painful.
+- Use `:is()` and `:where()` to keep specificity low:
+  ```css
+  /* :where(...) contributes 0 specificity */
+  .card :where(h1, h2, h3) { margin-block: 0.5em; }
+  ```
+- Use `:has()` for "container styled by descendant" patterns:
+  ```css
+  .form-group:has(input:invalid) { border-color: red; }
+  ```
+
+## Custom properties
+
+- Use CSS custom properties (`--name`) for design tokens. They cascade, can be overridden per element, and work with `calc()`:
+  ```css
+  :root {
+    --color-bg: #fff;
+    --space-xs: 0.25rem;
+    --space-sm: 0.5rem;
+    --space-md: 1rem;
+  }
+
+  .card {
+    background: var(--color-bg);
+    padding: var(--space-md);
+  }
+  ```
+- Custom properties beat SCSS variables for runtime theming (dark mode, multi-brand) since they're live.
+- Use SCSS variables only for **compile-time** values that change a calculated literal (e.g., a breakpoint width used in a `@media` query, which `var()` can't appear inside).
+
+## Logical properties
+
+Use logical properties (`-inline`, `-block`) over physical (`-left`, `-right`, `-top`, `-bottom`) for layout-direction-agnostic CSS — important for RTL support:
+
+```css
+/* Good */
+.card {
+  margin-block: 1rem;       /* top + bottom */
+  margin-inline: auto;      /* left + right */
+  padding-inline-start: 1rem;
+  border-inline-end: 1px solid #ccc;
+}
+
+/* Avoid */
+.card {
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  padding-left: 1rem;
+  border-right: 1px solid #ccc;
+}
+```
+
+## Layers (`@layer`)
+
+Cascade layers control specificity-independent override order. Use them for vendor CSS, framework base, components, and utilities:
+
+```css
+@layer reset, base, components, utilities;
+
+@layer reset {
+  *, *::before, *::after { box-sizing: border-box; }
+}
+
+@layer components {
+  .button { ... }
+}
+
+@layer utilities {
+  .text-center { text-align: center; }
+}
+```
+
+Anything in a later layer beats anything in an earlier layer, regardless of selector specificity.
+
+## Nesting
+
+Native CSS nesting (Chrome 112+, Safari 16.5+, Firefox 117+) replaces most SCSS nesting needs:
+
+```css
+.card {
+  padding: 1rem;
+
+  & > .title {
+    font-size: 1.5rem;
+  }
+
+  &:hover {
+    background: #f0f0f0;
+  }
+
+  @media (min-width: 768px) {
+    padding: 2rem;
+  }
+}
+```
+
+- The leading `&` is required in spec-mode (though some compilers allow elision).
+- Don't nest more than 2 levels deep. Deep nesting maps to high specificity selectors and unreadable diffs.
+
+## Container queries
+
+Use `@container` over `@media` when the component should respond to its **container** size, not the viewport:
+
+```css
+.card {
+  container-type: inline-size;
+  container-name: card;
+}
+
+@container card (min-width: 400px) {
+  .card-body {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+  }
+}
+```
+
+Containerized components compose better; the same `.card` reacts to a sidebar (narrow) and a hero (wide) without media-query gymnastics.
+
+## Scoping
+
+- CSS Modules (`*.module.css`) for component-scoped styles when the project uses them.
+- `@scope` (newer; check browser support) for limited-scope styles in vanilla CSS:
+  ```css
+  @scope (.article) to (.aside) {
+    p { line-height: 1.6; }
+  }
+  ```
+
+## Colour
+
+- Use modern `oklch()` for new palettes — it's perceptually uniform; lightness changes look like lightness changes:
+  ```css
+  --color-primary: oklch(60% 0.18 240);
+  --color-primary-hover: oklch(50% 0.18 240);
+  ```
+- Use `color-mix(in oklch, var(--color-primary) 80%, white)` for derived shades.
+- Use `light-dark(var(--bg-light), var(--bg-dark))` for automatic light/dark mode where browser support permits.
+- Avoid named colours (`red`, `blue`) except in resets/demos.
+
+## Layout
+
+- Grid for two-dimensional layout (rows AND columns).
+- Flexbox for one-dimensional layout.
+- `gap` over margin hacks for spacing children.
+- `aspect-ratio` over the padding-bottom hack for fixed-ratio boxes.
+- `min(...)`, `max(...)`, `clamp(min, ideal, max)` for fluid sizing without media queries:
+  ```css
+  font-size: clamp(1rem, 0.5rem + 1.5vw, 1.5rem);
+  width: min(100% - 2rem, 60rem);
+  ```
+
+## Typography
+
+- Set `font-family` on `:root` or `body`; let it cascade.
+- Use `system-ui` or a variable font with `font-variation-settings` over multiple webfont files.
+- `line-height: 1.5` for body, `line-height: 1.2` for headings.
+- `text-wrap: balance` for headlines, `text-wrap: pretty` for paragraphs (where supported).
+
+## Animations
+
+- `@keyframes` for non-trivial animation; transitions for state changes.
+- Animate only `transform` and `opacity` on hot paths — they're cheap. Avoid animating `width`, `height`, `top`, `left` (layout-triggering).
+- Respect `prefers-reduced-motion`:
+  ```css
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+  ```
+
+## Tooling
+
+- `stylelint` for linting.
+- `prettier` for formatting.
+- PostCSS plugins handle vendor prefixes — don't write them by hand.
+- `purgecss` / Tailwind's JIT for tree-shaking.
+
+## Anti-patterns
+
+- `!important` (except in narrowly-scoped utility classes).
+- `* { margin: 0; padding: 0 }` heavyweight resets — use a modern reset (Andy Bell's, Josh Comeau's) instead.
+- Magic numbers in `px` for spacing — use `rem` or design tokens.
+- Hidden-via-`display: none` for "accessibility" — use `aria-hidden` + appropriate visibility helpers.
+- Inline styles in production templates (except for JS-driven dynamic values).
+- Hover-only interactions without a focus equivalent — kills keyboard navigation.
+
+## Examples
+
+### Good
+
+```css
+@layer reset, base, components, utilities;
+
+@layer base {
+  :root {
+    --color-bg: oklch(98% 0.005 240);
+    --color-fg: oklch(20% 0.02 240);
+    --space-xs: 0.25rem;
+    --space-sm: 0.5rem;
+    --space-md: 1rem;
+    --space-lg: 1.5rem;
+  }
+
+  body {
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-family: system-ui, sans-serif;
+    line-height: 1.5;
+  }
+}
+
+@layer components {
+  .card {
+    container-type: inline-size;
+    background: var(--color-bg);
+    padding: var(--space-md);
+    border-radius: 0.5rem;
+
+    & > .card-title {
+      font-size: clamp(1.25rem, 1rem + 1vw, 1.75rem);
+      margin-block-end: var(--space-sm);
+    }
+
+    &:has(img) {
+      padding-inline: 0;
+    }
+  }
+
+  @container (min-width: 30rem) {
+    .card { padding: var(--space-lg); }
+  }
+}
+```
+
+### Bad
+
+```css
+/* IDs, specificity wars, physical props, no design tokens, !important */
+#main-content .card.card-default h1.title {
+  margin-top: 16px !important;
+  margin-left: 8px !important;
+  font-size: 24px;
+}
+
+#main-content .card.card-default h1.title:hover {
+  color: red;
+}
+```

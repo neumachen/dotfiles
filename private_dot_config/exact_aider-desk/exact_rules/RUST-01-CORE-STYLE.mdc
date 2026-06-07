@@ -1,0 +1,146 @@
+---
+description: Rust core style — ownership, error handling, traits, async, cargo fmt + clippy
+globs:
+  - "**/*.rs"
+  - "**/Cargo.toml"
+  - "**/Cargo.lock"
+  - "**/rust-toolchain"
+  - "**/rust-toolchain.toml"
+  - "**/clippy.toml"
+  - "**/rustfmt.toml"
+  - "**/.cargo/config.toml"
+alwaysApply: false
+---
+
+# Rust Rule: Core Style
+
+When writing or modifying Rust, follow idiomatic patterns. `cargo fmt` and `cargo clippy -- -D warnings` are non-negotiable on every change.
+
+## Principles
+
+- Prefer clarity over cleverness. The borrow checker rewards explicit ownership.
+- Match the project's existing edition (`Cargo.toml` `edition = "2021"` or `"2024"`). Do not silently upgrade.
+- Match the project's MSRV (minimum supported Rust version). Do not use stable-only features the MSRV cannot compile.
+- Keep changes minimal and directly related to the requested task.
+
+## Ownership and borrowing
+
+- Take `&T` when you only need to read, `&mut T` when you need to mutate, and `T` when you need to consume.
+- Prefer `&str` over `&String` in function parameters. Prefer `&[T]` over `&Vec<T>`.
+- Use `Cow<'_, str>` when a function sometimes allocates and sometimes doesn't — clearer than `String` "just in case."
+- Avoid `clone()` as a borrow-checker shortcut. If you find yourself cloning, reconsider whether the function should take ownership instead.
+- `Rc<T>` / `Arc<T>` are tools for shared ownership, not "Rust's `&` is too restrictive." Reach for them when the data model is genuinely shared.
+
+## Errors
+
+- `Result<T, E>` everywhere a function can fail. Functions named `try_*` or `*_checked` return `Result`; functions that panic should be rare and named accordingly.
+- Use `?` for propagation. Avoid `match err { Ok(x) => x, Err(e) => return Err(e) }` boilerplate.
+- For library crates, define your own error type with `thiserror`:
+  ```rust
+  #[derive(Debug, thiserror::Error)]
+  pub enum LoadError {
+      #[error("config file not found: {0}")]
+      NotFound(PathBuf),
+      #[error("invalid TOML: {0}")]
+      Toml(#[from] toml::de::Error),
+      #[error(transparent)]
+      Io(#[from] std::io::Error),
+  }
+  ```
+- For application binaries, use `anyhow::Result<T>` and `.context("...")`/`.with_context(|| ...)`.
+- `unwrap()` and `expect()` are for invariants the type system can't express (e.g., a `RegexBuilder` you know compiles). Comment why if it's not obvious. Never `unwrap()` external input.
+
+## Pattern matching
+
+- Prefer `match` over chained `if let / else if let` when matching three or more variants.
+- Use `if let Some(x) = y` for single-arm extraction.
+- Use `let Some(x) = y else { return ... }` (let-else) for "extract or short-circuit."
+- Destructure in function parameters: `fn foo(Point { x, y }: Point)` when the call site already has a `Point`.
+
+## Traits
+
+- Prefer traits over inheritance — there is no inheritance.
+- Implement standard traits when the type fits: `Debug` always, `Clone`/`Copy` when cheap, `PartialEq`/`Eq`/`Hash` for keys, `Display` for user-facing output, `From`/`TryFrom` for conversions, `Default` for fields that have sensible zero values.
+- Use derive macros first; hand-write only when the derive is wrong.
+- Trait objects (`dyn Trait`) for runtime polymorphism; generics (`impl Trait` / `<T: Trait>`) for monomorphized performance.
+- Sealed traits (private marker trait in a `mod private`) when you don't want downstream impls.
+
+## Modules and visibility
+
+- Default to `pub(crate)`. Make items `pub` only when they're part of the public API.
+- One module per concept. `mod` declarations at the top of each file or in `mod.rs`/the parent file.
+- Re-exports at the crate root via `pub use foo::Bar` flatten the API. Use sparingly; don't hide three levels of internal structure.
+- Use `#[non_exhaustive]` on public structs and enums that may grow over time.
+
+## Iterators
+
+- Prefer iterator chains over hand-rolled loops when transforming data.
+- Collect into a concrete type with turbofish or annotation: `let v: Vec<_> = it.collect();` or `it.collect::<Vec<_>>()`.
+- Avoid `collect()` followed by `iter()`. Stay in the iterator domain.
+- For early termination, `try_fold` or `for ... in` with `?` is clearer than `find_map`.
+
+## Async
+
+- Pick one runtime per crate (Tokio is the default for most projects). Match the project's existing choice.
+- `async fn` returns `impl Future<Output = T>`. Don't expose the desugared form unless you need to.
+- Use `tokio::spawn` for fire-and-forget; `tokio::join!` / `tokio::try_join!` for concurrent work where you need every result.
+- Never block in an async context (`std::thread::sleep`, `std::fs::read`, blocking channels). Use `tokio::time::sleep`, `tokio::fs`, `tokio::sync::*`.
+- For CPU-bound work inside async, `tokio::task::spawn_blocking`.
+
+## Unsafe
+
+- `unsafe` requires a `// SAFETY: ...` comment explaining why every invariant holds. No exceptions.
+- If the unsafe is wrapping FFI, the comment cites the FFI contract.
+- Public functions exposing unsafe behaviour are marked `unsafe fn` and documented with `# Safety` doc section.
+
+## Cargo
+
+- Pin dependencies as `"1.0"` (carets implied), not `"=1.0"` or `"*"`. Let SemVer do its job.
+- Feature flags for optional functionality, not for "this code is broken." Document each feature in `Cargo.toml` and in the crate docs.
+- `[dev-dependencies]` for test-only deps. Never let them leak into `[dependencies]`.
+- Run `cargo update --dry-run` before bumping the lockfile to see what changes.
+
+## Tooling
+
+- `cargo fmt --check` in CI.
+- `cargo clippy --all-targets --all-features -- -D warnings` in CI.
+- `cargo test --all-features` in CI.
+- `cargo deny check` for license + advisory scanning on larger projects.
+
+## Examples
+
+### Good
+
+```rust
+use std::path::{Path, PathBuf};
+
+#[derive(Debug, thiserror::Error)]
+pub enum LoadError {
+    #[error("config not found: {0}")]
+    NotFound(PathBuf),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+    #[error("invalid TOML: {0}")]
+    Toml(#[from] toml::de::Error),
+}
+
+pub fn load_config(dir: &Path) -> Result<Config, LoadError> {
+    let path = dir.join("config.toml");
+    if !path.exists() {
+        return Err(LoadError::NotFound(path));
+    }
+    let raw = std::fs::read_to_string(&path)?;
+    let cfg: Config = toml::from_str(&raw)?;
+    Ok(cfg)
+}
+```
+
+### Bad
+
+```rust
+// unwrap on external input, panic on missing file, no error type:
+pub fn load_config(dir: String) -> Config {
+    let raw = std::fs::read_to_string(format!("{}/config.toml", dir)).unwrap();
+    toml::from_str(&raw).expect("bad toml")
+}
+```
