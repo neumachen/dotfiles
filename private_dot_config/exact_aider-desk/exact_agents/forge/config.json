@@ -57,7 +57,7 @@
     "description": "Primary coding agent — implementation, bug fixes, refactoring, TDD. Claude Opus 4.7 (1M context, Instinct).",
     "contextMemory": "full-context"
   },
-  "autoCompactThresholdPercentage": 70,
+  "autoCompactThresholdPercentage": 80,
   "autoCompactionType": "smart",
   "temperature": 0,
   "disabledExtensionTools": [],

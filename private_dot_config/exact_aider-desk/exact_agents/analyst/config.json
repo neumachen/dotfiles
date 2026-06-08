@@ -57,7 +57,7 @@
     "description": "Large-context read-only analysis (Claude Opus 4.8, 1M context, Instinct). Whole-repo analysis, impact tracing, PRD generation.",
     "contextMemory": "full-context"
   },
-  "autoCompactThresholdPercentage": 70,
+  "autoCompactThresholdPercentage": 80,
   "autoCompactionType": "handoff",
   "temperature": 0,
   "disabledExtensionTools": [],
