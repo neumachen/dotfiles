@@ -128,41 +128,100 @@ end
 -- Initialise the chooser immediately so it is ready on first use.
 initFenceChooser()
 
+-- ───────────────────────────────────────────────────────────────────────────
+-- Why this is more than just "make an eventtap":
+--
+-- The previous implementation called hs.application.frontmostApplication()
+-- inside the eventtap callback. That is a synchronous AppKit call. Most of
+-- the time it returns in microseconds, but right after the chooser closes
+-- it can stall briefly while macOS restores focus to the previously-active
+-- window. If the next ⌘C lands during that stall, the callback exceeds
+-- macOS's eventtap budget and the kernel issues
+-- kCGEventTapDisabledByTimeout. Hammerspoon does NOT auto-re-enable the
+-- tap; isEnabled() returns false and every subsequent ⌘C is dropped until
+-- a config reload re-creates the tap. That is the "works once, then
+-- silent" symptom.
+--
+-- Two structural changes fix it:
+--
+--   1. The frontmost-app check no longer asks AppKit. An
+--      hs.application.watcher updates a plain Lua variable on
+--      activate/deactivate, and the eventtap callback reads that variable.
+--      The hot path is now O(1) and cannot block.
+--
+--   2. A 1-second watchdog timer calls tap:start() whenever
+--      tap:isEnabled() returns false. macOS can still disable the tap
+--      under load or after Secure Input briefly engages; the watchdog
+--      brings it back automatically.
+--
+-- The callback is also wrapped in xpcall so a Lua error inside it (e.g. a
+-- nil-deref from a future refactor) doesn't silently disable the tap —
+-- the trace goes to the Hammerspoon console instead.
+-- ───────────────────────────────────────────────────────────────────────────
+
+-- Cached name of whichever app is currently frontmost. Updated by the
+-- watcher below; read by the eventtap callback.
+local frontmostAppName = nil
+local activeApp = hs.application.frontmostApplication()
+if activeApp then frontmostAppName = activeApp:name() end
+
+-- hs.application.watcher fires on app activate/deactivate/launch/terminate.
+-- We only care about "an app just became frontmost" (activated) — that's
+-- when frontmostAppName changes. Keep a reference so the watcher object
+-- isn't garbage-collected.
+local appWatcher = hs.application.watcher.new(function(name, event, _)
+  if event == hs.application.watcher.activated then frontmostAppName = name end
+end)
+appWatcher:start()
+
 -- The eventtap watches for every keyDown event.
 -- It only acts when:
 --   • the Cmd modifier is held
 --   • the key is "c" (keycode 8)
---   • WezTerm is the frontmost application
+--   • WezTerm is the frontmost application (read from the cached variable)
 local wezTermCopyTap = hs.eventtap.new(
   { hs.eventtap.event.types.keyDown },
   function(e)
-    -- Gate: Cmd+C only.
-    if not (e:getFlags().cmd and e:getKeyCode() == 8) then
-      return false  -- not our event — propagate unchanged
-    end
+    -- xpcall guards the whole callback. If anything inside raises, log
+    -- the trace and return false so the event still propagates AND the
+    -- eventtap stays alive (an unguarded error here disables the tap).
+    local ok, err = xpcall(function()
+      -- Gate: Cmd+C only.
+      if not (e:getFlags().cmd and e:getKeyCode() == 8) then return end
 
-    -- Gate: WezTerm must be frontmost.
-    local app = hs.application.frontmostApplication()
-    if not app or app:name() ~= 'WezTerm' then
-      return false  -- different app — propagate unchanged
-    end
+      -- Gate: WezTerm must be frontmost — answered from the cached
+      -- variable, not AppKit, so this is a single Lua comparison.
+      if frontmostAppName ~= 'WezTerm' then return end
 
-    -- Return false NOW so WezTerm receives ⌘C and copies normally.
-    -- We schedule the chooser to open after a short delay (50 ms) to give
-    -- WezTerm time to finish writing the selection to the clipboard.
-    hs.timer.doAfter(0.05, function()
-      local contents = hs.pasteboard.getContents()
-      -- Only show the chooser when there is actually something on the clipboard.
-      if contents and #contents > 0 then
-        -- Reset query so previous searches don't linger between invocations.
-        fenceChooser:query('')
-        fenceChooser:choices(buildChooserChoices())
-        fenceChooser:show()
-      end
-    end)
+      -- Schedule the chooser to open after a short delay so WezTerm has
+      -- time to finish writing the selection to the clipboard. The timer
+      -- runs OFF the eventtap thread, so any cost inside it (chooser
+      -- presentation, clipboard read) cannot trip the eventtap timeout.
+      hs.timer.doAfter(0.05, function()
+        local contents = hs.pasteboard.getContents()
+        if contents and #contents > 0 then
+          -- queryChangedCallback re-sets choices when query becomes '',
+          -- so we don't need to call :choices() here as well. Calling
+          -- :query(nil) is the documented way to clear the search box.
+          fenceChooser:query(nil)
+          fenceChooser:show()
+        end
+      end)
+    end, debug.traceback)
 
-    return false  -- do NOT consume the event — WezTerm still copies
+    if not ok then print('wezTermCopyTap callback error: ' .. tostring(err)) end
+
+    return false -- never consume the event — WezTerm still copies
   end
 )
 
 wezTermCopyTap:start()
+
+-- Watchdog: macOS can disable the tap (kCGEventTapDisabledByTimeout, or
+-- briefly during Secure Input). Hammerspoon does not auto-re-enable. Poll
+-- once a second; if the tap went silent, restart it. This is the
+-- canonical Hammerspoon workaround referenced in their GitHub issues for
+-- long-running eventtaps.
+hs.timer.doEvery(1, function()
+  if not wezTermCopyTap:isEnabled() then wezTermCopyTap:start() end
+end)
