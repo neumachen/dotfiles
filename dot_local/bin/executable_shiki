@@ -155,6 +155,14 @@ Docker passthrough (after --):
   For other docker-compose tweaks, point SHIKI_COMPOSE_EXTRA_FILES at a
   compose override file.
 
+Required host commands:
+  docker             Container engine.
+  git                Used to read host git identity if env vars aren't set.
+  gh                 Used to capture the active GitHub token via
+                     `gh auth token` and inject it into the container as
+                     both GH_TOKEN and GITHUB_TOKEN. Hard-fail if `gh` is
+                     missing or not authenticated.
+
 Required environment variables:
   GIT_USER_NAME      Git identity: user name.
   GIT_USER_EMAIL     Git identity: user email.
@@ -201,6 +209,29 @@ SSH agent forwarding (required for commit signing):
     1. /run/host-services/ssh-auth.sock (when available from the container runtime)
     2. $SSH_AUTH_SOCK from the host environment
     3. ~/.1password/agent.sock as a fallback
+
+GitHub token (captured at session create, injected as env vars):
+  Shiki runs `gh auth token` on the host and injects the result into the
+  container as both GH_TOKEN and GITHUB_TOKEN. Hard-fail if `gh` is not
+  on PATH or returns empty — this is mandatory, not optional.
+
+  The token is captured once at container-create time and frozen for the
+  container's lifetime. If you rotate or `gh auth refresh` on the host,
+  remove and recreate the session to pick up the new value:
+    docker rm -f <session> && shiki -n <session>
+
+  Git pushes from inside the container should use SSH (forwarded agent),
+  NOT HTTPS. Shiki deliberately does not configure a git
+  `credential.helper` from GH_TOKEN — an HTTPS push attempt should fail
+  rather than transparently succeed with this token. Use the SSH remote.
+
+  User overrides: pass `-- -e GH_TOKEN=...` / `-- -e GITHUB_TOKEN=...`
+  on the command line; the user-supplied value wins.
+
+  Storage: the captured token lives in the per-session runtime overlay
+  YAML (chmod 0600) at:
+    ~/.local/share/aider-desk/<session>/runtime/compose.runtime.yaml
+  and is also visible via `docker inspect <session>`.
 
 Mounts (automatic):
   Project dir(s)           → host-path-translated  (one mount per supplied dir)
@@ -469,12 +500,44 @@ parse_args "$@"
 # ---------- preflight ----------
 have docker || die "docker not found in PATH."
 have git || die "git not found in PATH (needed to read host identity)."
+have gh || die "gh not found in PATH (needed to capture the GitHub token for the container)."
 
 : "${GIT_USER_NAME:=$(git config user.name 2>/dev/null || true)}"
 : "${GIT_USER_EMAIL:=$(git config user.email 2>/dev/null || true)}"
 
 [ -n "${GIT_USER_NAME:-}" ] || die "GIT_USER_NAME is not set and git config user.name is empty."
 [ -n "${GIT_USER_EMAIL:-}" ] || die "GIT_USER_EMAIL is not set and git config user.email is empty."
+
+# ---------- GitHub token capture ----------
+# Read the active token from the host's gh CLI and inject it into the
+# container as both GH_TOKEN and GITHUB_TOKEN. Hard-fail if gh can't
+# produce a token — by design: anything inside that touches GitHub
+# (gh, MCP servers, aider's GitHub integration, release tooling)
+# expects this to be present.
+#
+# We capture once at launch and inject via the per-session runtime
+# overlay (same path as user-supplied `-- -e KEY=VAL` flags). The
+# token is frozen for the container's lifetime; restart the session
+# to pick up a rotated/refreshed host token.
+#
+# Storage backend independence: `gh auth status` reports `(keyring)`
+# on macOS by default, meaning the token is in macOS Keychain, not in
+# ~/.config/gh/hosts.yml. `gh auth token` resolves either backend
+# transparently, so we don't need to bind-mount the host's gh config
+# (which would silently fail on keyring storage anyway).
+#
+# Deliberately NOT configured: a git HTTPS credential helper. Container
+# pushes must go over SSH (via the 1Password agent socket). HTTPS push
+# attempts should fail rather than transparently succeed with this
+# token — that's the point of forwarding the SSH agent.
+GH_TOKEN_CAPTURED="$(gh auth token 2>/dev/null || true)"
+[ -n "$GH_TOKEN_CAPTURED" ] || die "gh auth token failed or returned empty. Run \`gh auth login\` on the host, then retry."
+
+# Inject into EXTRA_ENV at the FRONT so any explicit `-- -e GH_TOKEN=...`
+# / `-- -e GITHUB_TOKEN=...` from the user appears later in the array.
+# Compose evaluates env-var assignments in document order and last-write
+# wins, so user overrides are honored.
+EXTRA_ENV=("GH_TOKEN=$GH_TOKEN_CAPTURED" "GITHUB_TOKEN=$GH_TOKEN_CAPTURED" "${EXTRA_ENV[@]}")
 
 case "$NETWORK_MODE" in
 bridge | host) ;;
@@ -836,6 +899,11 @@ write_runtime_overlay() {
       fi
     fi
   } >"$RUNTIME_OVERLAY"
+  # The runtime overlay now embeds the GitHub token in plaintext via the
+  # environment: block. Tighten to owner-only so casual `cat` / backup
+  # tools don't pick it up. Defense-in-depth; the parent dir is already
+  # under the user's home.
+  chmod 600 "$RUNTIME_OVERLAY"
 }
 
 # ---------- image build / pull ----------
@@ -963,6 +1031,18 @@ print_mount_banner() {
   echo-info "  Claude:   ${SESSION_CLAUDE} → /root/.claude"
   echo-info "            ${CLAUDE_HOST}/settings.json → /root/.claude/settings.json (ro)"
   echo-info "  Mise:     ${AIDER_DESK_DATA_ROOT}/${SESSION_NAME}/mise/{config,data,cache}"
+  # Show only a fingerprint of the GH token — first 4 chars (prefix like
+  # gho_/ghp_/ghs_/github_pat_) + last 4 chars. Enough to confirm capture
+  # and to spot the wrong token at a glance; not enough to be useful if
+  # the banner leaks into a log.
+  local _gh_len="${#GH_TOKEN_CAPTURED}"
+  local _gh_fp
+  if [ "$_gh_len" -gt 8 ]; then
+    _gh_fp="${GH_TOKEN_CAPTURED:0:4}…${GH_TOKEN_CAPTURED: -4}"
+  else
+    _gh_fp="<short>"
+  fi
+  echo-info "  GHToken:  ${_gh_fp} (host \`gh auth token\`; injected as GH_TOKEN + GITHUB_TOKEN)"
   if [ "$HOST_PORT" = "0" ]; then
     echo-info "  UI:       http://localhost:<auto-assigned> (reported on startup)"
   else
