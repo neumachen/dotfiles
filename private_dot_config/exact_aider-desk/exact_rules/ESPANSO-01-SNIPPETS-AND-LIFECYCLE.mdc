@@ -45,7 +45,9 @@ mise run espanso:restart   # reload config + match files after edits
 ```
 
 `mise run espanso:install` is **not** the only install path:
-`cask "espanso"` is also listed in `dot_Brewfile.tmpl`, so the existing
+`cask "espanso"` is also listed in
+`private_dot_config/exact_homebrew/Brewfile.tmpl` (which renders to
+`$XDG_CONFIG_HOME/homebrew/Brewfile`), so the existing
 `.chezmoiscripts/run_once_02-install-brew-apps.sh.tmpl` installs espanso on
 a fresh machine without any mise interaction. The mise task exists for
 on-demand re-runs and for consistent `mise run <tool>:<verb>` muscle memory.
@@ -108,7 +110,8 @@ exact_espanso/
 
 ### Alfred = GUI layer, deliberately untracked
 
-Alfred is installed via `cask "alfred"` in `dot_Brewfile.tmpl`. Alfred's
+Alfred is installed via `cask "alfred"` in
+`private_dot_config/exact_homebrew/Brewfile.tmpl`. Alfred's
 snippet collections are managed in the Alfred GUI as `.alfredsnippets`
 bundles. These bundles are zip archives that version their own UUIDs and
 are designed to be shared via Alfred's export/import flow — not via git.

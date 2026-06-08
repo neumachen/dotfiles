@@ -16,9 +16,10 @@
 # day-to-day lifecycle (start/restart/status) is exposed here as `mise run`
 # tasks for muscle-memory consistency with the rest of the toolchain.
 #
-# `cask "espanso"` is also listed in ~/.Brewfile, so a fresh-machine
-# `chezmoi apply` + the existing run_once_02-install-brew-apps script will
-# install espanso without needing `mise run espanso:install`. The install
+# `cask "espanso"` is also listed in the XDG Brewfile (rendered to
+# $XDG_CONFIG_HOME/homebrew/Brewfile), so a fresh-machine `chezmoi apply`
+# + the existing run_once_02-install-brew-apps script will install
+# espanso without needing `mise run espanso:install`. The install
 # task below is here for explicit on-demand re-runs; it is idempotent because
 # `brew install espanso` is a no-op when the cask is already present.
 
