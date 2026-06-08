@@ -7,7 +7,14 @@ _shiki() {
   local idx_docker=${words[(I)--]}
   local after_docker=$(( idx_docker && CURRENT > idx_docker ? 1 : 0 ))
 
-  # If after `--`, delegate to docker run completion
+  # If after `--`, delegate to docker run completion.
+  #
+  # NOTE: The launcher's parse_docker_extras only accepts a narrow subset
+  # of `docker run` flags — `-e/--env KEY=VAL` and `-v/--volume HOST:CONT[:MODE]`.
+  # Anything else is rejected at runtime with `die`. We still delegate to
+  # the full _docker completer because it offers useful value completion
+  # for those two flags (volume paths, env var names), and the broader
+  # flag list is informational; the launcher gates what actually runs.
   if (( after_docker )); then
     if (( ${+functions[_docker]} )); then
       local -a save_words rest
@@ -25,7 +32,7 @@ _shiki() {
       CURRENT=$saveCURRENT
       return
     else
-      _message 'docker run options (install Docker zsh completion for full support)'
+      _message 'shiki accepts only -e/--env KEY=VAL and -v/--volume HOST:CONT[:MODE] after -- (install Docker zsh completion for value hints)'
       return
     fi
   fi
@@ -64,12 +71,12 @@ _shiki() {
     '(-i --image)'{-i,--image}'[container image to run]:image:_shiki_images' \
     '(-p --port)'{-p,--port}'[host port for AiderDesk UI (default: auto-assigned)]:port:' \
     '*'{-d,--dir}'[project directory to mount (one or more may follow)]:directory:_directories' \
-    '--host-network[share the host network namespace so localhost inside shiki is the host]' \
-    '--bridge-network[use normal bridge networking (default)]' \
+    '(--host-network --bridge-network)--host-network[share the host network namespace so localhost inside shiki is the host]' \
+    '(--host-network --bridge-network)--bridge-network[use normal bridge networking (default)]' \
     '--docker-host[bind host Docker socket into the container (DooD; security tradeoff)]' \
     '--aws-share[share host AWS SSO config + Terraform CLI state (read-only)]' \
     '--pull[pull the upstream AiderDesk base image and exit]' \
-    '--rebuild=-[rebuild the local shiki image and exit; modifiers: pull,no-pull,cache,no-cache]:modifiers:' \
+    '--rebuild=-[rebuild the local shiki image and exit; modifiers: pull,no-pull,cache,no-cache]:modifiers:_shiki_rebuild_modifiers' \
     '--update-extensions[recreate the per-session extensions volume from the current image]' \
     '--[end of wrapper args; start docker run args]'
 }
@@ -99,6 +106,18 @@ _shiki_images() {
   local -a imgs
   imgs=(${(f)"$(docker image ls --format '{{.Repository}}:{{.Tag}}' 2>/dev/null)"})
   (( $#imgs )) && compadd -- $imgs || _message 'image'
+}
+
+# Comma-separable modifiers for --rebuild=<mods>. The launcher parses the
+# value with `IFS=',' read`, so this completer offers each token at the
+# current comma-separated position. zsh's _values handles the
+# comma-separated value list and de-duplicates already-chosen tokens.
+_shiki_rebuild_modifiers() {
+  _values -s , 'rebuild modifier' \
+    'pull[pull the upstream AiderDesk base image before rebuild]' \
+    'no-pull[do not pull the upstream image; use whatever is local]' \
+    'cache[use the Docker build cache]' \
+    'no-cache[do not use the Docker build cache (default)]'
 }
 
 _shiki "$@"
