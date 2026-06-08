@@ -1,5 +1,5 @@
 {
-  "id": "4b4c76ab-6ef9-42ea-9b95-b2c4c61382fa",
+  "id": "codex-profile",
   "name": "Codex Profile",
   "provider": "openai",
   "model": "gpt-5-codex",
