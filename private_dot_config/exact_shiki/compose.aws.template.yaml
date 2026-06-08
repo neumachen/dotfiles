@@ -1,0 +1,79 @@
+# ============================================================================
+# compose.aws.template.yaml — host AWS/Terraform parity overlay.
+#
+# Mounts the host's AWS CLI configuration and SSO token cache into the
+# container so `aws`, `terraform`, and any SDK that honors the standard
+# AWS_* env vars can use the SSO session the user already established
+# on the host. No re-login is required inside the container — and indeed
+# it could not succeed, because `aws sso login` opens a browser and the
+# container has no display.
+#
+# Activation:
+#   Applied by `dot_local/bin/executable_shiki` only when the session was
+#   launched with `--aws-share` (or `SHIKI_AWS_SHARE=1`). Never merged
+#   into the base compose template, never baked into the image.
+#
+# Companion mounts:
+#   The launcher conditionally adds Terraform CLI state to the per-session
+#   runtime overlay when --aws-share is on AND the host has them:
+#     ~/.terraform.d        → /root/.terraform.d   (plugin cache, TF Cloud creds)
+#     ~/.terraformrc        → /root/.terraformrc   (CLI config: plugin_cache_dir, ...)
+#   These are handled in the runtime overlay (not here) because compose
+#   has no graceful way to skip a bind whose source is missing on the host.
+#
+# ── SECURITY — read before enabling this overlay ─────────────────────────
+#   The mount is READ-ONLY. The container can read the host's:
+#     • ~/.aws/config             — SSO profile definitions, account IDs,
+#                                   role names, regions. Not secret on its
+#                                   own, but reveals the AWS topology.
+#     • ~/.aws/credentials        — STATIC long-lived access keys, if any.
+#                                   The instinct workflow primarily uses
+#                                   SSO and rotates these via `loadaws`,
+#                                   but if present, anything in the
+#                                   container can use them.
+#     • ~/.aws/sso/cache/*.json   — SHORT-LIVED bearer tokens (≤8h per the
+#                                   instinct-dev_scripts workflow). These
+#                                   are the de-facto auth material when
+#                                   SSO is in use; equivalent in blast
+#                                   radius to a logged-in browser session.
+#     • ~/.aws/cli/cache/*.json   — Cached STS AssumeRole credentials.
+#                                   Short-lived; refreshed by the AWS CLI.
+#
+#   Combined with `--docker-host`, an agent could run host containers
+#   that exfiltrate keys — but that risk is already documented in
+#   DOCKER-01-HOST-ACCESS and is not specific to this overlay. With this
+#   overlay alone, the practical risk is: arbitrary AWS API calls under
+#   the user's currently-active SSO session, until the SSO token expires.
+#
+# ── DESIGN NOTES ─────────────────────────────────────────────────────────
+#   • RO is intentional: the container CANNOT write back to ~/.aws/.
+#     This means `aws sso login` inside the container will fail (no write
+#     access to the SSO cache). That is by design — login is a host-side
+#     operation. To refresh: run `loadaws <env>` on the host; the live
+#     bind mount picks up the new tokens immediately, no restart needed.
+#
+#   • `loadaws` (from instinct-dev_scripts/bash/aws.sh) backs up
+#     ~/.aws/credentials before clearing it on each invocation. Inside
+#     the container that's a non-issue — the file is read-only and
+#     `loadaws` won't run anyway (it expects host-side `aws sso login`).
+#
+#   • AWS_SDK_LOAD_CONFIG=1 forces the AWS SDKs (Go, JS, Python boto3,
+#     Terraform's AWS provider) to honor ~/.aws/config in addition to
+#     ~/.aws/credentials. Required for SSO profiles to work — without
+#     it, SDKs only look at the credentials file.
+#
+#   • AWS_CONFIG_FILE / AWS_SHARED_CREDENTIALS_FILE are set explicitly
+#     so SDKs find the files regardless of any HOME-relative resolution
+#     differences between alpine/debian base images.
+# ============================================================================
+services:
+  __SERVICE__:
+    volumes:
+      - type: bind
+        source: ${HOME}/.aws
+        target: /root/.aws
+        read_only: true
+    environment:
+      AWS_SDK_LOAD_CONFIG: "1"
+      AWS_CONFIG_FILE: /root/.aws/config
+      AWS_SHARED_CREDENTIALS_FILE: /root/.aws/credentials
