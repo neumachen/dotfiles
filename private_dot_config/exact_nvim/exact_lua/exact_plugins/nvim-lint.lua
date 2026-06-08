@@ -10,6 +10,12 @@ return {
       typescript = { 'oxlint', 'eslint_d' },
       javascriptreact = { 'oxlint', 'eslint_d' },
       typescriptreact = { 'oxlint', 'eslint_d' },
+      -- Terraform: tflint covers correctness + provider-specific rules
+      -- (deprecated args, missing required args, naming conventions).
+      -- terraform-ls (LSP) provides `terraform validate` style diagnostics
+      -- separately, so tflint here is purely additive and does not duplicate
+      -- the LSP's output.
+      terraform = { 'tflint' },
       -- Shell (sh/bash/zsh): diagnostics come from bashls (LSP), which already
       -- shells out to shellcheck. Do NOT add a `shellcheck` linter here or
       -- you'll get duplicate diagnostics.

@@ -1,0 +1,28 @@
+{{- /*
+~/.terraformrc -- Terraform CLI configuration file.
+
+Rendered by chezmoi to ~/.terraformrc (private mode 0600 because the prefix
+on the source filename is `private_dot_`).
+
+Kept deliberately minimal:
+
+  - plugin_cache_dir         shares downloaded providers across every
+                             `terraform init` on this host, so a fresh
+                             clone doesn't re-fetch hashicorp/aws or
+                             every other provider it has seen before.
+                             Cuts init time on cold projects from minutes
+                             to seconds and saves bandwidth.
+
+  - disable_checkpoint       opt out of HashiCorp's version-check telemetry.
+                             We pin versions per-module via `required_version`
+                             (see TERRAFORM-01-CORE-STYLE rule), so the
+                             check has no upside.
+
+No credentials, no provider mirrors, no plugin overrides. Anything
+machine-specific belongs in ~/.terraform.d/credentials.tfrc.json, which
+is intentionally NOT chezmoi-managed (it can contain Terraform Cloud /
+HCP tokens). Add it to .git-ignored/ if it ends up nearby.
+*/ -}}
+
+plugin_cache_dir   = "{{ .chezmoi.homeDir }}/.terraform.d/plugin-cache"
+disable_checkpoint = true

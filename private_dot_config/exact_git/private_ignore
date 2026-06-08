@@ -85,6 +85,29 @@ tagged
 .cover
 **/vendor
 
+# Terraform / OpenTofu
+# ---------------------------------------------------------------------------------------------
+# Local state, lock backups, and crash logs must never be committed.
+# .terraform.lock.hcl IS committed (per TERRAFORM-01-CORE-STYLE), so it is
+# intentionally NOT in this list — only the runtime `.terraform/` directory
+# and the state files themselves are ignored.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+*.tfplan
+*.tfplan.binary
+crash.log
+crash.*.log
+# tfvars MAY contain secrets. Default to ignored; users can override
+# per-repo with `!*.tfvars` in the project's own .gitignore.
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
 # Aider / AiderDesk
 .aider*
 .aider-desk/

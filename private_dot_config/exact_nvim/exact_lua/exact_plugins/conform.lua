@@ -74,6 +74,17 @@ local format_as = {
     filetypes = { 'sql' },
   },
   { label = 'Lua', formatters = { 'stylua' }, filetypes = { 'lua' } },
+  -- Terraform / OpenTofu / HCL. `terraform_fmt` is the conform built-in
+  -- that shells out to `terraform fmt -`. `tofu_fmt` does the same with
+  -- OpenTofu; listed second so it's the fallback when terraform isn't on
+  -- $PATH (per TERRAFORM-01-CORE-STYLE.mdc, both are first-class). The
+  -- `hcl` filetype covers Packer / Waypoint / Nomad / Boundary HCL — same
+  -- formatter works since they share the format.
+  {
+    label = 'Terraform / HCL',
+    formatters = { 'terraform_fmt', 'tofu_fmt' },
+    filetypes = { 'terraform', 'terraform-vars', 'hcl' },
+  },
   {
     label = 'Shell',
     formatters = { 'shfmt' },
@@ -305,6 +316,15 @@ return {
       yaml = { 'prettierd', 'prettier', stop_after_first = true },
       toml = { 'taplo' },
       sql = { 'sql_formatter', 'sqlfluff', stop_after_first = true },
+      -- Terraform / OpenTofu / HCL. `stop_after_first = true` so we don't
+      -- run `terraform fmt` followed by `tofu fmt` on the same buffer.
+      terraform = { 'terraform_fmt', 'tofu_fmt', stop_after_first = true },
+      ['terraform-vars'] = {
+        'terraform_fmt',
+        'tofu_fmt',
+        stop_after_first = true,
+      },
+      hcl = { 'terraform_fmt', 'tofu_fmt', stop_after_first = true },
       sh = { 'shfmt' },
       bash = { 'shfmt' },
       zsh = { 'shfmt' },
