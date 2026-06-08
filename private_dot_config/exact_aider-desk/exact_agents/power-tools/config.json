@@ -57,8 +57,9 @@
     "description": "Generic AiderDesk built-in profile. Kept only as a fallback. Prefer Forge for implementation, Architect for design, Analyst for read-only analysis, Scout for triage. Do not select this profile as the main agent for analysis or coding tasks.",
     "contextMemory": "off"
   },
-  "autoCompactThresholdPercentage": 85,
-  "autoCompactionType": "handoff",
+  "autoCompactThresholdPercentage": 70,
+  "autoCompactionType": "smart",
   "temperature": 0,
-  "disabledExtensionTools": []
+  "disabledExtensionTools": [],
+  "autoCompactThresholdTokens": 2000000000
 }

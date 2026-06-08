@@ -57,8 +57,9 @@
     "description": "Fast read-only triage via Claude Haiku (Agent SDK). Use before coding work to explore and narrow scope.",
     "contextMemory": "off"
   },
-  "autoCompactThresholdPercentage": 85,
+  "autoCompactThresholdPercentage": 70,
   "autoCompactionType": "handoff",
   "temperature": 0,
-  "disabledExtensionTools": []
+  "disabledExtensionTools": [],
+  "autoCompactThresholdTokens": 2000000000
 }
