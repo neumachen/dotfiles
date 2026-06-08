@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ajmarkow/espanso-schema-json/master/schemas/Espanso_Matches_File_Schema.json
+
+# Frequently-reused boilerplate I don't want to retype.
+#
+# This file is loaded via `extends:` from base.yml — the leading underscore
+# in the filename keeps espanso from auto-loading it as its own package.
+
+matches:
+  # ----- signature -----------------------------------------------------
+  - trigger: ":sig"
+    # Literal block scalar so the newline is preserved exactly.
+    replace: |-
+      —
+      Kareem
+      kareem@example.com
+    label: "Email signature"
+    search_terms: ["signature", "sig", "sign-off"]
+
+  # ----- postal address -----------------------------------------------
+  - trigger: ":addr"
+    # Multi-line literal so address blocks paste correctly into forms
+    # that respect newlines (and degrade to a single line in fields that
+    # don't, which is fine).
+    replace: |-
+      Kareem Mustermann
+      Beispielstraße 1
+      10115 Berlin
+      Germany
+    label: "Postal address"
+    search_terms: ["address", "postal", "shipping", "anschrift"]
+
+  # ----- routine chore commit message ---------------------------------
+  - trigger: ":chore"
+    # Conventional Commits "chore" template. Most commonly used for
+    # dependency bumps and lockfile updates that don't need a deep body.
+    replace: "chore: "
+    label: "Conventional commit: chore prefix"
+    search_terms: ["commit", "chore", "conventional"]

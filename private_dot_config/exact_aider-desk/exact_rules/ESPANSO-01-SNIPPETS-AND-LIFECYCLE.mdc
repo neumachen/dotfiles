@@ -1,0 +1,156 @@
+---
+description: espanso text-expansion — mise-driven lifecycle, YAML-managed palette, Alfred-vs-espanso boundary
+globs:
+  - "**/private_dot_config/exact_espanso/**/*.yml"
+  - "**/private_dot_config/exact_espanso/**/*.yaml"
+  - "**/private_dot_config/exact_mise/exact_conf.d/80-tasks.toml"
+  - "**/.config/espanso/**/*.yml"
+  - "**/.config/espanso/**/*.yaml"
+alwaysApply: false
+---
+
+# espanso Rule: Snippets, mise Lifecycle, and the Alfred Boundary
+
+This repo manages text-expansion across three intentionally separate layers.
+When working on any of them, respect the split — don't try to consolidate
+them under a single tool.
+
+## When This Rule Applies
+
+- Any change to `private_dot_config/exact_espanso/config/*.yml` or
+  `private_dot_config/exact_espanso/match/*.yml`.
+- Any change to the `[tasks."espanso:*"]` block in
+  `private_dot_config/exact_mise/exact_conf.d/80-tasks.toml`.
+- Any proposal to add espanso-style behavior elsewhere (Alfred snippets,
+  Hammerspoon hotstrings, Keyboard Maestro macros, etc.).
+
+## The Three Layers
+
+1. **mise** — install + lifecycle entry point. Tasks in `80-tasks.toml`.
+2. **espanso** — YAML-managed snippet library + ALT+SHIFT+SPACE search palette.
+3. **Alfred** — GUI snippet viewer and system launcher, managed manually
+   outside the repo. Not tracked as plain text.
+
+## Required Behavior
+
+### mise = lifecycle conductor
+
+espanso install and service management are exposed as `mise run` tasks:
+
+```bash
+mise run espanso:install   # idempotent; brew-install if app missing
+mise run espanso:start     # service register + start + status
+mise run espanso:status    # is the daemon running?
+mise run espanso:restart   # reload config + match files after edits
+```
+
+`mise run espanso:install` is **not** the only install path:
+`cask "espanso"` is also listed in `dot_Brewfile.tmpl`, so the existing
+`.chezmoiscripts/run_once_02-install-brew-apps.sh.tmpl` installs espanso on
+a fresh machine without any mise interaction. The mise task exists for
+on-demand re-runs and for consistent `mise run <tool>:<verb>` muscle memory.
+
+Do **not** add a separate `.chezmoiscripts/run_once_*-install-espanso.sh.tmpl`.
+That would duplicate the Brewfile path and create two places to maintain.
+
+### espanso = YAML-managed palette
+
+Source layout under `private_dot_config/exact_espanso/`:
+
+```text
+exact_espanso/
+  config/
+    default.yml          # global options (search shortcut, undo, notifications)
+  match/
+    base.yml             # entry file; extends the _*.yml groups + holds top-level matches
+    _favorites.yml       # signature, address, common commit prefixes
+    _code.yml            # multi-line, cursor hint, dynamic date, form match
+```
+
+#### Conventions enforced for this directory
+
+- **Underscore-prefixed match files (`_*.yml`) are pulled in via `extends:`**
+  from `base.yml`. espanso does **not** auto-load files whose basename
+  starts with `_`. This lets groups stay logically separate without each
+  becoming a top-level package.
+- **`exact_` on `exact_espanso/`** means `chezmoi apply` sweeps unmanaged
+  files out of `~/.config/espanso/`. This is intentional — the config and
+  match dirs are pure source of truth.
+- **Runtime state is NOT under `~/.config/espanso/`** on macOS. espanso
+  writes caches and installed-package state under
+  `~/Library/Caches/espanso/` and `~/Library/Application Support/espanso/`,
+  so the `exact_` sweep does not threaten anything important. Packages
+  installed via `espanso install <name>` land under `~/Library/...`, not
+  under `~/.config/espanso/match/packages/`.
+- **Every YAML file starts with a `# yaml-language-server: $schema=...`
+  hint** pointing at the community-maintained `ajmarkow/espanso-schema-json`
+  schemas. These are not official upstream — espanso itself ships no JSON
+  Schema — but they catch the most common typos. If a schema URL ever 404s,
+  yaml-language-server silently skips validation; the espanso runtime is
+  unaffected.
+- **`label:` and `search_terms:` belong on every snippet** that should
+  appear in the ALT+SHIFT+SPACE palette. `label` is what the user sees;
+  `search_terms` extends fuzzy-search beyond the trigger string itself.
+- **Search shortcut is `ALT+SHIFT+SPACE`**, chosen to avoid collision with
+  Alfred (CMD+SPACE / OPTION+SPACE depending on setup), Spotlight
+  (CMD+SPACE), and the Hammerspoon Markdown-fence chooser (ALT+CMD+C).
+  Do not change it without checking those three.
+
+#### Adding a new snippet
+
+1. Decide which `_*.yml` group it belongs to (or create a new one and add
+   it to `base.yml`'s `extends:` list).
+2. Give it a `label` and at least one `search_terms` entry.
+3. Use a literal block scalar (`|` or `|-`) for multi-line replacements,
+   not a folded scalar (`>`), so newlines are preserved exactly.
+4. After saving, the user runs `mise run espanso:restart` for the new
+   match to be picked up. Match-file edits do not reload automatically.
+
+### Alfred = GUI layer, deliberately untracked
+
+Alfred is installed via `cask "alfred"` in `dot_Brewfile.tmpl`. Alfred's
+snippet collections are managed in the Alfred GUI as `.alfredsnippets`
+bundles. These bundles are zip archives that version their own UUIDs and
+are designed to be shared via Alfred's export/import flow — not via git.
+
+**Do not** propose:
+
+- Mirroring espanso matches into Alfred snippet bundles.
+- Tracking Alfred preferences
+  (`com.runningwithcrayons.Alfred-Preferences*`) as chezmoi-managed plain
+  text.
+- Using Alfred as the daily text-expansion tool. Alfred snippets are a
+  fallback / launcher-integration; the daily expander is espanso.
+
+The boundary is:
+
+- **System-wide launcher + clipboard history + workflows** → Alfred (GUI).
+- **Triggered text expansion + searchable snippet palette** → espanso (YAML).
+
+## Validation
+
+When changing espanso config or match files, the user-side check sequence is:
+
+```bash
+chezmoi diff                  # review what will land in ~/.config/espanso/
+chezmoi apply                  # write the changes
+mise run espanso:restart       # reload espanso so the new matches activate
+mise run espanso:status        # confirm daemon is still healthy
+```
+
+If a match doesn't fire after restart, check the espanso log:
+
+```bash
+espanso log
+```
+
+Common failure modes are YAML indentation errors (espanso silently skips
+the bad file) and missing `vars:` blocks for `{{date}}` / `{{shell}}` /
+form-field substitutions.
+
+## Exceptions
+
+None of the boundaries above are negotiable for the daily-driver workflow.
+A future change that introduces a third text-expander (e.g. Keyboard
+Maestro for app-scoped macros) is allowed, but the espanso ↔ Alfred split
+documented here remains the baseline.
