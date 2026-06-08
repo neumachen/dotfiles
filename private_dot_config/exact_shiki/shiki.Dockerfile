@@ -10,7 +10,6 @@ ARG AIDER_DESK_EXTENSIONS_DEFAULT="auggie-sdk,\
     codegraph,\
     context-autocompletion-words,\
     cursor-sdk,\
-    external-rules,\
     external-skills,\
     fff,\
     generate-tests,\
