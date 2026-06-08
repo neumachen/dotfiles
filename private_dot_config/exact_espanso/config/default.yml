@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ajmarkow/espanso-schema-json/master/schemas/Espanso_Config_File_Schema.json
+
+# espanso global config. Loaded for every application unless an
+# app-specific file under config/ overrides individual keys.
+# See: https://espanso.org/docs/configuration/options/
+
+# Search-bar shortcut.
+#
+# Defaults to ALT+SPACE on macOS, which collides with Alfred (we use Alfred
+# as the system-wide launcher) and with Spotlight in some setups. CMD+SPACE
+# is Spotlight, ALT+CMD+C is the Hammerspoon Markdown-fence chooser (see
+# private_dot_config/exact_hammerspoon/init.lua). ALT+SHIFT+SPACE is the
+# upstream-documented "safe" choice and is what we standardise on.
+search_shortcut: ALT+SHIFT+SPACE
+
+# Undo-on-backspace.
+#
+# Already true by default; pinned explicitly so it can't drift if upstream
+# ever changes the default. When enabled, pressing Backspace immediately
+# after an expansion reverts it — important when a snippet fires
+# unintentionally inside a password field or terminal.
+undo_backspace: true
+
+# Stay quiet.
+#
+# We don't want a notification every time a snippet expands; the visible
+# text change is feedback enough. The menu-bar icon is left at its default
+# (visible) so the service is still discoverable from the GUI.
+show_notifications: false

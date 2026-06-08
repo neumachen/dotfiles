@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ajmarkow/espanso-schema-json/master/schemas/Espanso_Matches_File_Schema.json
+
+# Code-shaped snippets: multi-line shell scaffolds, templates with cursor
+# hints, dynamic dates for changelogs, and form-based inputs.
+#
+# Loaded via `extends:` from base.yml; underscore prefix keeps espanso
+# from auto-loading this file independently.
+
+matches:
+  # ----- multi-line literal block --------------------------------------
+  # A safe-bash script header I paste at the top of throwaway scripts.
+  # The literal block scalar `|` preserves every newline as-is, so the
+  # shebang lands on its own line and `set -euo pipefail` follows.
+  - trigger: ":bashinit"
+    replace: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      IFS=$'\n\t'
+    label: "Bash strict-mode header"
+    search_terms: ["bash", "strict", "shebang", "set -euo"]
+
+  # ----- cursor hint ---------------------------------------------------
+  # `$|$` is the espanso cursor-position marker. After expansion the
+  # cursor is placed between the parentheses of the if-block, so I can
+  # type the condition immediately. The closing `fi` stays in place.
+  - trigger: ":ifsh"
+    replace: |
+      if [[ $|$ ]]; then
+        :
+      fi
+    label: "Bash if-block (cursor inside condition)"
+    search_terms: ["if", "bash", "conditional"]
+
+  # ----- dynamic date variable ----------------------------------------
+  # Changelog stub — I prepend this when starting a new entry. The
+  # `{{date}}` variable is resolved at expansion time, not at config
+  # load time, so the date is always "now".
+  - trigger: ":chlog"
+    replace: "## [Unreleased] - {{date}}\n\n### Added\n- "
+    label: "Changelog: new unreleased section"
+    search_terms: ["changelog", "release", "unreleased"]
+    vars:
+      - name: date
+        type: date
+        params:
+          format: "%Y-%m-%d"
+
+  # ----- form-based match ---------------------------------------------
+  # `form:` opens a small dialog with named fields, then substitutes the
+  # values back into the template. Fields default to single-line inputs;
+  # `multiline: true` turns one into a textarea.
+  - trigger: ":bug"
+    label: "Bug report (form)"
+    search_terms: ["bug", "report", "issue", "template"]
+    form: |
+      # Bug: [[title]]
+
+      **Steps to reproduce:**
+      [[steps]]
+
+      **Expected:** [[expected]]
+      **Actual:** [[actual]]
+    form_fields:
+      steps:
+        multiline: true
