@@ -57,7 +57,26 @@ starship             = "latest"
 stern                = "latest"
 swag                 = "latest"
 taplo                = "latest"
+# Terraform / OpenTofu stack.
+# All entries below resolve to `aqua:` prebuilt binaries via the mise
+# registry (verified against mise-en-place's registry table). The full
+# stack is here, not split into 20-aqua.toml, because the short names
+# round-trip through the registry — keeping them in 10-registry.toml is
+# consistent with the existing convention used for the LSP/format/lint
+# triad of every other language in this fragment.
+#
+# Per private_dot_config/exact_aider-desk/exact_rules/TERRAFORM-01-CORE-STYLE.mdc,
+# the workflow expects: `terraform fmt`, `terraform validate`, `tflint`,
+# and pinned provider/module versions. terraform-docs feeds module READMEs.
+# `tofu` is the OpenTofu CLI; pinned at registry-`latest` so it can stand in
+# anywhere `terraform` does (the rule explicitly covers both).
+terraform            = "latest"
+terraform-docs       = "latest"
+terraform-ls         = "latest"
+terragrunt           = "latest"
+tflint               = "latest"
 tmux                 = "latest"
+tofu                 = "latest"
 trdsql               = "latest"
 tree-sitter          = "latest"
 trivy                = "latest"
