@@ -179,7 +179,15 @@ RUN apt-get update \
         # git-filter-repo: fast, safe history rewriting (replaces git filter-branch)
         git-lfs \
         git-filter-repo \
-    && locale-gen en_US.UTF-8 \
+    # Debian 12 ships /etc/locale.gen empty; `locale-gen en_US.UTF-8` as an
+    # argument is a no-op without an entry in that file, leaving only the
+    # precompiled C.utf8 in `locale -a`. update-locale's sanity check then
+    # invokes `locale charmap` with LANG/LC_ALL=en_US.UTF-8, glibc replies
+    # "Cannot set ... default locale", and update-locale exits 255 with
+    # "invalid locale settings". Seed /etc/locale.gen first, then run
+    # locale-gen with no args so it compiles the listed entries.
+    && echo "en_US.UTF-8 UTF-8" > /etc/locale.gen \
+    && locale-gen \
     && update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 \
     && rm -rf /var/lib/apt/lists/*
 
