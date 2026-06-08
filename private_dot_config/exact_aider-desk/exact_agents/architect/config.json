@@ -57,8 +57,9 @@
     "description": "Deep architectural reasoning (Claude Opus 4.8, 1M context, Instinct). Reserve for complex design problems Forge cannot resolve.",
     "contextMemory": "session"
   },
-  "autoCompactThresholdPercentage": 85,
+  "autoCompactThresholdPercentage": 70,
   "autoCompactionType": "handoff",
   "temperature": 0,
-  "disabledExtensionTools": []
+  "disabledExtensionTools": [],
+  "autoCompactThresholdTokens": 2000000000
 }
