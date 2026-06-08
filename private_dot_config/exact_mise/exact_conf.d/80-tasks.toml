@@ -65,3 +65,48 @@ description = "Restart the espanso service (reload config + match files)."
 # running as a managed service or in foreground mode — useful after editing
 # match files via `chezmoi apply`.
 run = "espanso restart"
+
+# --- terraform / opentofu --------------------------------------------------
+# Terraform itself is installed via the mise registry (see
+# exact_conf.d/10-registry.toml: `terraform = "latest"`). The tasks below
+# are repo-local lifecycle conveniences mirroring the espanso:* pattern,
+# so muscle memory stays consistent across the toolchain.
+#
+# All three tasks operate on the current working directory by default,
+# and recurse with `-recursive` where the underlying CLI supports it.
+# That makes `mise run terraform:fmt` from the root of a multi-module
+# repo Just Work.
+#
+# Per TERRAFORM-01-CORE-STYLE: never `--auto-approve`. These tasks do
+# not wrap `terraform apply` for that reason — apply stays a deliberate
+# human action.
+
+[tasks."terraform:fmt"]
+description = "Format every *.tf / *.tfvars in CWD recursively."
+# `terraform fmt -recursive` is idempotent and exit-codes 0 on no-op,
+# which keeps it safe to run from editors or pre-commit hooks.
+run = "terraform fmt -recursive"
+
+[tasks."terraform:validate"]
+description = "Run `terraform validate` in CWD (config + variable types)."
+# `validate` requires an initialized working directory (`terraform init`
+# has been run). The wrapper below initializes with `-backend=false` if
+# the lock file is missing so validate doesn't fail on a fresh clone for
+# a reason unrelated to the code under review.
+run = '''
+if [ ! -f .terraform.lock.hcl ] && [ ! -d .terraform ]; then
+  echo "info: no .terraform/ found; running 'terraform init -backend=false' first"
+  terraform init -backend=false -input=false
+fi
+terraform validate
+'''
+
+[tasks."terraform:lint"]
+description = "Run tflint across the current Terraform module."
+# `--recursive` walks subdirectories. Init step downloads the provider
+# plugins tflint needs for ruleset evaluation; it's a one-time per-dir
+# cost and tflint will skip it if already initialized.
+run = '''
+tflint --init
+tflint --recursive
+'''
