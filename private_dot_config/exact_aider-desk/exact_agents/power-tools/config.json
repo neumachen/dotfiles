@@ -1,5 +1,5 @@
 {
-  "id": "default",
+  "id": "power-tools",
   "name": "Power Tools",
   "provider": "anthropic",
   "model": "claude-sonnet-4-6",

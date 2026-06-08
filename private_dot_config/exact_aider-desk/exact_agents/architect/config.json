@@ -1,5 +1,5 @@
 {
-  "id": "6de71031-0fb2-4637-940a-af2b76ca9a65",
+  "id": "architect",
   "name": "Architect",
   "provider": "anthropic",
   "model": "claude-opus-4-8",
