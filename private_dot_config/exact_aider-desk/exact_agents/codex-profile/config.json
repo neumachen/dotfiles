@@ -58,5 +58,6 @@
     "contextMemory": "off"
   },
   "autoCompactThresholdPercentage": 85,
-  "autoCompactionType": "handoff"
+  "autoCompactionType": "handoff",
+  "disabledExtensionTools": []
 }

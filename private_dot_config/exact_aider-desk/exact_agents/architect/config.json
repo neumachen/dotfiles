@@ -59,5 +59,6 @@
   },
   "autoCompactThresholdPercentage": 85,
   "autoCompactionType": "handoff",
-  "temperature": 0
+  "temperature": 0,
+  "disabledExtensionTools": []
 }
