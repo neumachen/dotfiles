@@ -1,5 +1,5 @@
 {
-  "id": "8b7b4fe1-6c43-4ab0-9696-2e0f3d807f21",
+  "id": "scout",
   "name": "Scout",
   "provider": "claude-agent-sdk",
   "model": "haiku",

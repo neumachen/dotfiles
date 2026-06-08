@@ -1,5 +1,5 @@
 {
-  "id": "f2b4a443-c6d9-4864-a72d-908e2ea57ae6",
+  "id": "forge",
   "name": "Forge",
   "provider": "anthropic",
   "model": "claude-opus-4-7",
