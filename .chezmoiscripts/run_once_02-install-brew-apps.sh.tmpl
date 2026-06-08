@@ -20,12 +20,20 @@ _log_ok()    { if command -v echo-ok    &>/dev/null; then echo-ok    "$@"; else 
 _log_warn()  { if command -v echo-warn  &>/dev/null; then echo-warn  "$@"; else echo "[WARN] --- $*" >&2; fi; }
 _log_err()   { if command -v echo-err   &>/dev/null; then echo-err   "$@"; else echo "[ERROR] --- $*" >&2; fi; }
 
-BREWFILE="${HOME}/.Brewfile"
-if [ -f "${BREWFILE}" ]; then
-  _log_info "Installing Homebrew packages from Brewfile..."
-  brew bundle --file="${BREWFILE}"
+# Brewfile lives at $XDG_CONFIG_HOME/homebrew/Brewfile (rendered by
+# chezmoi from private_dot_config/exact_homebrew/Brewfile.tmpl). We use
+# `brew bundle --global` instead of `--file=<path>` because --global
+# already walks Homebrew's documented resolution order:
+#   1. $HOMEBREW_BUNDLE_FILE_GLOBAL
+#   2. $XDG_CONFIG_HOME/homebrew/Brewfile          <- where ours lives
+#   3. ~/.homebrew/Brewfile
+#   4. ~/.Brewfile
+# Letting Homebrew do the resolution keeps us in step with any future
+# changes to that order without having to track them here.
+_log_info "Installing Homebrew packages from Brewfile (brew bundle --global)..."
+if brew bundle --global; then
   _log_ok "Homebrew packages installed successfully."
 else
-  _log_warn "~/.Brewfile not found, skipping brew bundle."
+  _log_warn "brew bundle --global failed or no Brewfile found at the documented XDG/home paths."
 fi
 {{- end }}
