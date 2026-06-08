@@ -1,0 +1,365 @@
+---
+description: PostgreSQL conventions — JSONB, indexes (GIN/GiST/partial), RLS, EXPLAIN ANALYZE, isolation, pg_stat_statements
+globs:
+  - "**/*.sql"
+  - "**/postgres/**/*.sql"
+  - "**/postgresql/**/*.sql"
+  - "**/migrations/**/*.sql"
+  - "**/db/**/*.sql"
+  - "**/schema.sql"
+  - "**/postgresql.conf"
+  - "**/pg_hba.conf"
+  - "**/.pgpass"
+  - "**/psqlrc"
+  - "**/.psqlrc"
+alwaysApply: false
+---
+
+# PostgreSQL Rule: Conventions
+
+When working with PostgreSQL specifically — schema design, indexing, query optimization, runtime config — follow these rules. This complements `SQL-01-CORE-STYLE`, which covers cross-engine SQL fundamentals.
+
+## Match the project
+
+- Match the project's Postgres major version (`SELECT version();` or check `Dockerfile`/`docker-compose.yml`). Features differ significantly: declarative partitioning (10+), `INCLUDE` indexes (11+), `MERGE` (15+), `JSON_TABLE` (17+).
+- Match the project's migration tool: Rails, Ecto, Atlas, Flyway, Liquibase, sqlx-cli, golang-migrate, sqitch. Don't introduce a parallel.
+- Match the existing connection pooler: PgBouncer (transaction or session pooling) or RDS Proxy. Pooler mode constrains what SQL features work (prepared statements, advisory locks).
+
+## Data types
+
+- `bigint` (`int8`) for primary keys in new tables — `integer` (`int4`) runs out at 2.1B rows. The cost is 4 bytes per row.
+- `text` over `varchar(n)`. The `n` provides no storage benefit in Postgres and forces awkward migrations to grow.
+- `timestamptz` (timestamp with time zone) for all timestamps. `timestamp` (without TZ) is almost always a bug — it stores a wall-clock instant whose meaning depends on the reader's session TZ.
+- `uuid` over `text` for UUID columns. 16 bytes vs 36 + storage, and proper type checking.
+- `numeric` for money (exact). Never `float` / `double precision` for currency.
+- `boolean` is `boolean`, not `smallint`.
+- `bytea` for binary blobs; consider whether the blob belongs in object storage with a URL in the DB instead.
+
+## JSONB
+
+- `jsonb` (binary, indexable) over `json` (textual, stored as parsed). Default to `jsonb`.
+- Index strategies depend on access pattern:
+  - **Containment queries** (`payload @> '{"event": "signup"}'`): GIN with default `jsonb_ops`:
+    ```sql
+    CREATE INDEX idx_events_payload ON events USING gin (payload);
+    ```
+  - **Path-and-key queries only** (smaller, faster build): GIN with `jsonb_path_ops`:
+    ```sql
+    CREATE INDEX idx_events_payload ON events USING gin (payload jsonb_path_ops);
+    ```
+  - **Specific scalar field** (`(payload->>'tenant_id') = 'abc'`): plain B-tree on the expression:
+    ```sql
+    CREATE INDEX idx_events_tenant ON events ((payload->>'tenant_id'));
+    ```
+- Don't use JSONB as a substitute for normalized schema. JSONB is right for genuinely-variable shape (analytics events, third-party webhook bodies); wrong for "I don't want to write migrations."
+
+## Indexes
+
+### B-tree (default)
+
+Every column in `WHERE`, `ORDER BY`, `JOIN ON` should have one — already a `SQL-01` rule. Postgres-specifics:
+
+- Multi-column index order: most-selective column first, then equality columns, then range columns. Postgres uses a multi-column index only when the leading column appears in the predicate.
+- `INCLUDE` for covering indexes (Postgres 11+):
+  ```sql
+  CREATE INDEX idx_orders_user ON orders (user_id) INCLUDE (total_cents, status);
+  ```
+  The included columns are stored at the leaf but not part of the key — useful for index-only scans.
+- `DESC` and `NULLS FIRST/LAST` for indexes used to support `ORDER BY` with those directions.
+
+### Partial indexes — Postgres's killer feature
+
+Index only the rows you actually query, not the whole table:
+
+```sql
+CREATE INDEX idx_users_email_active
+  ON users (email)
+  WHERE deleted_at IS NULL;
+
+CREATE UNIQUE INDEX uq_users_email_active
+  ON users (lower(email))
+  WHERE deleted_at IS NULL;
+```
+
+A partial index is smaller, faster to build, and faster to query — at the cost of being unusable for queries that don't match the predicate exactly.
+
+### GIN / GiST
+
+- `gin` for "is X contained in Y": JSONB containment, arrays, full-text search (`tsvector`), trigram (`pg_trgm`) for fuzzy text match.
+- `gist` for geometric/range data, exclusion constraints, KNN nearest-neighbor (`<->`).
+- `gin` is faster to query, slower to update. `gist` is balanced. Choose based on read/write ratio.
+
+### Expression indexes
+
+```sql
+CREATE INDEX idx_users_lower_email ON users (lower(email));
+CREATE INDEX idx_orders_year ON orders (date_trunc('year', created_at));
+```
+
+Useful for case-insensitive lookups, computed columns, and timezone conversions. The expression in the query must match the index expression exactly.
+
+### Don't index speculatively
+
+Index entries cost write performance and disk. Profile before adding:
+
+```sql
+EXPLAIN (ANALYZE, BUFFERS) SELECT ... FROM ... WHERE ...;
+```
+
+A sequential scan on a small table or a low-selectivity column may genuinely be faster than an index scan.
+
+### Concurrent index builds
+
+In production, `CREATE INDEX` takes an `ACCESS EXCLUSIVE` lock that blocks writes. Always:
+
+```sql
+CREATE INDEX CONCURRENTLY idx_users_email ON users (email);
+```
+
+`CONCURRENTLY` cannot run inside a transaction. In migrations, disable the per-migration transaction (Rails: `disable_ddl_transaction!`; raw SQL: `--` directive in your migration runner; Ecto: `disable_ddl_transaction true` in the migration).
+
+If a `CONCURRENTLY` build fails, you're left with an invalid index. Drop it before retry:
+
+```sql
+SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'idx_users_email';
+DROP INDEX CONCURRENTLY IF EXISTS idx_users_email;
+```
+
+## Constraints
+
+- `NOT NULL` is a constraint, not a default. Use it aggressively — nullable columns are forever.
+- Foreign keys: `ON DELETE` policy explicit. `RESTRICT` (default) prevents the delete if dependents exist; `CASCADE` deletes dependents; `SET NULL` orphans them. Pick deliberately.
+- `CHECK` constraints encode business rules at the DB level:
+  ```sql
+  ALTER TABLE orders ADD CONSTRAINT positive_total CHECK (total_cents >= 0);
+  ```
+- `EXCLUDE` constraints for "no two rows overlap":
+  ```sql
+  ALTER TABLE bookings
+    ADD CONSTRAINT no_overlap
+    EXCLUDE USING gist (room_id WITH =, period WITH &&);
+  ```
+- `UNIQUE` over application-level uniqueness checks. A `LIKE` query before `INSERT` has a TOCTOU race; a UNIQUE constraint does not.
+
+## Migrations
+
+- Online schema changes: assume the DB is in production with active writers. Don't rewrite the table.
+- `ADD COLUMN ... NOT NULL DEFAULT value` is a rewrite on Postgres < 11. On 11+ it's an instant catalog change because Postgres stores the default at the catalog level.
+- Adding a `NOT NULL` constraint to an existing column is a full-table scan. Use a `CHECK ... NOT VALID` constraint, backfill validity, then `VALIDATE CONSTRAINT`:
+  ```sql
+  ALTER TABLE orders ADD CONSTRAINT orders_status_not_null CHECK (status IS NOT NULL) NOT VALID;
+  -- backfill any rows where status IS NULL
+  ALTER TABLE orders VALIDATE CONSTRAINT orders_status_not_null;
+  ```
+- Splitting a column rename across deploys (the "expand–migrate–contract" dance):
+  1. Add the new column.
+  2. Backfill in batches.
+  3. Deploy code that writes both columns, reads new.
+  4. Drop the old column.
+
+## Transactions and isolation
+
+- Default isolation is `READ COMMITTED`. Most workloads are fine with this.
+- `REPEATABLE READ` (snapshot isolation) for analytical queries that must see a consistent view.
+- `SERIALIZABLE` for genuinely concurrent business invariants that can't be expressed as constraints. Be ready to retry on serialization failures.
+- Keep transactions short. A long transaction blocks `VACUUM` from cleaning up dead tuples and inflates the WAL.
+- `SELECT ... FOR UPDATE` to take a row lock — useful for "read-then-update" workflows. Use `FOR UPDATE SKIP LOCKED` for queue-like patterns to avoid blocking other consumers.
+
+## Advisory locks
+
+For coordination outside of row-level locks:
+
+```sql
+SELECT pg_try_advisory_xact_lock(hashtext('process_invoices'));
+-- transaction-scoped; auto-released at COMMIT/ROLLBACK
+```
+
+Useful for "only one worker processes this queue at a time" without an external lock service. PgBouncer in transaction-pooling mode is compatible with transaction-scoped advisory locks, but not session-scoped (`pg_advisory_lock`).
+
+## Performance investigation
+
+### `EXPLAIN (ANALYZE, BUFFERS)`
+
+The single most useful command for finding why a query is slow:
+
+```sql
+EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
+SELECT u.id, u.email, COUNT(o.id) AS order_count
+FROM users u LEFT JOIN orders o ON o.user_id = u.id
+GROUP BY u.id, u.email
+LIMIT 100;
+```
+
+Read the plan **bottom-up**. Things to look for:
+
+- `Seq Scan` on a large table — missing index.
+- `Rows Removed by Filter` >> `Rows` — bad index choice or bad predicate.
+- `actual rows` vs estimated rows off by >10× — stats are stale (`ANALYZE`) or correlation issues (`CREATE STATISTICS`).
+- `Hash Join` with high `Buffers: shared read` — working set doesn't fit in cache.
+- `Sort Method: external merge` — sort spilled to disk; increase `work_mem` or add an index.
+
+### `pg_stat_statements`
+
+Enable in production. Top-offender queries by total time:
+
+```sql
+SELECT query, calls, total_exec_time, mean_exec_time, rows
+FROM pg_stat_statements
+ORDER BY total_exec_time DESC
+LIMIT 20;
+```
+
+This is where the real wins are: a query that runs 100× a second at 5ms is a bigger fish than one that runs once a day at 30s.
+
+### `auto_explain`
+
+Logs the plan for any query exceeding a threshold:
+
+```
+auto_explain.log_min_duration = 500ms
+auto_explain.log_analyze = on
+auto_explain.log_buffers = on
+```
+
+Set in `postgresql.conf` or `ALTER SYSTEM SET`.
+
+## Row-level security (RLS)
+
+For multi-tenant apps where the application must guarantee a query never crosses tenant boundaries:
+
+```sql
+ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY invoices_tenant_isolation ON invoices
+  FOR ALL
+  USING (tenant_id = current_setting('app.current_tenant')::uuid);
+```
+
+Then on every connection (typically in the framework's per-request middleware):
+
+```sql
+SET LOCAL app.current_tenant = '...';
+```
+
+- `SET LOCAL` so the value resets at transaction end — important for connection pooling.
+- The `USING` clause filters reads. Add `WITH CHECK` to also gate writes:
+  ```sql
+  CREATE POLICY ... USING (tenant_id = ...) WITH CHECK (tenant_id = ...);
+  ```
+- Test policies with `SET ROLE` to a low-privilege role; superusers and the table owner bypass RLS unless `FORCE ROW LEVEL SECURITY` is set.
+
+## Full-text search
+
+For real applications, Postgres FTS is often enough — no Elasticsearch needed.
+
+```sql
+ALTER TABLE articles
+  ADD COLUMN search_tsv tsvector
+  GENERATED ALWAYS AS (
+    setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
+    setweight(to_tsvector('english', coalesce(body, '')), 'B')
+  ) STORED;
+
+CREATE INDEX idx_articles_search ON articles USING gin (search_tsv);
+```
+
+Query:
+
+```sql
+SELECT id, title, ts_rank(search_tsv, q) AS rank
+FROM articles, plainto_tsquery('english', 'fast database queries') q
+WHERE search_tsv @@ q
+ORDER BY rank DESC
+LIMIT 20;
+```
+
+For prefix or fuzzy match, layer in `pg_trgm`:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX idx_articles_title_trgm ON articles USING gin (title gin_trgm_ops);
+SELECT title FROM articles WHERE title % 'qury';  -- similar-to
+```
+
+## Common Table Expressions (CTEs)
+
+- Pre-Postgres 12, CTEs were always an optimization fence — the planner couldn't push predicates into them. Useful for *forcing* materialization, painful otherwise.
+- Postgres 12+ inlines CTEs by default. Force materialization with `WITH x AS MATERIALIZED (...)` when you genuinely want to compute once and reuse.
+- Use CTEs for readability when the same subquery appears twice, or when the staged logic is genuinely easier to read top-to-bottom.
+
+## Connection pooling
+
+- PgBouncer **transaction pooling** is the default. Implications:
+  - No session-state features survive across statements: `SET` variables, advisory `pg_advisory_lock`, `LISTEN/NOTIFY`, `WITH HOLD` cursors.
+  - Use `SET LOCAL` inside transactions instead.
+- PgBouncer **session pooling** preserves session state but holds the backend longer; less efficient.
+- Stop using `LISTEN/NOTIFY` if behind transaction pooling. Use a queue (`pg_jobs`, Sidekiq, Oban) instead.
+
+## Backups
+
+- Logical: `pg_dump` (or `pg_dump --jobs=N` for parallel) for portability and selective restore.
+- Physical: `pg_basebackup` + WAL archiving for point-in-time recovery (PITR). Required for any production DB.
+- Hosted Postgres (RDS, Cloud SQL, Supabase) manages physical backups; you still want regular logical dumps for cross-region or cross-provider portability.
+- Test restore quarterly. A backup you've never restored is a hope, not a backup.
+
+## Useful extensions
+
+- `pg_stat_statements` — query-level statistics. Enable in production.
+- `pg_trgm` — trigram similarity for fuzzy text.
+- `uuid-ossp` (legacy) / `pgcrypto` (`gen_random_uuid()` — preferred) — UUID generation.
+- `hstore` — flat key-value. Mostly superseded by JSONB.
+- `citext` — case-insensitive text. Convenient but adds friction; explicit `lower()` is often clearer.
+- `unaccent` — strip diacritics for search.
+- `postgis` — geospatial.
+- `timescaledb` — time-series extensions (external; not in core).
+
+## Anti-patterns
+
+- `SELECT *` in application code — silently breaks on column add/remove and pulls TEXT/JSONB you may not need.
+- `varchar(n)` instead of `text`.
+- Storing money as `float` or `double precision`. Use `numeric`.
+- Storing UUIDs as `text`. Use `uuid`.
+- Long transactions in OLTP — block `VACUUM`, bloat WAL, inflate replication lag.
+- `IN (subquery)` when `EXISTS (subquery)` would do — `EXISTS` short-circuits, `IN` may materialize.
+- `COUNT(*)` for "do any rows exist" — use `EXISTS`.
+- Trigger-driven cascading writes — opaque, hard to test, harder to migrate away from.
+- Using application-managed UUIDs without `gen_random_uuid()` for IDs that don't need to be portable across DBs.
+
+## Examples
+
+### Good — schema, indexes, partial unique
+
+```sql
+CREATE TABLE users (
+  id           bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  email        text NOT NULL,
+  name         text,
+  role         text NOT NULL DEFAULT 'user'
+                 CHECK (role IN ('user', 'admin', 'owner')),
+  deleted_at   timestamptz,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX uq_users_email_active
+  ON users (lower(email))
+  WHERE deleted_at IS NULL;
+
+CREATE INDEX idx_users_created_at
+  ON users (created_at DESC)
+  WHERE deleted_at IS NULL;
+```
+
+### Bad
+
+```sql
+-- varchar(n), float for money, no index, no constraints, naive cascade:
+CREATE TABLE orders (
+  id        SERIAL PRIMARY KEY,
+  user_id   INTEGER,
+  email     VARCHAR(255),
+  total     FLOAT,
+  status    VARCHAR(50),
+  created   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
