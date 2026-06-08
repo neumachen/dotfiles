@@ -8,14 +8,20 @@
 #      (these come from the sanitized identity at /run/shiki/git-identity,
 #      derived from the read-only mount at /etc/xdg/git/identity — see
 #      compose.template.yaml `SHIKI_GIT_IDENTITY`)
-#   3. If the resolved git config declares a user.signingkey:
-#      a. SSH_AUTH_SOCK is set and points to a live agent socket
-#      b. (best-effort) report how many identities the agent holds
+#   3. SSH_AUTH_SOCK is set, points at a UNIX socket, and the agent
+#      responds to `ssh-add -l`. Unconditional — container pushes go
+#      over SSH via the forwarded 1Password agent socket (HTTPS is
+#      intentionally not configured by the launcher). If a signing key
+#      is also set, surface the fingerprint as context.
 #   4. If SHIKI_DOCKER_HOST=1 (set by `shiki --docker-host` in the
 #      launcher): the host Docker socket is mounted at
 #      /var/run/docker.sock, is a socket, and both `docker version`
 #      (client + server) and `docker compose version` succeed. Skipped
 #      entirely when the flag is not set.
+#   5. Post-mise-install: `gh` is on PATH (delivered by mise via
+#      shiki-mise.toml) and GH_TOKEN + GITHUB_TOKEN are non-empty in
+#      the environment (injected by the launcher from host
+#      `gh auth token`). Hard-fail if any is missing.
 #
 # Notes:
 #   - Identity, signing key, and per-project profile routing live entirely
@@ -138,32 +144,43 @@ fi
 
 echo "✓ ident    ${git_user_name} <${git_user_email}>"
 
-# ── Check: SSH agent (only if signing is configured) ──────────────────
+# ── Check: SSH agent (unconditional — required) ───────────────────────
+# Container pushes go over SSH via the forwarded 1Password agent socket
+# (HTTPS is intentionally not configured — see executable_shiki's
+# "GitHub token" help section). The agent must be present and
+# responsive on every session start, whether or not a signing key is
+# configured. If signing is configured we also surface the key
+# fingerprint for visibility.
 if [ -n "${git_signing_key}" ]; then
   echo "✓ sign     user.signingkey set; container signs via SSH_AUTH_SOCK"
   echo "  ↳ key    ${git_signing_key:0:40}..."
+fi
 
-  if [ -z "${SSH_AUTH_SOCK:-}" ]; then
-    echo "FATAL: user.signingkey is set but SSH_AUTH_SOCK is not." >&2
-    echo "       Mount the 1Password agent socket via compose:" >&2
-    echo "         -v ~/.1password/agent.sock:/run/1password/agent.sock" >&2
-    echo "         -e SSH_AUTH_SOCK=/run/1password/agent.sock" >&2
-    errors=$((errors + 1))
-  elif [ ! -S "${SSH_AUTH_SOCK}" ]; then
-    echo "FATAL: SSH_AUTH_SOCK='${SSH_AUTH_SOCK}' is not a socket." >&2
-    echo "       Ensure the 1Password SSH agent socket is mounted." >&2
-    errors=$((errors + 1))
+if [ -z "${SSH_AUTH_SOCK:-}" ]; then
+  echo "FATAL: SSH_AUTH_SOCK is not set." >&2
+  echo "       The container requires a forwarded SSH agent socket for" >&2
+  echo "       git operations over SSH (no HTTPS credential helper is" >&2
+  echo "       configured by design). Mount the 1Password agent socket" >&2
+  echo "       via compose:" >&2
+  echo "         -v ~/.1password/agent.sock:/run/1password/agent.sock" >&2
+  echo "         -e SSH_AUTH_SOCK=/run/1password/agent.sock" >&2
+  errors=$((errors + 1))
+elif [ ! -S "${SSH_AUTH_SOCK}" ]; then
+  echo "FATAL: SSH_AUTH_SOCK='${SSH_AUTH_SOCK}' is not a socket." >&2
+  echo "       Ensure the 1Password SSH agent socket is mounted." >&2
+  errors=$((errors + 1))
+else
+  if agent_output=$(ssh-add -l 2>&1); then
+    key_count=$(echo "${agent_output}" | wc -l)
+    echo "✓ agent    ${SSH_AUTH_SOCK} (${key_count} identity/ies)"
+  elif echo "${agent_output}" | grep -q "no identities"; then
+    # "no identities" is a healthy agent that has nothing loaded yet
+    # (1Password loads on demand). Not fatal — agent is responding.
+    echo "✓ agent    ${SSH_AUTH_SOCK} (no identities yet — 1Password loads on demand)"
   else
-    if agent_output=$(ssh-add -l 2>&1); then
-      key_count=$(echo "${agent_output}" | wc -l)
-      echo "  ↳ agent  ${SSH_AUTH_SOCK} (${key_count} identity/ies)"
-    elif echo "${agent_output}" | grep -q "no identities"; then
-      echo "  ↳ agent  ${SSH_AUTH_SOCK} (no identities yet — 1Password loads on demand)"
-    else
-      echo "FATAL: SSH agent at ${SSH_AUTH_SOCK} is not responding." >&2
-      echo "       ssh-add -l returned: ${agent_output}" >&2
-      errors=$((errors + 1))
-    fi
+    echo "FATAL: SSH agent at ${SSH_AUTH_SOCK} is not responding." >&2
+    echo "       ssh-add -l returned: ${agent_output}" >&2
+    errors=$((errors + 1))
   fi
 fi
 
@@ -234,6 +251,56 @@ if [ "${SHIKI_SKIP_MISE_INSTALL:-0}" != "1" ] && command -v mise >/dev/null 2>&1
   fi
   echo ""
 fi
+
+# ── Check: gh on PATH (required, post-mise) ───────────────────────────
+# `gh` is delivered via mise (shiki-mise.toml: github-cli) and the
+# launcher injects GH_TOKEN + GITHUB_TOKEN into the environment. Both
+# need to be present for in-container GitHub operations (release
+# tooling, MCP servers, aider's GitHub integration). Hard-fail if
+# either is missing.
+#
+# Placement: after the mise-install block above, because on a fresh
+# session `gh` won't be on PATH until mise has installed it. If mise
+# install failed (non-fatal warning) or was skipped via
+# SHIKI_SKIP_MISE_INSTALL=1, this check will catch the consequence.
+gh_errors=0
+if ! command -v gh >/dev/null 2>&1; then
+  echo "FATAL: 'gh' binary not found on PATH." >&2
+  echo "       Expected via mise (shiki-mise.toml: github-cli). Causes:" >&2
+  echo "         • mise install failed earlier in this session" >&2
+  echo "         • SHIKI_SKIP_MISE_INSTALL=1 set without gh installed" >&2
+  echo "         • PATH does not include mise shims (~/.local/share/mise/shims)" >&2
+  echo "       Re-run 'mise install --yes' in the container, or rebuild" >&2
+  echo "       the image with 'shiki --rebuild'." >&2
+  gh_errors=$((gh_errors + 1))
+fi
+if [ -z "${GH_TOKEN:-}" ]; then
+  echo "FATAL: GH_TOKEN is not set in the container environment." >&2
+  echo "       The shiki launcher injects this from host \`gh auth token\`;" >&2
+  echo "       see executable_shiki's \"GitHub token\" help section." >&2
+  gh_errors=$((gh_errors + 1))
+fi
+if [ -z "${GITHUB_TOKEN:-}" ]; then
+  echo "FATAL: GITHUB_TOKEN is not set in the container environment." >&2
+  gh_errors=$((gh_errors + 1))
+fi
+
+if [ "${gh_errors}" -gt 0 ]; then
+  echo "" >&2
+  echo "Startup aborted — ${gh_errors} GitHub preflight check(s) failed." >&2
+  exit 1
+fi
+
+# Print a fingerprint of the captured token (same shape as the launcher's
+# host-side banner) so a wrong/stale value is visible at a glance.
+gh_token_len="${#GH_TOKEN}"
+if [ "${gh_token_len}" -gt 8 ]; then
+  gh_token_fp="${GH_TOKEN:0:4}…${GH_TOKEN: -4}"
+else
+  gh_token_fp="<short>"
+fi
+echo "✓ gh       $(gh --version | head -1) (token ${gh_token_fp})"
+echo ""
 
 # ── Seed AiderDesk's disabled-extensions list ─────────────────────────
 # All extensions are baked into the image, but some are disabled by
