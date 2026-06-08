@@ -62,19 +62,31 @@ _shiki() {
     '--about[show a short description of Shiki]' \
     '(-n --name)'{-n,--name}'[session/container name]:session name:_shiki_sessions' \
     '(-i --image)'{-i,--image}'[container image to run]:image:_shiki_images' \
-    '(-p --port)'{-p,--port}'[host port for AiderDesk UI (default: 24337)]:port:' \
+    '(-p --port)'{-p,--port}'[host port for AiderDesk UI (default: auto-assigned)]:port:' \
     '*'{-d,--dir}'[project directory to mount (one or more may follow)]:directory:_directories' \
     '--host-network[share the host network namespace so localhost inside shiki is the host]' \
     '--bridge-network[use normal bridge networking (default)]' \
+    '--docker-host[bind host Docker socket into the container (DooD; security tradeoff)]' \
     '--pull[pull the upstream AiderDesk base image and exit]' \
     '--rebuild=-[rebuild the local shiki image and exit; modifiers: pull,no-pull,cache,no-cache]:modifiers:' \
     '--update-extensions[recreate the per-session extensions volume from the current image]' \
     '--[end of wrapper args; start docker run args]'
 }
 
+# Session names are sourced from the on-host data dir (~/.local/share/aider-desk/<name>)
+# instead of `docker ps`, so both running and removed-but-restorable sessions
+# show up. Falls back to `docker ps -a` if the data dir is missing.
 _shiki_sessions() {
   local -a sessions
-  sessions=(${(f)"$(docker ps -a --filter 'name=shiki-' --format '{{.Names}}' 2>/dev/null)"})
+  local data_root="${AIDER_DESK_DATA_ROOT:-$HOME/.local/share/aider-desk}"
+  if [[ -d $data_root ]]; then
+    # Use zsh glob to list immediate subdirs; portable across macOS/Linux
+    # (no GNU-only `find -printf`). `(/N:t)` = dirs only, nullglob, tail name.
+    sessions=($data_root/*(/N:t))
+  fi
+  if (( ${#sessions} == 0 )); then
+    sessions=(${(f)"$(docker ps -a --format '{{.Names}}' 2>/dev/null)"})
+  fi
   if (( $#sessions )); then
     _describe 'session' sessions
   else

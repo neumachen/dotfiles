@@ -70,10 +70,14 @@ EXTRA_VOLUMES=()
 EXTENSIONS_VOLUME_SUFFIX="extensions"
 
 # ── Docker-out-of-Docker (DooD) — opt-in host engine access ───────────
-# Both default OFF. Enable via `--docker-host` / `--docker-mount-home`
-# or by exporting SHIKI_DOCKER_HOST=1 / SHIKI_DOCKER_MOUNT_HOME=1 in
-# the shell. The two dimensions are independent: the socket bind and
-# the $HOME bind compose as separate overlays.
+# Defaults OFF. Enable via `--docker-host` or by exporting
+# SHIKI_DOCKER_HOST=1 in the shell.
+#
+# Path symmetry between host and container is now handled by the base
+# launcher (host paths under $HOME map to /root, others mount as-is),
+# so the old `--docker-mount-home` flag is gone — every project dir is
+# already reachable at the host-valid path needed for sibling
+# `docker compose` stacks that use relative bind sources.
 #
 # SHIKI_DOCKER_SOCK selects which host socket to bind. Default is the
 # canonical /var/run/docker.sock (which OrbStack symlinks to its own
@@ -82,7 +86,6 @@ EXTENSIONS_VOLUME_SUFFIX="extensions"
 # explicit user intent. See compose.docker-sock.template.yaml.
 DEFAULT_DOCKER_SOCK="/var/run/docker.sock"
 DOCKER_HOST_MODE="${SHIKI_DOCKER_HOST:-0}"
-DOCKER_MOUNT_HOME="${SHIKI_DOCKER_MOUNT_HOME:-0}"
 DOCKER_SOCK="${SHIKI_DOCKER_SOCK:-$DEFAULT_DOCKER_SOCK}"
 
 SHIKI_ABOUT=$'Shiki — AiderDesk in a container with persistent sessions.\nThis tool wraps AiderDesk with SSH agent forwarding for 1Password commit\nsigning and sensible mounts for your project.'
@@ -124,16 +127,10 @@ Wrapper options (before --):
                      unauthenticated control plane — any process with
                      access can launch a privileged host container and
                      escape. Opt-in per session; never the default.
-      --docker-mount-home
-                     Additionally bind $HOME:$HOME so paths inside the
-                     container match the host byte-for-byte. Required for
-                     sibling `docker compose` stacks whose YAML uses
-                     relative bind sources (`./data:/data`) — the host
-                     daemon resolves bind sources on the host filesystem,
-                     so the project must be reachable at the same path.
-                     Useless without --docker-host. BLAST RADIUS: exposes
-                     ~/.ssh, ~/.aws, ~/.config/op, ~/Library, etc., to
-                     the container.
+                     Sibling `docker compose` stacks with relative bind
+                     sources (`./data:/data`) work without extra flags
+                     because every project dir is mounted at a host-valid
+                     path (see Mounts, below).
       --pull         Pull the upstream AiderDesk base image,
                      then exit without starting a container.
       --rebuild[=mods]
@@ -188,10 +185,6 @@ Optional environment variables:
                      (equivalent to passing --docker-host). Default: 0.
                      The ambient DOCKER_HOST var is NEVER honored — only
                      this explicit shiki-namespaced flag.
-  SHIKI_DOCKER_MOUNT_HOME
-                     Set to 1 to bind $HOME:$HOME (equivalent to
-                     --docker-mount-home). Useless without
-                     SHIKI_DOCKER_HOST=1. Default: 0.
   SHIKI_DOCKER_SOCK  Host path of the Docker UNIX socket to bind into
                      the container at /var/run/docker.sock.
                      Default: /var/run/docker.sock (works on OrbStack via
@@ -210,7 +203,14 @@ SSH agent forwarding (required for commit signing):
     3. ~/.1password/agent.sock as a fallback
 
 Mounts (automatic):
-  Project dir(s)           → /projects/<subdir>  (one mount per supplied dir)
+  Project dir(s)           → host-path-translated  (one mount per supplied dir)
+                             Host paths under $HOME map to /root/...; paths
+                             outside $HOME mount at the same absolute path.
+                               host ~/mine            → /root/mine
+                               host ~/code/foo        → /root/code/foo
+                               host /opt/work/proj    → /opt/work/proj
+                             Mounting host $HOME itself is rejected (would
+                             shadow container state at /root).
   ~/.local/share/aider-desk/<session>/data
                            → /app/state            (persistent data, survives container removal)
   ~/.local/share/aider-desk/<session>/claude
@@ -265,11 +265,12 @@ Docker-out-of-Docker (opt-in via --docker-host):
       the AiderDesk agent runs has the blast radius of `sudo` on the host.
     • The image-level seccomp=unconfined / apparmor=unconfined posture
       (set for bwrap/Landlock) does NOT defend the socket.
-    • For sibling `docker compose` stacks with relative bind sources
-      (`./data:/data`), you must also pass --docker-mount-home so the
-      container sees the project at the same path the host daemon expects.
-      Then `cd ~/code/proj && docker compose up -d` works; without it,
-      bind sources resolve against the host filesystem and fail.
+    • Sibling `docker compose` stacks with relative bind sources
+      (`./data:/data`) work transparently: every project dir is mounted
+      at the host-valid path (paths under host $HOME map to /root/...,
+      others mount as-is), so `cd ~/code/proj && docker compose up -d`
+      Just Works — the host daemon resolves the bind source at the same
+      string the container sees.
 
   See:
     private_dot_config/exact_shiki/compose.docker-sock.template.yaml
@@ -305,7 +306,6 @@ Examples:
   shiki -d ~/code/app -d ~/code/lib -n my-app  # repeated -d also works
   shiki --host-network                          # localhost in container = host localhost
   shiki --docker-host                           # bind host Docker socket — DooD enabled
-  shiki --docker-host --docker-mount-home       # also bind $HOME so sibling `docker compose` works
   SHIKI_DOCKER_SOCK=~/.orbstack/run/docker.sock shiki --docker-host
                                                 # pin the OrbStack-canonical socket
   shiki --pull                                  # pull upstream base image only
@@ -443,7 +443,6 @@ parse_args() {
     --host-network) NETWORK_MODE="host"; shift ;;
     --bridge-network) NETWORK_MODE="bridge"; shift ;;
     --docker-host) DOCKER_HOST_MODE=1; shift ;;
-    --docker-mount-home) DOCKER_MOUNT_HOME=1; shift ;;
     --pull) PULL_IMAGE=1; shift ;;
     --rebuild)
       REBUILD_IMAGE=1
@@ -507,7 +506,6 @@ SHIKI_DIR="${SHIKI_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/shiki}"
 SHIKI_COMPOSE_TEMPLATE="${SHIKI_DIR}/compose.template.yaml"
 SHIKI_COMPOSE_HOST_NETWORK_TEMPLATE="${SHIKI_DIR}/compose.host-network.template.yaml"
 SHIKI_COMPOSE_DOCKER_SOCK_TEMPLATE="${SHIKI_DIR}/compose.docker-sock.template.yaml"
-SHIKI_COMPOSE_DOCKER_MOUNT_HOME_TEMPLATE="${SHIKI_DIR}/compose.docker-mount-home.template.yaml"
 SHIKI_DOCKERFILE="${SHIKI_DIR}/shiki.Dockerfile"
 SHIKI_ENTRYPOINT="${SHIKI_DIR}/entrypoint.sh"
 SHIKI_EXTENSIONS_INSTALLER="${SHIKI_DIR}/install-aiderdesk-extensions.sh"
@@ -516,7 +514,6 @@ for _f in \
   "$SHIKI_COMPOSE_TEMPLATE" \
   "$SHIKI_COMPOSE_HOST_NETWORK_TEMPLATE" \
   "$SHIKI_COMPOSE_DOCKER_SOCK_TEMPLATE" \
-  "$SHIKI_COMPOSE_DOCKER_MOUNT_HOME_TEMPLATE" \
   "$SHIKI_DOCKERFILE" \
   "$SHIKI_ENTRYPOINT" \
   "$SHIKI_EXTENSIONS_INSTALLER"; do
@@ -540,16 +537,6 @@ if [ "$DOCKER_HOST_MODE" -eq 1 ]; then
   esac
   [ -e "$DOCKER_SOCK" ] || die "SHIKI_DOCKER_SOCK does not exist on host: $DOCKER_SOCK"
   [ -S "$DOCKER_SOCK" ] || die "SHIKI_DOCKER_SOCK is not a UNIX socket: $DOCKER_SOCK"
-fi
-
-# Guardrail: --docker-mount-home is meaningless without --docker-host.
-# The bind would still apply, but the user almost certainly meant to
-# enable DooD too. Warn rather than auto-enable — auto-enabling would
-# violate the "DooD must be explicit per session" rule.
-if [ "$DOCKER_MOUNT_HOME" -eq 1 ] && [ "$DOCKER_HOST_MODE" -ne 1 ]; then
-  echo-warn "--docker-mount-home is set but --docker-host is not."
-  echo-warn "  The \$HOME bind will apply, but no Docker socket is wired in."
-  echo-warn "  Pass --docker-host (or set SHIKI_DOCKER_HOST=1) to enable DooD."
 fi
 
 # ---------- SSH agent socket ----------
@@ -597,28 +584,41 @@ if [ -n "${GIT_SIGNING_KEY:-}" ] && ! have_container_ssh_auth_sock; then
   echo-warn "  Commit signing will fail without agent forwarding."
 fi
 
-# ---------- container path collision handling ----------
-# Each dir is mounted AS a named subdirectory inside /projects
-# (e.g. host /home/user/a-1 → /projects/a-1). If basenames collide,
-# append a numeric suffix to keep targets unique.
+# ---------- container path translation ----------
+# Translate host paths to container paths so `~/x` resolves to the same
+# logical file on both sides. The container's HOME is /root (no USER
+# directive in the image), so:
+#   • Host path under $HOME → replace $HOME prefix with /root.
+#       host  /Users/kareemh/mine        → container /root/mine
+#       host  /Users/kareemh/code/foo    → container /root/code/foo
+#   • Host path NOT under $HOME → mount at the same absolute path.
+#       host  /opt/work/proj             → container /opt/work/proj
+#       host  /Volumes/scratch/foo       → container /Volumes/scratch/foo
+#
+# This mapping is injective for any sane input — distinct host dirs
+# always map to distinct container targets. The only way to collide is
+# to pass the same host dir twice; we detect and warn in that case.
+#
+# Mounting the host $HOME itself (e.g. `shiki -d ~`) is rejected: its
+# target would be /root, which is already populated by structured
+# mounts (/root/.claude, /root/.aider-desk/*, /root/.config/mise, ...)
+# and would clobber them.
 PROJECT_CONTAINER_PATHS=()
 for _d in "${PROJECT_DIRS_ABS[@]}"; do
-  _base="$(basename -- "$_d")"
-  _name="$_base"
-  _suffix=2
-  while :; do
-    _exists=0
-    for _cp in "${PROJECT_CONTAINER_PATHS[@]}"; do
-      if [ "$_cp" = "/projects/$_name" ]; then
-        _exists=1
-        break
-      fi
-    done
-    [ "$_exists" -eq 0 ] && break
-    _name="${_base}-${_suffix}"
-    _suffix=$((_suffix + 1))
+  if [ "$_d" = "$HOME" ]; then
+    die "Refusing to mount host \$HOME as a project (target /root would shadow container state). Pick a subdirectory."
+  fi
+  case "$_d" in
+    "$HOME"/*) _target="/root${_d#$HOME}" ;;
+    *)         _target="$_d" ;;
+  esac
+  # Reject same-target duplicates (only possible via duplicate host dir).
+  for _cp in "${PROJECT_CONTAINER_PATHS[@]:-}"; do
+    if [ "$_cp" = "$_target" ]; then
+      die "Duplicate project directory: $_d (already mounted at $_target)"
+    fi
   done
-  PROJECT_CONTAINER_PATHS+=("/projects/${_name}")
+  PROJECT_CONTAINER_PATHS+=("$_target")
 done
 
 PROJECT_CONTAINER_PATH_LIST=""
@@ -663,7 +663,6 @@ RUNTIME_OVERLAY="${SESSION_RUNTIME_DIR}/compose.runtime.yaml"
 RENDERED_COMPOSE="${SESSION_RUNTIME_DIR}/compose.yaml"
 RENDERED_COMPOSE_HOST_NETWORK="${SESSION_RUNTIME_DIR}/compose.host-network.yaml"
 RENDERED_COMPOSE_DOCKER_SOCK="${SESSION_RUNTIME_DIR}/compose.docker-sock.yaml"
-RENDERED_COMPOSE_DOCKER_MOUNT_HOME="${SESSION_RUNTIME_DIR}/compose.docker-mount-home.yaml"
 EXTENSIONS_VOLUME="${SESSION_NAME}-${EXTENSIONS_VOLUME_SUFFIX}"
 SERVICE_NAME="$SESSION_NAME"
 
@@ -725,6 +724,13 @@ export HOST_PORT
 export SHIKI_DOCKER_HOST="$DOCKER_HOST_MODE"
 export SHIKI_DOCKER_SOCK="$DOCKER_SOCK"
 
+# Informational export — what $HOME was on the host. The container's own
+# HOME stays /root (no USER directive in the image); SHIKI_HOST_HOME is
+# the prefix the launcher stripped when translating project paths, so
+# anything in the container that needs to render host-flavored paths
+# (logs, error messages) can reconstruct them.
+export SHIKI_HOST_HOME="$HOME"
+
 # ---------- render compose templates ----------
 # Compose can't interpolate mapping keys, so the service name is substituted
 # into a private copy of each template here.
@@ -733,7 +739,6 @@ render_compose_templates() {
   sed "s/__SERVICE__:/${SERVICE_NAME}:/" "$SHIKI_COMPOSE_TEMPLATE" >"$RENDERED_COMPOSE"
   sed "s/__SERVICE__:/${SERVICE_NAME}:/" "$SHIKI_COMPOSE_HOST_NETWORK_TEMPLATE" >"$RENDERED_COMPOSE_HOST_NETWORK"
   sed "s/__SERVICE__:/${SERVICE_NAME}:/" "$SHIKI_COMPOSE_DOCKER_SOCK_TEMPLATE" >"$RENDERED_COMPOSE_DOCKER_SOCK"
-  sed "s/__SERVICE__:/${SERVICE_NAME}:/" "$SHIKI_COMPOSE_DOCKER_MOUNT_HOME_TEMPLATE" >"$RENDERED_COMPOSE_DOCKER_MOUNT_HOME"
 }
 render_compose_templates
 
@@ -746,20 +751,14 @@ compose_cmd=(
   -f "$RENDERED_COMPOSE"
 )
 # Overlay order is deterministic and orthogonal:
-#   base → host-network → docker-sock → docker-mount-home → runtime → user
+#   base → host-network → docker-sock → runtime → user
 # host-network and docker-host are independent dimensions; a user may
-# want either, both, or neither. docker-mount-home is only useful when
-# docker-host is on (the launcher warns otherwise) but the overlays are
-# still composed in this fixed order so YAML merge behavior is
-# predictable.
+# want either, both, or neither.
 if [ "$NETWORK_MODE" = "host" ]; then
   compose_cmd+=(-f "$RENDERED_COMPOSE_HOST_NETWORK")
 fi
 if [ "$DOCKER_HOST_MODE" -eq 1 ]; then
   compose_cmd+=(-f "$RENDERED_COMPOSE_DOCKER_SOCK")
-fi
-if [ "$DOCKER_MOUNT_HOME" -eq 1 ]; then
-  compose_cmd+=(-f "$RENDERED_COMPOSE_DOCKER_MOUNT_HOME")
 fi
 compose_cmd+=(-f "$RUNTIME_OVERLAY")
 
@@ -979,9 +978,6 @@ print_mount_banner() {
   fi
   if [ "$DOCKER_HOST_MODE" -eq 1 ]; then
     echo-info "  Docker:   ${DOCKER_SOCK} → /var/run/docker.sock (host engine — agent can affect the host)"
-    if [ "$DOCKER_MOUNT_HOME" -eq 1 ]; then
-      echo-info "            \$HOME bind active — use \`cd ~/<proj>\` for sibling \`docker compose\` (path symmetry)"
-    fi
   fi
 }
 
@@ -1032,7 +1028,6 @@ echo-debug "container SSH_AUTH_SOCK target: ${CONTAINER_SSH_AUTH_SOCK:-<unset>}"
 echo-debug "using host-services SSH socket: ${USE_HOST_SERVICES_SSH_AUTH_SOCK}"
 echo-debug "network mode: ${NETWORK_MODE}"
 echo-debug "docker-host mode: ${DOCKER_HOST_MODE} (sock: ${DOCKER_SOCK})"
-echo-debug "docker-mount-home: ${DOCKER_MOUNT_HOME}"
 
 # ---------- dispatch ----------
 case "$SESSION_ACTION" in

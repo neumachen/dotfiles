@@ -24,6 +24,12 @@ services:
       # decide whether to verify the bound host socket. Defaults to "0"
       # so sessions that don't opt in pay zero preflight cost.
       SHIKI_DOCKER_HOST: ${SHIKI_DOCKER_HOST:-0}
+      # Informational: what $HOME was on the host (e.g. /Users/kareem).
+      # The container's HOME stays /root; this is the prefix the
+      # launcher stripped when translating host project paths to
+      # /root/<...>. Anything inside that wants to render host-flavored
+      # paths (display, error messages) can use this.
+      SHIKI_HOST_HOME: ${SHIKI_HOST_HOME}
       # 1Password SSH agent socket — forwarded from the host so git SSH
       # signing and ssh/git operations use the host's 1Password agent.
       # The socket is mounted read-only below; this env var tells ssh/git
