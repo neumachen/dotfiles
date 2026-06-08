@@ -57,7 +57,7 @@
     "description": "",
     "contextMemory": "off"
   },
-  "autoCompactThresholdPercentage": 70,
+  "autoCompactThresholdPercentage": 80,
   "autoCompactionType": "handoff",
   "disabledExtensionTools": [],
   "autoCompactThresholdTokens": 2000000000
