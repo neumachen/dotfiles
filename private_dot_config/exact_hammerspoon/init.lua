@@ -157,6 +157,39 @@ initFenceChooser()
 -- The callback is also wrapped in xpcall so a Lua error inside it (e.g. a
 -- nil-deref from a future refactor) doesn't silently disable the tap —
 -- the trace goes to the Hammerspoon console instead.
+--
+-- ───────────────────────────────────────────────────────────────────────────
+-- Second failure mode (fixed below at the :show() call site):
+--
+-- Even with the tap kept alive, the SECOND ⌘C in succession would silently
+-- do nothing. Diagnosis: a passive probe eventtap installed in front of the
+-- production tap made the bug disappear — the probe's synchronous AppKit
+-- access (hs.application.frontmostApplication():name() on the eventtap
+-- thread) was inadvertently acting as a run-loop barrier that let the
+-- chooser's previous-cycle cleanup finish before the next :show() was
+-- requested.
+--
+-- Root cause: hs.chooser's default globalCallback restores focus to the
+-- previously-active window on didClose. That restoration is asynchronous.
+-- If :show() is called again while the prior cycle's focus restoration is
+-- still in flight, hs.chooser silently no-ops — the panel never appears,
+-- no callback fires, no log line. The production eventtap is healthy and
+-- still firing; it's the chooser that drops the request on the floor.
+--
+-- Fix at the :show() call site (no AppKit access on the eventtap thread):
+--
+--   a. Call fenceChooser:hide() first. This is idempotent when the chooser
+--      isn't visible and forces a known starting state when it is.
+--   b. Call fenceChooser:query(nil) to clear the search box (documented
+--      "clear the query string" form).
+--   c. Defer the :show() by one run-loop tick via hs.timer.doAfter(0, …).
+--      Yielding control back to the run loop lets any pending didClose /
+--      focus-restoration work from the previous cycle finish; on the next
+--      tick :show() reliably produces a visible chooser.
+--
+-- The 50 ms delay before this block (line below) is unchanged — its
+-- purpose is to let WezTerm finish writing the selection to the
+-- pasteboard, not to wait for chooser cleanup.
 -- ───────────────────────────────────────────────────────────────────────────
 
 -- Cached name of whichever app is currently frontmost. Updated by the
@@ -200,11 +233,18 @@ local wezTermCopyTap = hs.eventtap.new(
       hs.timer.doAfter(0.05, function()
         local contents = hs.pasteboard.getContents()
         if contents and #contents > 0 then
-          -- queryChangedCallback re-sets choices when query becomes '',
-          -- so we don't need to call :choices() here as well. Calling
-          -- :query(nil) is the documented way to clear the search box.
+          -- Force a known starting state. :hide() is idempotent when the
+          -- chooser isn't visible. :query(nil) clears the search box;
+          -- queryChangedCallback re-sets the choices list synchronously
+          -- in response, so we don't need to call :choices() here too.
+          fenceChooser:hide()
           fenceChooser:query(nil)
-          fenceChooser:show()
+          -- Yield one run-loop tick before showing. Without this, a
+          -- rapid second ⌘C lands while hs.chooser's previous-cycle
+          -- didClose / focus-restoration work is still in flight, and
+          -- :show() silently no-ops. doAfter(0) is the documented way
+          -- to defer to the next run-loop iteration.
+          hs.timer.doAfter(0, function() fenceChooser:show() end)
         end
       end)
     end, debug.traceback)
