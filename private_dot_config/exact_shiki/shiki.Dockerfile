@@ -174,6 +174,11 @@ RUN apt-get update \
         bash-completion \
         lsof \
         strace \
+        # ── Git extended tooling ──────────────────────────────────────────
+        # git-lfs: large file storage; required for Hugging Face model repos
+        # git-filter-repo: fast, safe history rewriting (replaces git filter-branch)
+        git-lfs \
+        git-filter-repo \
     && locale-gen en_US.UTF-8 \
     && update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 \
     && rm -rf /var/lib/apt/lists/*
