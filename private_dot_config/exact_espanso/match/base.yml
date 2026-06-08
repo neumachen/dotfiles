@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ajmarkow/espanso-schema-json/master/schemas/Espanso_Matches_File_Schema.json
+
+# Entry match file.
+#
+# espanso auto-loads every *.yml under match/ EXCEPT files whose basename
+# starts with "_". The underscore-prefixed files in this directory are
+# pulled in via `extends:` below, which keeps base.yml as the single
+# canonical entry point and lets `match/_*.yml` act as logical groupings
+# (favorites, code snippets, …) without each becoming its own top-level
+# package.
+#
+# To add a new group: create match/_<name>.yml and list it here.
+
+extends:
+  - _favorites.yml
+  - _code.yml
+
+matches:
+  # `label` and `search_terms` are what surface in the ALT+SHIFT+SPACE
+  # search palette. `label` is the headline; `search_terms` extends the
+  # fuzzy-search index beyond the trigger text itself, so e.g. typing
+  # "email" finds the :em snippet even though "email" isn't in the trigger.
+
+  - trigger: ":em"
+    replace: "kareem@example.com"
+    label: "Primary email"
+    search_terms: ["email", "kontakt", "contact"]
+
+  - trigger: ":today"
+    # {{date}} is replaced at expansion time. Format string follows chrono's
+    # strftime-style tokens. ISO 8601 keeps it sortable in notes/filenames.
+    replace: "{{date}}"
+    label: "Today's date (YYYY-MM-DD)"
+    search_terms: ["date", "today", "iso"]
+    vars:
+      - name: date
+        type: date
+        params:
+          format: "%Y-%m-%d"
+
+  - trigger: ":shrug"
+    replace: "¯\\_(ツ)_/¯"
+    label: "Shrug emoticon"
+    search_terms: ["shrug", "kaomoji"]
