@@ -175,6 +175,7 @@ RUN apt-get update \
         lsof \
         strace \
     && locale-gen en_US.UTF-8 \
+    && update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 \
     && rm -rf /var/lib/apt/lists/*
 
 # Claude SDK invokes `check-ignore` as a bare command (not `git check-ignore`),
