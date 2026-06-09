@@ -1,0 +1,55 @@
+# Source of truth for AiderDesk extensions baked into the shiki image.
+# Read at image build time by shiki.Dockerfile using the AiderDesk
+# runtime's bundled `yaml` package (no extra build deps).
+#
+# enabled  - installed AND on by default.
+# disabled - installed AND toggled off in settings.extensions.disabled
+#            in <AIDER_DESK_DATA_DIR>/config.json. The user can flip any
+#            of these back on from the AiderDesk GUI without rebuilding.
+#
+# Entries accept anything `@aiderdesk/extensions install` accepts: bare
+# extension IDs, or full https:// URLs to extension repositories.
+
+enabled:
+  - auggie-sdk
+  - bmad
+  - checkpoints
+  - chunkhound-search
+  - claude-agent-sdk
+  - codegraph
+  - context-autocompletion-words
+  - cursor-sdk
+  - external-skills
+  - fff
+  - generate-tests
+  - kanban
+  - lsp
+  - multi-model-run
+  - permission-gate
+  - plannotator
+  - programmatic-tool-calls
+  - protected-paths
+  - plan-mode
+  - providers-quota-extension
+  - questions
+  - redact-secrets
+  - rtk
+  - sandbox
+  - seek
+  - sound-notification
+  - theme
+  - tps-counter
+  - tree-sitter-repo-map
+  - ultrathink
+  - verifier
+  - wakatime
+  - https://github.com/neumachen/aiderdesk-codex-extension
+  - https://github.com/neumachen/aiderdesk-conditional-rules
+
+# Installed but toggled off by default. Re-enable from the GUI at any
+# time without rebuilding the image.
+disabled:
+  - pirate                                # example/demo extension
+  - ui-placement-demo                     # example/demo extension
+  - searxng-search                        # auto-starts a Docker container; awkward in-container
+  - chunkhound-on-semantic-search-tool    # overrides power---semantic_search; opt-in per project
