@@ -129,89 +129,77 @@ end
 initFenceChooser()
 
 -- ───────────────────────────────────────────────────────────────────────────
--- Why this is more than just "make an eventtap":
---
--- The previous implementation called hs.application.frontmostApplication()
--- inside the eventtap callback. That is a synchronous AppKit call. Most of
--- the time it returns in microseconds, but right after the chooser closes
--- it can stall briefly while macOS restores focus to the previously-active
--- window. If the next ⌘C lands during that stall, the callback exceeds
--- macOS's eventtap budget and the kernel issues
--- kCGEventTapDisabledByTimeout. Hammerspoon does NOT auto-re-enable the
--- tap; isEnabled() returns false and every subsequent ⌘C is dropped until
--- a config reload re-creates the tap. That is the "works once, then
--- silent" symptom.
---
--- Two structural changes fix it:
---
---   1. The frontmost-app check no longer asks AppKit. An
---      hs.application.watcher updates a plain Lua variable on
---      activate/deactivate, and the eventtap callback reads that variable.
---      The hot path is now O(1) and cannot block.
---
---   2. A 1-second watchdog timer calls tap:start() whenever
---      tap:isEnabled() returns false. macOS can still disable the tap
---      under load or after Secure Input briefly engages; the watchdog
---      brings it back automatically.
---
--- The callback is also wrapped in xpcall so a Lua error inside it (e.g. a
--- nil-deref from a future refactor) doesn't silently disable the tap —
--- the trace goes to the Hammerspoon console instead.
---
+-- Design notes — three failure modes this code defends against
 -- ───────────────────────────────────────────────────────────────────────────
--- Second failure mode (fixed below at the :show() call site):
 --
--- Even with the tap kept alive, the SECOND ⌘C in succession would silently
--- do nothing. Diagnosis: a passive probe eventtap installed in front of the
--- production tap made the bug disappear — the probe's synchronous AppKit
--- access (hs.application.frontmostApplication():name() on the eventtap
--- thread) was inadvertently acting as a run-loop barrier that let the
--- chooser's previous-cycle cleanup finish before the next :show() was
--- requested.
+-- 1. Eventtap disabled by macOS (the "works once, then silent" symptom).
 --
--- Root cause: hs.chooser's default globalCallback restores focus to the
--- previously-active window on didClose. That restoration is asynchronous.
--- If :show() is called again while the prior cycle's focus restoration is
--- still in flight, hs.chooser silently no-ops — the panel never appears,
--- no callback fires, no log line. The production eventtap is healthy and
--- still firing; it's the chooser that drops the request on the floor.
+--    The original implementation called hs.application.frontmostApplication()
+--    inside the eventtap callback. That is a synchronous AppKit call. Most
+--    of the time it returns in microseconds, but right after the chooser
+--    closes it can stall briefly while macOS restores focus. If the next
+--    ⌘C lands during that stall, the callback exceeds macOS's eventtap
+--    budget and the kernel issues kCGEventTapDisabledByTimeout.
+--    Hammerspoon does NOT auto-re-enable the tap; every subsequent ⌘C is
+--    silently dropped.
 --
--- Fix at the :show() call site (no AppKit access on the eventtap thread):
+--    Defenses:
+--      • The eventtap callback does NO AppKit work. It only inspects the
+--        event's modifier flags and keycode — pure CGEvent reads, no
+--        cross-thread calls.
+--      • The chooser open is scheduled via hs.timer.doAfter(0.05, …) which
+--        runs on the main thread, outside the eventtap timing budget.
+--      • A 1-second watchdog restarts the tap if isEnabled() ever returns
+--        false (Secure Input toggles, kernel timeouts).
+--      • The whole callback is wrapped in xpcall so a Lua error logs a
+--        trace instead of silently killing the tap.
 --
---   a. Call fenceChooser:hide() first. This is idempotent when the chooser
---      isn't visible and forces a known starting state when it is.
---   b. Call fenceChooser:query(nil) to clear the search box (documented
---      "clear the query string" form).
---   c. Defer the :show() by one run-loop tick via hs.timer.doAfter(0, …).
---      Yielding control back to the run loop lets any pending didClose /
---      focus-restoration work from the previous cycle finish; on the next
---      tick :show() reliably produces a visible chooser.
+-- 2. Second ⌘C in succession silently no-ops.
 --
--- The 50 ms delay before this block (line below) is unchanged — its
--- purpose is to let WezTerm finish writing the selection to the
--- pasteboard, not to wait for chooser cleanup.
+--    hs.chooser's default globalCallback restores focus to the previously-
+--    active window on didClose. That restoration is asynchronous. If
+--    :show() is called again while the prior cycle's focus-restoration is
+--    still in flight, hs.chooser silently no-ops — the panel never
+--    appears, no callback fires, no log line.
+--
+--    Defenses (at the :show() call site):
+--      a. fenceChooser:hide() — idempotent when not visible; forces a
+--         known starting state when it is.
+--      b. fenceChooser:query(nil) — clears the search box (documented
+--         "clear the query string" form). queryChangedCallback re-runs
+--         synchronously and resets the choices list.
+--      c. hs.timer.doAfter(0, …) wrapping :show() — yields one run-loop
+--         tick so any pending didClose / focus-restoration work from the
+--         previous cycle finishes before the next :show().
+--
+-- 3. Chooser fires in the WRONG app (Brave, Mail, anywhere not WezTerm).
+--
+--    The previous design cached frontmostAppName via hs.application.watcher
+--    and read it from the eventtap. The watcher is asynchronous and
+--    unreliable as a single source of truth: its activated events can be
+--    missed, can land out of order with hs.chooser's focus-restoration
+--    events, or can fail to fire at all when Hammerspoon's own chooser
+--    panel briefly owns focus. Once stale, the cache reads "WezTerm"
+--    forever and every ⌘C in any app opens the chooser.
+--
+--    Defense: don't cache. The authoritative
+--    hs.application.frontmostApplication():name() check is moved INTO
+--    the hs.timer.doAfter(0.05, …) callback. That callback runs on the
+--    main thread — not on the eventtap thread — so the AppKit call is
+--    free of the timeout concern from failure mode #1. The check is
+--    re-evaluated on every ⌘C, so there is no stale state to go wrong.
+--    The cached variable, bootstrap query, and hs.application.watcher
+--    were removed because they were the source of the bug.
+--
+-- The 50 ms delay before the chooser opens is unchanged — its purpose is
+-- to let WezTerm finish writing the selection to the pasteboard, not to
+-- wait for chooser cleanup.
 -- ───────────────────────────────────────────────────────────────────────────
 
--- Cached name of whichever app is currently frontmost. Updated by the
--- watcher below; read by the eventtap callback.
-local frontmostAppName = nil
-local activeApp = hs.application.frontmostApplication()
-if activeApp then frontmostAppName = activeApp:name() end
-
--- hs.application.watcher fires on app activate/deactivate/launch/terminate.
--- We only care about "an app just became frontmost" (activated) — that's
--- when frontmostAppName changes. Keep a reference so the watcher object
--- isn't garbage-collected.
-local appWatcher = hs.application.watcher.new(function(name, event, _)
-  if event == hs.application.watcher.activated then frontmostAppName = name end
-end)
-appWatcher:start()
-
--- The eventtap watches for every keyDown event.
--- It only acts when:
---   • the Cmd modifier is held
---   • the key is "c" (keycode 8)
---   • WezTerm is the frontmost application (read from the cached variable)
+-- The eventtap watches for every keyDown event. It does the absolute
+-- minimum work synchronously: check modifiers and keycode. The frontmost-
+-- app check and chooser presentation happen on the main thread via the
+-- 50 ms timer, so the eventtap callback never touches AppKit.
 local wezTermCopyTap = hs.eventtap.new(
   { hs.eventtap.event.types.keyDown },
   function(e)
@@ -219,33 +207,36 @@ local wezTermCopyTap = hs.eventtap.new(
     -- the trace and return false so the event still propagates AND the
     -- eventtap stays alive (an unguarded error here disables the tap).
     local ok, err = xpcall(function()
-      -- Gate: Cmd+C only.
+      -- Gate: Cmd+C only. Pure CGEvent reads — no AppKit, no blocking.
       if not (e:getFlags().cmd and e:getKeyCode() == 8) then return end
 
-      -- Gate: WezTerm must be frontmost — answered from the cached
-      -- variable, not AppKit, so this is a single Lua comparison.
-      if frontmostAppName ~= 'WezTerm' then return end
-
-      -- Schedule the chooser to open after a short delay so WezTerm has
-      -- time to finish writing the selection to the clipboard. The timer
-      -- runs OFF the eventtap thread, so any cost inside it (chooser
-      -- presentation, clipboard read) cannot trip the eventtap timeout.
+      -- Schedule the rest of the work on the main thread. Both the
+      -- frontmost-app check and the chooser presentation run here,
+      -- outside the eventtap timing budget. The 50 ms delay also lets
+      -- WezTerm finish writing the selection to the pasteboard.
       hs.timer.doAfter(0.05, function()
+        -- Authoritative frontmost-app check, evaluated fresh on every
+        -- ⌘C. Replaces the previous cached variable, which went stale
+        -- when hs.application.watcher missed activation events around
+        -- chooser focus restoration.
+        local front = hs.application.frontmostApplication()
+        if not front or front:name() ~= 'WezTerm' then return end
+
         local contents = hs.pasteboard.getContents()
-        if contents and #contents > 0 then
-          -- Force a known starting state. :hide() is idempotent when the
-          -- chooser isn't visible. :query(nil) clears the search box;
-          -- queryChangedCallback re-sets the choices list synchronously
-          -- in response, so we don't need to call :choices() here too.
-          fenceChooser:hide()
-          fenceChooser:query(nil)
-          -- Yield one run-loop tick before showing. Without this, a
-          -- rapid second ⌘C lands while hs.chooser's previous-cycle
-          -- didClose / focus-restoration work is still in flight, and
-          -- :show() silently no-ops. doAfter(0) is the documented way
-          -- to defer to the next run-loop iteration.
-          hs.timer.doAfter(0, function() fenceChooser:show() end)
-        end
+        if not (contents and #contents > 0) then return end
+
+        -- Force a known starting state. :hide() is idempotent when the
+        -- chooser isn't visible. :query(nil) clears the search box;
+        -- queryChangedCallback re-sets the choices list synchronously
+        -- in response, so we don't need to call :choices() here too.
+        fenceChooser:hide()
+        fenceChooser:query(nil)
+        -- Yield one run-loop tick before showing. Without this, a
+        -- rapid second ⌘C lands while hs.chooser's previous-cycle
+        -- didClose / focus-restoration work is still in flight, and
+        -- :show() silently no-ops. doAfter(0) is the documented way
+        -- to defer to the next run-loop iteration.
+        hs.timer.doAfter(0, function() fenceChooser:show() end)
       end)
     end, debug.traceback)
 
