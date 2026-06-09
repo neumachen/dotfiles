@@ -1,54 +1,10 @@
 ARG AIDER_DESK_IMAGE=aider-desk:local
 FROM ${AIDER_DESK_IMAGE}
 
-ARG AIDER_DESK_EXTENSIONS_DEFAULT="auggie-sdk,\
-    bmad,\
-    checkpoints,\
-    chunkhound-on-semantic-search-tool,\
-    chunkhound-search,\
-    claude-agent-sdk,\
-    codegraph,\
-    context-autocompletion-words,\
-    cursor-sdk,\
-    external-skills,\
-    fff,\
-    generate-tests,\
-    kanban,\
-    lsp,\
-    multi-model-run,\
-    permission-gate,\
-    pirate,\
-    plannotator,\
-    programmatic-tool-calls,\
-    protected-paths,\
-    plan-mode,\
-    providers-quota-extension,\
-    questions,\
-    redact-secrets,\
-    rtk,\
-    sandbox,\
-    searxng-search,\
-    seek,\
-    sound-notification,\
-    theme,\
-    tps-counter,\
-    tree-sitter-repo-map,\
-    ui-placement-demo,\
-    ultrathink,\
-    verifier,\
-    wakatime,\
-    https://github.com/neumachen/aiderdesk-codex-extension,\
-    https://github.com/neumachen/aiderdesk-conditional-rules"
-ARG AIDER_DESK_EXTENSIONS_APPEND=""
-ARG AIDER_DESK_EXTENSIONS_OVERRIDE=""
-# Extensions baked into the image but disabled by default via AiderDesk's
-# config.json (settings.extensions.disabled). Seeded at container start by
-# entrypoint.sh. CSV of extension IDs. Defaults:
-#   pirate, ui-placement-demo  - example/demo extensions
-#   searxng-search             - auto-starts a Docker container (awkward
-#                                inside this container)
-# Override at build time, or set SHIKI_EXTENSIONS_DISABLED at runtime.
-ARG AIDER_DESK_EXTENSIONS_DISABLED="pirate,ui-placement-demo,searxng-search"
+# The set of AiderDesk extensions to install and which of them are
+# disabled by default is declared in aider-desk-extensions.yaml — the
+# single source of truth. Parsed at build time by the AiderDesk
+# runtime's bundled `yaml` package; no extra build dependencies.
 
 # ── 1) XDG_CONFIG_HOME wiring ──────────────────────────────────────────
 #    The container ships a baked-in /etc/xdg/git/config holding only
@@ -271,19 +227,27 @@ RUN mkdir -p "${MISE_CONFIG_DIR}" "${MISE_DATA_DIR}" "${MISE_CACHE_DIR}" /etc/mi
 COPY shiki-mise.toml /etc/mise/config.toml
 
 # ── 7) Preinstall AiderDesk extensions into the image ─────────────────
-#    Default extensions are baked into the image. At build time you can
-#    either append more via AIDER_DESK_EXTENSIONS_APPEND or fully replace
-#    the defaults via AIDER_DESK_EXTENSIONS_OVERRIDE.
-#    Extensions are installed into the runtime global directory and also
-#    copied into an image-owned seed directory for maintenance refreshes.
+#    The set of extensions and which of them are disabled by default is
+#    declared in aider-desk-extensions.yaml (single source of truth).
+#    The YAML is copied into the image and parsed here with the
+#    AiderDesk runtime's bundled `yaml` package (no extra build deps).
+#    Both enabled and disabled IDs are installed; the disabled list is
+#    rendered to a CSV that entrypoint.sh reads on container start to
+#    seed settings.extensions.disabled in config.json.
+COPY aider-desk-extensions.yaml /usr/local/share/aider-desk/extensions.yaml
+COPY render-aiderdesk-extensions.js /usr/local/lib/aider-desk/render-extensions.js
 COPY install-aiderdesk-extensions.sh /usr/local/bin/install-aiderdesk-extensions.sh
 RUN chmod +x /usr/local/bin/install-aiderdesk-extensions.sh \
+    && node /usr/local/lib/aider-desk/render-extensions.js \
+        /usr/local/share/aider-desk/extensions.yaml \
+        /usr/local/share/aider-desk/extensions-install.csv \
+        /usr/local/share/aider-desk/extensions-disabled.csv \
     && /usr/local/bin/install-aiderdesk-extensions.sh \
         /root/.aider-desk/extensions \
         /usr/local/share/aider-desk/extensions-seed \
-        "${AIDER_DESK_EXTENSIONS_DEFAULT}" \
-        "${AIDER_DESK_EXTENSIONS_APPEND}" \
-        "${AIDER_DESK_EXTENSIONS_OVERRIDE}"
+        "$(cat /usr/local/share/aider-desk/extensions-install.csv)" \
+        "" \
+        ""
 
 # ── 8) Upstream env / volumes / port / healthcheck ────────────────────
 #    Re-declared for clarity; inherited from upstream.
@@ -297,10 +261,6 @@ VOLUME ["/app/data"]
 # The upstream VOLUME ["/app/data"] causes Docker to auto-create
 # anonymous volumes; using /app/state avoids that entirely.
 ENV AIDER_DESK_DATA_DIR=/app/state
-
-# Expose the default disabled-extensions list to the entrypoint so it can
-# seed settings.extensions.disabled in config.json on container start.
-ENV SHIKI_EXTENSIONS_DISABLED=${AIDER_DESK_EXTENSIONS_DISABLED}
 
 EXPOSE ${AIDER_DESK_PORT}
 

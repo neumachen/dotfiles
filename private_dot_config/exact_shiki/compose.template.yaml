@@ -7,8 +7,6 @@ services:
       dockerfile: shiki.Dockerfile
       args:
         UPSTREAM_IMAGE: ${UPSTREAM_IMAGE}
-        AIDER_DESK_EXTENSIONS_APPEND: ${AIDER_DESK_EXTENSIONS_APPEND:-}
-        AIDER_DESK_EXTENSIONS_OVERRIDE: ${AIDER_DESK_EXTENSIONS_OVERRIDE:-}
     environment:
       AIDER_DESK_PROJECTS: ${AIDER_DESK_PROJECTS}
       AIDER_DESK_DATA_DIR: /app/state

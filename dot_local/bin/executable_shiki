@@ -189,14 +189,15 @@ Required environment variables:
 Optional environment variables:
   GIT_SIGNING_KEY    SSH public key for commit signing.
   GIT_SIGN_COMMITS   "true" (default when GIT_SIGNING_KEY is set) or "false".
-  AIDER_DESK_EXTENSIONS_APPEND
-                     Comma-separated extension IDs/URLs to append to defaults at build time.
-  AIDER_DESK_EXTENSIONS_OVERRIDE
-                     Comma-separated extension IDs/URLs that fully replace defaults at build time.
   SHIKI_DIR          Override the shiki bundle directory
                      (default: $XDG_CONFIG_HOME/shiki or ~/.config/shiki).
-                     Must contain compose.yaml, shiki.Dockerfile, entrypoint.sh,
-                     and install-aiderdesk-extensions.sh.
+                     Must contain compose.template.yaml (plus siblings),
+                     shiki.Dockerfile, entrypoint.sh,
+                     install-aiderdesk-extensions.sh,
+                     aider-desk-extensions.yaml, and
+                     render-aiderdesk-extensions.js. The set of installed
+                     and disabled-by-default extensions is declared in
+                     aider-desk-extensions.yaml.
   SHIKI_COMPOSE_EXTRA_FILES
                      Colon-separated list of extra compose files merged after the
                      base + host-network override + runtime overlay.
@@ -631,6 +632,8 @@ SHIKI_COMPOSE_AWS_TEMPLATE="${SHIKI_DIR}/compose.aws.template.yaml"
 SHIKI_DOCKERFILE="${SHIKI_DIR}/shiki.Dockerfile"
 SHIKI_ENTRYPOINT="${SHIKI_DIR}/entrypoint.sh"
 SHIKI_EXTENSIONS_INSTALLER="${SHIKI_DIR}/install-aiderdesk-extensions.sh"
+SHIKI_EXTENSIONS_YAML="${SHIKI_DIR}/aider-desk-extensions.yaml"
+SHIKI_EXTENSIONS_RENDERER="${SHIKI_DIR}/render-aiderdesk-extensions.js"
 
 for _f in \
   "$SHIKI_COMPOSE_TEMPLATE" \
@@ -639,7 +642,9 @@ for _f in \
   "$SHIKI_COMPOSE_AWS_TEMPLATE" \
   "$SHIKI_DOCKERFILE" \
   "$SHIKI_ENTRYPOINT" \
-  "$SHIKI_EXTENSIONS_INSTALLER"; do
+  "$SHIKI_EXTENSIONS_INSTALLER" \
+  "$SHIKI_EXTENSIONS_YAML" \
+  "$SHIKI_EXTENSIONS_RENDERER"; do
   [ -f "$_f" ] || die "Missing shiki bundle file: $_f (set SHIKI_DIR or sync your dotfiles)."
 done
 
@@ -839,8 +844,6 @@ fi
 export SHIKI_IMAGE="$IMAGE"
 export SESSION_NAME
 export UPSTREAM_IMAGE
-export AIDER_DESK_EXTENSIONS_APPEND="${AIDER_DESK_EXTENSIONS_APPEND:-}"
-export AIDER_DESK_EXTENSIONS_OVERRIDE="${AIDER_DESK_EXTENSIONS_OVERRIDE:-}"
 export GIT_USER_NAME GIT_USER_EMAIL
 export GIT_SIGNING_KEY="${GIT_SIGNING_KEY:-}"
 export GIT_SIGN_COMMITS="${GIT_SIGN_COMMITS:-}"
@@ -1032,13 +1035,7 @@ build_image() {
   else
     echo-info "  Docker build cache: disabled"
   fi
-  if [ -n "${AIDER_DESK_EXTENSIONS_OVERRIDE:-}" ]; then
-    echo-info "  Overriding default extensions at build time: ${AIDER_DESK_EXTENSIONS_OVERRIDE}"
-  elif [ -n "${AIDER_DESK_EXTENSIONS_APPEND:-}" ]; then
-    echo-info "  Appending extensions at build time: ${AIDER_DESK_EXTENSIONS_APPEND}"
-  else
-    echo-info "  Using default built-in extensions"
-  fi
+  echo-info "  Extensions declared in: ${SHIKI_EXTENSIONS_YAML#"$HOME"/}"
 
   "${compose_base_cmd[@]}" build "${build_args[@]}" "$SERVICE_NAME"
   echo-ok "Image '${IMAGE}' built successfully."
