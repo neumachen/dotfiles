@@ -305,24 +305,25 @@ echo ""
 # ── Seed AiderDesk's disabled-extensions list ─────────────────────────
 # All extensions are baked into the image, but some are disabled by
 # default via AiderDesk's settings (settings.extensions.disabled in
-# <data-dir>/config.json). The default list comes from the image as
-# SHIKI_EXTENSIONS_DISABLED (built from AIDER_DESK_EXTENSIONS_DISABLED);
-# override it at runtime by setting SHIKI_EXTENSIONS_DISABLED, or skip
-# seeding entirely with SHIKI_SKIP_EXTENSION_DISABLE=1.
+# <data-dir>/config.json). The list is declared in
+# aider-desk-extensions.yaml (single source of truth) and rendered at
+# image build into /usr/local/share/aider-desk/extensions-disabled.csv.
 #
 # The merge is idempotent: it unions the requested IDs into any existing
 # disabled list and preserves all other settings, so the defaults are
 # re-asserted on every start without clobbering unrelated config. We use
 # node (the AiderDesk runtime, always present) rather than jq, which is
 # shipped via mise and may not be installed yet at this point.
-if [ "${SHIKI_SKIP_EXTENSION_DISABLE:-0}" != "1" ] && [ -n "${SHIKI_EXTENSIONS_DISABLED:-}" ]; then
+disabled_csv="/usr/local/share/aider-desk/extensions-disabled.csv"
+if [ -s "${disabled_csv}" ]; then
   config_file="${AIDER_DESK_DATA_DIR:-/app/state}/config.json"
   echo "→ seed disabled extensions into ${config_file}"
   mkdir -p "$(dirname "${config_file}")"
-  if ! SHIKI_CONFIG_FILE="${config_file}" node -e '
+  if ! SHIKI_CONFIG_FILE="${config_file}" SHIKI_DISABLED_CSV_FILE="${disabled_csv}" node -e '
     const fs = require("fs");
     const file = process.env.SHIKI_CONFIG_FILE;
-    const ids = (process.env.SHIKI_EXTENSIONS_DISABLED || "")
+    const csvFile = process.env.SHIKI_DISABLED_CSV_FILE;
+    const ids = fs.readFileSync(csvFile, "utf8")
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
