@@ -409,7 +409,65 @@ date-folder + sortable-ID convention as Zakki. Its directory name will be German
 
 ---
 
+## Web Clipper Templates
+
+[Obsidian Web Clipper](https://github.com/obsidianmd/obsidian-clipper) is a
+browser extension, **not** an Obsidian plugin. Its templates live in the
+extension's own browser storage, not in this vault. The JSON files under
+`dot_obsidian/web-clipper-templates/` are version-controlled **archives** —
+they are not loaded by Obsidian or by any plugin, and they are not wired into
+Chezmoi's apply path beyond being rendered into the vault as inert files.
+
+To restore on a new machine: open the Web Clipper extension → click the cog
+(Settings) → **Templates** → **Import** → pick the JSON file from this folder.
+
+| File | Purpose |
+|---|---|
+| `default.json` | Catch-all template (empty `triggers`). Writes clipped notes to `clips/<second-level-domain>/<full-domain>/<title|safe_name>.md`, with `title`, `url`, `site`, `domain`, `tags: clip`, and `created_at.utc` properties. `behavior: overwrite` — re-clipping a page with the same title replaces the existing file rather than producing a `Foo 1.md` sibling. |
+
+The destination path is derived from the clipped page's domain. The
+second-level label is extracted with the regex
+`^(?:.*\.)?([^.]+)\.[^.]+$`, which is **not** public-suffix-aware on
+purpose — it just takes the label immediately before the TLD. Worked example:
+
+```
+https://docs.github.com/en/actions
+  domain  -> docs.github.com
+  SLD     -> github
+  note    -> clips/github/docs.github.com/<title|safe_name>.md
+```
+
+### `reorg-web-clippings.py`
+
+The one-off script
+[`MeinCodex/Codekiste/obsidian/scripts/one-off/reorg-web-clippings.py`](../../../../Codekiste/obsidian/scripts/one-off/reorg-web-clippings.py)
+runs two phases against `clips/`:
+
+1. **Reorg** — backfills the layout above for clippings created before this
+   template existed. Reads each note's domain from frontmatter (`domain:`,
+   then `url:`, then `source:`), applies the identical SLD regex, and moves
+   files into the correct `<sld>/<full-domain>/` leaf.
+2. **Dedupe** — within each leaf directory, groups files by canonical URL
+   (fragments and tracking params like `utm_*`, `fbclid`, `ref`, `gclid`
+   stripped; `http`/`https` collapsed; query keys sorted). For any group with
+   more than one file, picks a winner by (largest body, newest
+   `created_at.utc`, newest mtime, shortest filename — in that order) and
+   moves the losers to `clips/_duplicates/<sld>/<full-domain>/` so nothing is
+   ever deleted.
+
+It is dry-run by default — pass `--apply` to actually move files. It never
+rewrites file contents. Use `--skip-reorg` or `--skip-dedupe` to run only
+one phase.
+
+Template `behavior: overwrite` (above) handles the *future* dedupe case —
+re-clipping a page with the same title replaces in place. This script
+handles the *historical* dedupe case — duplicates that already accumulated
+under the old `behavior: create` regime.
+
+---
+
 ## See Also
 
 - [`THEME.md`](THEME.md) — Tokyo Night Storm theme architecture, palette tokens, variable map, and quick-lookup table
 - `REFERENCE.md` — keyboard shortcuts and service accounts
+- `web-clipper-templates/` — archival Obsidian Web Clipper template exports (manual import)
