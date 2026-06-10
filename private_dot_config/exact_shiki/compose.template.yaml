@@ -22,6 +22,11 @@ services:
       # decide whether to verify the bound host socket. Defaults to "0"
       # so sessions that don't opt in pay zero preflight cost.
       SHIKI_DOCKER_HOST: ${SHIKI_DOCKER_HOST:-0}
+      # Kubernetes (EKS) host parity flag: "1" when the session was
+      # launched with `shiki --kube-share`. Read by entrypoint.sh's
+      # preflight to decide whether to verify kubectl + aws are on PATH
+      # (non-fatal warning). Defaults to "0".
+      SHIKI_KUBE_SHARE: ${SHIKI_KUBE_SHARE:-0}
       # Informational: what $HOME was on the host (e.g. /Users/kareem).
       # The container's HOME stays /root; this is the prefix the
       # launcher stripped when translating host project paths to
