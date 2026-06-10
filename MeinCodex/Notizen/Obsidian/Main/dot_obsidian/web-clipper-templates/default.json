@@ -1,0 +1,41 @@
+{
+	"schemaVersion": "0.1.0",
+	"name": "Default",
+	"behavior": "overwrite",
+	"noteNameFormat": "{{title|safe_name}}",
+	"path": "clips/{{domain|replace:\"/^(?:.*\\.)?([^.]+)\\.[^.]+$/\":\"$1\"}}/{{domain}}",
+	"noteContentFormat": "{{content}}",
+	"properties": [
+		{
+			"name": "title",
+			"value": "{{title}}",
+			"type": "text"
+		},
+		{
+			"name": "url",
+			"value": "{{url}}",
+			"type": "text"
+		},
+		{
+			"name": "site",
+			"value": "{{site}}",
+			"type": "text"
+		},
+		{
+			"name": "domain",
+			"value": "{{domain}}",
+			"type": "text"
+		},
+		{
+			"name": "tags",
+			"value": "clip",
+			"type": "multitext"
+		},
+		{
+			"name": "created_at.utc",
+			"value": "{{date|date:\"YYYY-MM-DDTHH:mm:ss\"}}Z",
+			"type": "text"
+		}
+	],
+	"triggers": []
+}
