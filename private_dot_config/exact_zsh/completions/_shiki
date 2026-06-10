@@ -75,6 +75,7 @@ _shiki() {
     '(--host-network --bridge-network)--bridge-network[use normal bridge networking (default)]' \
     '--docker-host[bind host Docker socket into the container (DooD; security tradeoff)]' \
     '--aws-share[share host AWS SSO config + Terraform CLI state (read-only)]' \
+    '--kube-share[share host ~/.kube (read-only) for kubectl/helm against EKS; implies --aws-share]' \
     '--pull[pull the upstream AiderDesk base image and exit]' \
     '--rebuild=-[rebuild the local shiki image and exit; modifiers: pull,no-pull,cache,no-cache]:modifiers:_shiki_rebuild_modifiers' \
     '--update-extensions[recreate the per-session extensions volume from the current image]' \

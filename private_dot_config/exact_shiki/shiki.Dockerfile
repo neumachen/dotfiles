@@ -222,8 +222,16 @@ RUN mkdir -p "${MISE_CONFIG_DIR}" "${MISE_DATA_DIR}" "${MISE_CACHE_DIR}" /etc/mi
     && echo 'eval "$(mise activate bash)"' >>/root/.bashrc
 
 # System-wide mise config: the baseline tools every shiki session gets
-# (gh, jq, fzf, vim, delta). Installed on first container start by
-# entrypoint.sh into the per-session MISE_DATA_DIR bind mount.
+# (gh, jq, fzf, vim, delta, plus cluster tooling kubectl/awscli/helm).
+# Installed on first container start by entrypoint.sh into the
+# per-session MISE_DATA_DIR bind mount.
+#
+# kubectl/awscli/helm are only USEFUL when the session was launched
+# with `shiki --aws-share` and/or `shiki --kube-share` — those flags
+# add the read-only ~/.aws and ~/.kube bind mounts the CLIs need. They
+# are still installed by default so the binaries are ready the moment
+# the operator opts in; the install cost lands in the per-session
+# MISE_DATA_DIR (persisted on the host) so it is paid once per session.
 COPY shiki-mise.toml /etc/mise/config.toml
 
 # ── 7) Preinstall AiderDesk extensions into the image ─────────────────

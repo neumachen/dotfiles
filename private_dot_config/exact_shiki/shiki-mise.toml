@@ -16,3 +16,14 @@ lazygit = "latest"    # interactive git TUI
 shellcheck = "latest" # shell script linter (used by this image's own .sh files)
 shfmt = "latest"      # shell script formatter
 yq = "latest"         # YAML processor; complement to jq for compose/config work
+# ── Cloud / cluster tooling (PLATENG-1417 SSO staging access) ────────
+# kubectl: talk to EKS (e.g. us-east-1-platform staging). Pin to host
+#   channel (k8s 1.29 per dev_scripts/installers/kubectl.sh) to avoid skew.
+# awscli:  REQUIRED by kubectl — per-profile kubeconfig exec block runs
+#   'aws eks get-token'. Also powers terraform AWS provider + 'aws'.
+# helm:    chart linting/templating for SSO helm work. Pin to host 3.20.0.
+# Useful only when the session was launched with --aws-share / --kube-share
+# (the kubeconfig + ~/.aws bind mounts are opt-in).
+kubectl = "1.29"
+awscli = "latest"
+helm = "3.20.0"

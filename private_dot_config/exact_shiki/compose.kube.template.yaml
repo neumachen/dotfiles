@@ -1,0 +1,51 @@
+# ============================================================================
+# compose.kube.template.yaml — host Kubernetes (EKS) parity overlay.
+#
+# Mounts the host's ~/.kube directory (per-profile kubeconfigs written by
+# 'aws eks update-kubeconfig', e.g. ~/.kube/instinct-stage) read-only so
+# 'kubectl' / 'helm' in the container target the same clusters as the host.
+#
+# REQUIRES the AWS overlay too: the kubeconfig user exec block calls
+# 'aws eks get-token', which needs the mounted ~/.aws creds + the aws CLI.
+# The launcher enforces this dependency (--kube-share implies --aws-share;
+# see executable_shiki).
+#
+# Activation: applied by `dot_local/bin/executable_shiki` only when the
+# session was launched with `--kube-share` (or SHIKI_KUBE_SHARE=1). Never
+# merged into the base compose template, never baked into the image.
+#
+# KUBECONFIG: defaults to the staging per-profile file. Override per
+# session by exporting SHIKI_KUBECONFIG to a container path (colon-joined
+# list allowed). Host path ~/.kube/<profile> -> /root/.kube/<profile>.
+#
+# ── SECURITY — read before enabling this overlay ─────────────────────────
+#   • READ-ONLY mount. The container CANNOT write back to ~/.kube; this
+#     blocks `kubectl config use-context` / `aws eks update-kubeconfig`
+#     in-container. Context setup is a host-side operation, identical
+#     parity to the AWS overlay.
+#   • Grants kubectl access to every cluster the host kubeconfigs name.
+#     The effective blast radius is whatever the active AWS SSO session
+#     can do via 'aws eks get-token' — i.e. the operator's EKS RBAC.
+#   • Agent kubectl writes (apply / exec / delete) hit real clusters.
+#     Pair with the AiderDesk "pause before mutating action" rules.
+#   • Token lifetime is bounded by the SSO session (≤8h in the instinct
+#     workflow). When kubectl 401s, `loadaws <env>` on the host refreshes
+#     ~/.aws/sso/cache; the live RO mount picks it up without restart.
+#
+# ── DESIGN NOTES ─────────────────────────────────────────────────────────
+#   • The ~/.kube RO posture means agents cannot persist a new kubeconfig
+#     into the container. If a session needs writable kube state, switch
+#     to a per-session writable copy (copy ~/.kube into the runtime dir
+#     and mount rw). Start read-only; relax only on demand.
+#   • Selecting a context: prefer setting SHIKI_KUBECONFIG to a different
+#     ~/.kube/<profile> path, or pass `kubectl --context` per command.
+# ============================================================================
+services:
+  __SERVICE__:
+    volumes:
+      - type: bind
+        source: ${HOME}/.kube
+        target: /root/.kube
+        read_only: true
+    environment:
+      KUBECONFIG: ${SHIKI_KUBECONFIG:-/root/.kube/instinct-stage}
