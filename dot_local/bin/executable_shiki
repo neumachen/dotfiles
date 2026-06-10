@@ -98,6 +98,16 @@ DOCKER_SOCK="${SHIKI_DOCKER_SOCK:-$DEFAULT_DOCKER_SOCK}"
 # the user must `aws sso login` (or `loadaws <env>`) on the host first.
 AWS_SHARE_MODE="${SHIKI_AWS_SHARE:-0}"
 
+# ── Kubernetes (EKS) host parity — opt-in ─────────────────────────────
+# Defaults OFF. Enable via `--kube-share` or by exporting
+# SHIKI_KUBE_SHARE=1 in the shell. Implies --aws-share because EKS
+# kubeconfigs invoke `aws eks get-token` for auth. When on, the
+# launcher renders compose.kube.template.yaml (read-only bind of
+# ~/.kube + KUBECONFIG env) into the compose chain. The container
+# CANNOT update kubeconfigs (RO mount); run `aws eks update-kubeconfig`
+# on the host first.
+KUBE_SHARE_MODE="${SHIKI_KUBE_SHARE:-0}"
+
 SHIKI_ABOUT=$'Shiki — AiderDesk in a container with persistent sessions.\nThis tool wraps AiderDesk with SSH agent forwarding for 1Password commit\nsigning and sensible mounts for your project.'
 
 die() {
@@ -150,6 +160,16 @@ Wrapper options (before --):
                      run `aws sso login` (or `loadaws <env>`) on the
                      HOST first. The live bind picks up token refreshes
                      without a container restart. Opt-in per session.
+      --kube-share   Share the host's ~/.kube directory (read-only) so
+                     `kubectl` / `helm` in the container target the same
+                     EKS clusters as the host. Implies --aws-share
+                     because EKS kubeconfigs invoke `aws eks get-token`
+                     for auth. The container CANNOT run
+                     `aws eks update-kubeconfig` (RO mount); run it on
+                     the HOST first. Default KUBECONFIG points at
+                     ~/.kube/instinct-stage; override with
+                     SHIKI_KUBECONFIG (container path, colon-joined
+                     list allowed). Opt-in per session.
       --pull         Pull the upstream AiderDesk base image,
                      then exit without starting a container.
       --rebuild[=mods]
@@ -226,6 +246,15 @@ Optional environment variables:
                      (equivalent to passing --aws-share). Default: 0.
                      Requires ~/.aws/config to exist on the host. The
                      mount is read-only; SSO login is a host-side action.
+  SHIKI_KUBE_SHARE   Set to 1 to enable Kubernetes (EKS) host parity
+                     (equivalent to passing --kube-share). Default: 0.
+                     Implies SHIKI_AWS_SHARE=1. Requires ~/.kube to
+                     exist on the host (run `aws eks update-kubeconfig`
+                     first). Mount is read-only.
+  SHIKI_KUBECONFIG   Container path for KUBECONFIG when --kube-share is
+                     on (default: /root/.kube/instinct-stage). Accepts
+                     a colon-joined list. Use to select a non-staging
+                     context per session.
 
 SSH agent forwarding (required for commit signing):
   Shiki auto-detects a usable SSH agent socket for the container.
@@ -298,6 +327,10 @@ Mounts (opt-in via --aws-share):
          AWS_CONFIG_FILE=/root/.aws/config
          AWS_SHARED_CREDENTIALS_FILE=/root/.aws/credentials
 
+Mounts (opt-in via --kube-share, implies --aws-share):
+  ~/.kube/                 → /root/.kube (ro)          (per-profile EKS kubeconfigs)
+  + env: KUBECONFIG=${SHIKI_KUBECONFIG:-/root/.kube/instinct-stage}
+
 Per-session mise:
   The container has ripgrep + bubblewrap + socat baked in for Claude SDK,
   plus a shiki-managed mise config (gh, jq, fzf, vim, delta) auto-installed
@@ -363,6 +396,29 @@ AWS / Terraform host parity (opt-in via --aws-share):
   See:
     private_dot_config/exact_shiki/compose.aws.template.yaml
 
+Kubernetes (EKS) host parity (opt-in via --kube-share):
+  When enabled, the container reads the host's ~/.kube tree so kubectl
+  and helm see the same per-profile EKS kubeconfigs as the host. The
+  flag implies --aws-share because EKS kubeconfigs invoke
+  `aws eks get-token` for auth; both the aws CLI and the ~/.aws SSO
+  cache must be present in-container.
+
+    • Mount is READ-ONLY. The container cannot run
+      `aws eks update-kubeconfig` or `kubectl config use-context`.
+      Refresh kubeconfigs on the HOST first; the live bind picks them
+      up automatically.
+    • Default KUBECONFIG = /root/.kube/instinct-stage. Override per
+      session with SHIKI_KUBECONFIG (container path, colon-joined list).
+    • Tokens expire with the SSO session (≤8h). When kubectl 401s,
+      run `loadaws <env>` on the host; the new token is picked up
+      automatically.
+    • SECURITY: an agent's kubectl/helm writes hit real clusters. Treat
+      this like --docker-host: opt-in per session, never the default.
+      EKS RBAC is the effective blast radius.
+
+  See:
+    private_dot_config/exact_shiki/compose.kube.template.yaml
+
 Host localhost access:
   Bridge mode (default):
     New containers get host aliases so processes inside shiki can reach
@@ -397,6 +453,9 @@ Examples:
                                                 # pin the OrbStack-canonical socket
   shiki --aws-share                             # share host AWS SSO + Terraform CLI state
   shiki --aws-share --docker-host               # both: AWS parity AND DooD
+  shiki --kube-share                            # share host ~/.kube (implies --aws-share)
+  SHIKI_KUBECONFIG=/root/.kube/instinct-prod shiki --kube-share
+                                                # pick a non-staging cluster profile
   shiki --pull                                  # pull upstream base image only
   shiki --rebuild                               # rebuild image only (pull + no-cache)
   shiki --rebuild=cache                         # rebuild image only (pull + cache)
@@ -533,6 +592,7 @@ parse_args() {
     --bridge-network) NETWORK_MODE="bridge"; shift ;;
     --docker-host) DOCKER_HOST_MODE=1; shift ;;
     --aws-share) AWS_SHARE_MODE=1; shift ;;
+    --kube-share) KUBE_SHARE_MODE=1; shift ;;
     --pull) PULL_IMAGE=1; shift ;;
     --rebuild)
       REBUILD_IMAGE=1
@@ -555,6 +615,16 @@ parse_args() {
 }
 
 parse_args "$@"
+
+# ---------- mode implications ----------
+# --kube-share implies --aws-share because EKS kubeconfigs invoke
+# `aws eks get-token` for auth, which needs both the aws CLI on PATH
+# and the ~/.aws credential mount. Print an informational notice when
+# we flip the AWS share on for the user.
+if [ "$KUBE_SHARE_MODE" -eq 1 ] && [ "$AWS_SHARE_MODE" -ne 1 ]; then
+  echo-info "--kube-share implies --aws-share (EKS token needs ~/.aws); enabling it."
+  AWS_SHARE_MODE=1
+fi
 
 # ---------- preflight ----------
 have docker || die "docker not found in PATH."
@@ -629,6 +699,7 @@ SHIKI_COMPOSE_TEMPLATE="${SHIKI_DIR}/compose.template.yaml"
 SHIKI_COMPOSE_HOST_NETWORK_TEMPLATE="${SHIKI_DIR}/compose.host-network.template.yaml"
 SHIKI_COMPOSE_DOCKER_SOCK_TEMPLATE="${SHIKI_DIR}/compose.docker-sock.template.yaml"
 SHIKI_COMPOSE_AWS_TEMPLATE="${SHIKI_DIR}/compose.aws.template.yaml"
+SHIKI_COMPOSE_KUBE_TEMPLATE="${SHIKI_DIR}/compose.kube.template.yaml"
 SHIKI_DOCKERFILE="${SHIKI_DIR}/shiki.Dockerfile"
 SHIKI_ENTRYPOINT="${SHIKI_DIR}/entrypoint.sh"
 SHIKI_EXTENSIONS_INSTALLER="${SHIKI_DIR}/install-aiderdesk-extensions.sh"
@@ -640,6 +711,7 @@ for _f in \
   "$SHIKI_COMPOSE_HOST_NETWORK_TEMPLATE" \
   "$SHIKI_COMPOSE_DOCKER_SOCK_TEMPLATE" \
   "$SHIKI_COMPOSE_AWS_TEMPLATE" \
+  "$SHIKI_COMPOSE_KUBE_TEMPLATE" \
   "$SHIKI_DOCKERFILE" \
   "$SHIKI_ENTRYPOINT" \
   "$SHIKI_EXTENSIONS_INSTALLER" \
@@ -688,6 +760,21 @@ if [ "$AWS_SHARE_MODE" -eq 1 ]; then
     echo-warn "--aws-share: no SSO tokens found at ${HOME}/.aws/sso/cache/."
     echo-warn "  Run \`aws sso login --profile <profile>\` (or \`loadaws <env>\`) on the host before"
     echo-warn "  invoking AWS from inside the container."
+  fi
+fi
+
+# ---------- Kubernetes share host-side validation ----------
+# When --kube-share is on, require ~/.kube/ to exist. An empty dir is a
+# warning (the user may be about to add a profile via `aws eks
+# update-kubeconfig`), but a totally missing one is a setup error.
+if [ "$KUBE_SHARE_MODE" -eq 1 ]; then
+  if [ ! -d "${HOME}/.kube" ]; then
+    die "--kube-share requested but ${HOME}/.kube does not exist. Run \`aws eks update-kubeconfig --name <cluster>\` (or the instinct \`init_kube\` flow) on the host first."
+  fi
+  if ! ls "${HOME}/.kube"/* >/dev/null 2>&1; then
+    echo-warn "--kube-share: ${HOME}/.kube is empty."
+    echo-warn "  Run \`aws eks update-kubeconfig --name <cluster>\` (or \`init_kube\`) on the host before"
+    echo-warn "  invoking kubectl/helm from inside the container."
   fi
 fi
 
@@ -816,6 +903,7 @@ RENDERED_COMPOSE="${SESSION_RUNTIME_DIR}/compose.yaml"
 RENDERED_COMPOSE_HOST_NETWORK="${SESSION_RUNTIME_DIR}/compose.host-network.yaml"
 RENDERED_COMPOSE_DOCKER_SOCK="${SESSION_RUNTIME_DIR}/compose.docker-sock.yaml"
 RENDERED_COMPOSE_AWS="${SESSION_RUNTIME_DIR}/compose.aws.yaml"
+RENDERED_COMPOSE_KUBE="${SESSION_RUNTIME_DIR}/compose.kube.yaml"
 EXTENSIONS_VOLUME="${SESSION_NAME}-${EXTENSIONS_VOLUME_SUFFIX}"
 SERVICE_NAME="$SESSION_NAME"
 
@@ -882,6 +970,14 @@ export SHIKI_DOCKER_SOCK="$DOCKER_SOCK"
 # for symmetry with SHIKI_DOCKER_HOST.
 export SHIKI_AWS_SHARE="$AWS_SHARE_MODE"
 
+# Kubernetes host parity exports. SHIKI_KUBE_SHARE is read by the
+# in-container preflight (entrypoint.sh) to decide whether to verify
+# kubectl+aws are on PATH. SHIKI_KUBECONFIG is referenced by the kube
+# overlay as the in-container KUBECONFIG default; export it (possibly
+# empty) so compose interpolation is deterministic.
+export SHIKI_KUBE_SHARE="$KUBE_SHARE_MODE"
+export SHIKI_KUBECONFIG="${SHIKI_KUBECONFIG:-}"
+
 # Informational export — what $HOME was on the host. The container's own
 # HOME stays /root (no USER directive in the image); SHIKI_HOST_HOME is
 # the prefix the launcher stripped when translating project paths, so
@@ -898,6 +994,7 @@ render_compose_templates() {
   sed "s/__SERVICE__:/${SERVICE_NAME}:/" "$SHIKI_COMPOSE_HOST_NETWORK_TEMPLATE" >"$RENDERED_COMPOSE_HOST_NETWORK"
   sed "s/__SERVICE__:/${SERVICE_NAME}:/" "$SHIKI_COMPOSE_DOCKER_SOCK_TEMPLATE" >"$RENDERED_COMPOSE_DOCKER_SOCK"
   sed "s/__SERVICE__:/${SERVICE_NAME}:/" "$SHIKI_COMPOSE_AWS_TEMPLATE" >"$RENDERED_COMPOSE_AWS"
+  sed "s/__SERVICE__:/${SERVICE_NAME}:/" "$SHIKI_COMPOSE_KUBE_TEMPLATE" >"$RENDERED_COMPOSE_KUBE"
 }
 render_compose_templates
 
@@ -910,9 +1007,11 @@ compose_cmd=(
   -f "$RENDERED_COMPOSE"
 )
 # Overlay order is deterministic and orthogonal:
-#   base → host-network → docker-sock → aws → runtime → user
-# host-network, docker-host, and aws-share are independent dimensions;
-# a user may want any combination of them.
+#   base → host-network → docker-sock → aws → kube → runtime → user
+# host-network, docker-host, aws-share, and kube-share are independent
+# dimensions; a user may want any combination. kube-share is layered
+# AFTER aws-share so the EKS kubeconfig auth path (aws eks get-token)
+# sees the AWS mounts/env it needs.
 if [ "$NETWORK_MODE" = "host" ]; then
   compose_cmd+=(-f "$RENDERED_COMPOSE_HOST_NETWORK")
 fi
@@ -921,6 +1020,9 @@ if [ "$DOCKER_HOST_MODE" -eq 1 ]; then
 fi
 if [ "$AWS_SHARE_MODE" -eq 1 ]; then
   compose_cmd+=(-f "$RENDERED_COMPOSE_AWS")
+fi
+if [ "$KUBE_SHARE_MODE" -eq 1 ]; then
+  compose_cmd+=(-f "$RENDERED_COMPOSE_KUBE")
 fi
 compose_cmd+=(-f "$RUNTIME_OVERLAY")
 
@@ -1174,6 +1276,10 @@ print_mount_banner() {
       echo-info "  TF:       ${AWS_TERRAFORMRC_HOST} → /root/.terraformrc (ro)"
     fi
   fi
+  if [ "$KUBE_SHARE_MODE" -eq 1 ]; then
+    echo-info "  Kube:     ${HOME}/.kube → /root/.kube (ro; per-profile EKS kubeconfigs)"
+    echo-info "  KUBECFG:  ${SHIKI_KUBECONFIG:-/root/.kube/instinct-stage} (agent kubectl/helm hits real clusters)"
+  fi
 }
 
 print_run_hints() {
@@ -1224,6 +1330,7 @@ echo-debug "using host-services SSH socket: ${USE_HOST_SERVICES_SSH_AUTH_SOCK}"
 echo-debug "network mode: ${NETWORK_MODE}"
 echo-debug "docker-host mode: ${DOCKER_HOST_MODE} (sock: ${DOCKER_SOCK})"
 echo-debug "aws-share mode: ${AWS_SHARE_MODE}"
+echo-debug "kube-share mode: ${KUBE_SHARE_MODE} (KUBECONFIG override: ${SHIKI_KUBECONFIG:-<unset>})"
 
 # ---------- dispatch ----------
 case "$SESSION_ACTION" in

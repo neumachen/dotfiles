@@ -302,6 +302,25 @@ fi
 echo "✓ gh       $(gh --version | head -1) (token ${gh_token_fp})"
 echo ""
 
+# ── Check: Kubernetes (EKS) tools (only if SHIKI_KUBE_SHARE=1) ────────
+# Gated on the explicit launcher flag so sessions that don't opt in pay
+# zero preflight cost. Non-fatal — a missing kubeconfig or a flaky
+# mise install must not block a session; surface a warning instead. The
+# kube overlay is opt-in via `shiki --kube-share` (which also implies
+# `--aws-share`); see compose.kube.template.yaml and the launcher.
+if [ "${SHIKI_KUBE_SHARE:-0}" = "1" ]; then
+  if ! command -v kubectl >/dev/null 2>&1; then
+    echo "WARNING: SHIKI_KUBE_SHARE=1 but 'kubectl' not on PATH yet (mise install pending?)." >&2
+    echo "         Re-run \`mise install --yes\` in the container or rebuild with \`shiki --rebuild\`." >&2
+  elif ! command -v aws >/dev/null 2>&1; then
+    echo "WARNING: SHIKI_KUBE_SHARE=1 but 'aws' not on PATH — kubectl EKS auth (aws eks get-token) will fail." >&2
+    echo "         Re-run \`mise install --yes\` in the container or rebuild with \`shiki --rebuild\`." >&2
+  else
+    echo "✓ kube     kubectl client present (KUBECONFIG=${KUBECONFIG:-<unset>})"
+    echo "  ↳ note   cluster access enabled — agent kubectl/helm commands hit real clusters"
+  fi
+fi
+
 # ── Seed AiderDesk's disabled-extensions list ─────────────────────────
 # All extensions are baked into the image, but some are disabled by
 # default via AiderDesk's settings (settings.extensions.disabled in
