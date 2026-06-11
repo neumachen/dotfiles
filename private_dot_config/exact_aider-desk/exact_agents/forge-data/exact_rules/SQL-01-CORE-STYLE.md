@@ -1,0 +1,94 @@
+# SQL Rule: Core Style
+
+When writing or modifying SQL, prioritize correctness, security, and reviewability over brevity.
+
+## Principles
+
+- Match the project's existing dialect (PostgreSQL, MySQL, SQLite). Do not introduce dialect-specific features without confirming the target.
+- Prefer the project's existing query builder, ORM, or `sqlc`/`atlas`/`flyway` patterns over hand-rolling.
+- Schema changes go through migrations only. Never hand-edit a deployed schema.
+
+## Formatting
+
+- Keywords UPPERCASE: `SELECT`, `FROM`, `JOIN`, `ON`, `WHERE`, `GROUP BY`, `ORDER BY`, `LIMIT`.
+- Identifiers (table, column, alias) lowercase_snake_case.
+- One major clause per line at zero indentation; align continuations under their clause word:
+  ```sql
+  SELECT u.id,
+         u.email,
+         COUNT(o.id) AS order_count
+    FROM users AS u
+    LEFT JOIN orders AS o ON o.user_id = u.id
+   WHERE u.deleted_at IS NULL
+   GROUP BY u.id, u.email
+   ORDER BY order_count DESC
+   LIMIT 100;
+  ```
+- Explicit `AS` for column and table aliases. Always alias when joining the same table twice.
+
+## Naming
+
+- Tables: plural snake_case nouns: `users`, `order_items`.
+- Columns: snake_case. Foreign keys: `<other_table_singular>_id` (e.g., `user_id`).
+- Timestamps: `created_at`, `updated_at`, `deleted_at` (the project's existing convention).
+- Indexes: `idx_<table>_<columns>` for non-unique, `uq_<table>_<columns>` for unique, `fk_<table>_<col>__<other_table>` for foreign keys.
+- Primary keys: `id` (BIGSERIAL / BIGINT for new tables unless the project uses UUIDs).
+
+## Joins
+
+- Always use explicit `JOIN` syntax. Never comma-join with WHERE conditions.
+- Specify `INNER JOIN`, `LEFT JOIN`, `RIGHT JOIN`, or `FULL JOIN` — never just `JOIN`.
+- Put each join on its own line.
+- Avoid `SELECT *` in production code. List the columns explicitly so schema changes don't silently break callers.
+
+## Security
+
+- **Parameterized queries only.** Never string-interpolate user input into SQL. The language client (sqlc, sqlx, prisma, etc.) provides bind parameters; use them.
+- `WHERE id = $1` (Postgres), `WHERE id = ?` (MySQL/SQLite), or the ORM-specific equivalent.
+- Validate identifier inputs (table names, column names) against an allow-list before splicing them into a query. Identifiers cannot be parameterized; this is the unavoidable case.
+- Grant least-privilege roles: an application's connection user should not own the schema and should not have `DROP TABLE` rights in production.
+
+## Migrations
+
+- One concept per migration. Atomic: a migration either applies cleanly or rolls back.
+- Both `up` and `down` are required unless the project policy explicitly forbids irreversible migrations.
+- Migrations are append-only. Never rename a deployed migration file.
+- Long-running operations (`ALTER TABLE ... ADD COLUMN NOT NULL DEFAULT`, large index builds) must be split: add nullable, backfill, then add the NOT NULL constraint, in separate deployments.
+- For PostgreSQL, use `CREATE INDEX CONCURRENTLY` in production. Plain `CREATE INDEX` holds a write lock for the duration.
+
+## Performance
+
+- Profile with `EXPLAIN (ANALYZE, BUFFERS)` before adding an index. Don't add indexes speculatively.
+- A query that touches more than ~10% of a large table will not use the index. Rewrite or partition.
+- `LIMIT` without `ORDER BY` is non-deterministic.
+- Pagination: prefer keyset pagination (`WHERE id > $last_seen ORDER BY id LIMIT N`) over `OFFSET N` for large tables.
+
+## Examples
+
+### Good
+
+```sql
+-- Atomic, named, parameterized, paginated.
+INSERT INTO orders (user_id, total_cents, currency, created_at)
+VALUES ($1, $2, $3, NOW())
+RETURNING id, created_at;
+
+-- Lookup using an index on (user_id, created_at):
+SELECT id, total_cents, currency, created_at
+  FROM orders
+ WHERE user_id = $1
+   AND created_at < $2
+ ORDER BY created_at DESC
+ LIMIT 50;
+```
+
+### Bad
+
+```sql
+-- String interpolation (injection), SELECT *, implicit join, no ORDER BY:
+SELECT *
+  FROM orders, users
+ WHERE orders.user_id = users.id
+   AND users.email = 'alice@example.com'   -- interpolated user input!
+ LIMIT 50;
+```

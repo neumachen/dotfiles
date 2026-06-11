@@ -1,9 +1,18 @@
 {
   "forge": 0,
-  "forge-codex-openai": 1,
-  "architect": 2,
-  "analyst-large-context": 3,
-  "scout": 4,
-  "codex-profile": 5,
-  "power-tools": 6
+  "forge-go": 1,
+  "forge-elixir": 2,
+  "forge-ruby": 3,
+  "forge-typescript": 4,
+  "forge-infra": 5,
+  "forge-data": 6,
+  "forge-shell": 7,
+  "forge-lua": 8,
+  "forge-rust": 9,
+  "forge-codex-openai": 10,
+  "architect": 11,
+  "default": 12,
+  "scout": 13,
+  "codex-profile": 14,
+  "power-tools": 15
 }

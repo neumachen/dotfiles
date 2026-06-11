@@ -1,0 +1,63 @@
+# Go Rule: Error Checking
+
+Always check errors in Go code.
+
+This rule is intentionally separate from error style so it can remain enabled even when a project uses a specific error package or error-handling convention.
+
+## Required behavior
+
+- Always check every returned `error`, no matter what function produced it.
+- Never discard an error with `_` unless there is a deliberate, documented, project-approved reason.
+- Do not ignore errors from "simple" operations such as `Close`, `Flush`, `Sync`, `Encode`, `Decode`, `Write`, `Fprint`, `Marshal`, `Unmarshal`, `Scan`, `Rows.Err`, `Commit`, `Rollback`, `Remove`, `MkdirAll`, `SetDeadline`, or logger/sink writes when the result can affect correctness.
+- If an error truly cannot matter, make that intent explicit in a short comment explaining why.
+- Prefer returning or handling errors at the point where enough context exists to make a correct decision.
+- Do not hide errors by logging and continuing unless continuing is intentional and safe.
+- Do not convert errors to zero values or default behavior unless the fallback is explicitly intended.
+
+## Examples
+
+Bad:
+
+```go
+json.NewEncoder(w).Encode(resp)
+```
+
+Better:
+
+```go
+if err := json.NewEncoder(w).Encode(resp); err != nil {
+    return fmt.Errorf("encode response: %w", err)
+}
+```
+
+Bad:
+
+```go
+_ = rows.Close()
+```
+
+Better:
+
+```go
+defer func() {
+    if err := rows.Close(); err != nil {
+        // Explain why this error cannot be returned here, or record it using
+        // the repository's established error/logging pattern.
+    }
+}()
+```
+
+Always check row iteration errors:
+
+```go
+for rows.Next() {
+    // ...
+}
+if err := rows.Err(); err != nil {
+    return fmt.Errorf("iterate users: %w", err)
+}
+```
+
+## Lint compatibility
+
+Code should be compatible with error-checking linters such as `errcheck` when the repository uses them.

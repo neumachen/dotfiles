@@ -1,0 +1,124 @@
+# Docker Rule: Host Engine Access (Docker-out-of-Docker)
+
+When the shiki container is launched with `--docker-host`, the in-container
+`docker` and `docker compose` CLIs drive the **host** Docker engine via a
+bind-mounted UNIX socket. There is no nested daemon — this is DooD, not DinD.
+
+## When This Rule Applies
+
+- Any session launched with `shiki --docker-host` (or `SHIKI_DOCKER_HOST=1`).
+  Without that flag the Docker CLI is present but dormant — there is no
+  socket to talk to, and this rule has nothing to constrain.
+- Any AiderDesk agent, command, skill, or extension that proposes `docker`
+  or `docker compose` invocations while DooD is active.
+
+To check at runtime: `[ "${SHIKI_DOCKER_HOST:-0}" = "1" ]`, or look for the
+`✓ docker` line in the container startup preflight banner.
+
+## Why This Rule Exists
+
+The Docker UNIX socket is an unauthenticated control plane. Any command
+that can write to it is effectively `sudo` on the host:
+
+```bash
+# Reads the host root filesystem from inside an agent-launched container:
+docker run --rm --privileged -v /:/host alpine chroot /host sh
+```
+
+The image-level `seccomp=unconfined` / `apparmor=unconfined` posture (set
+for bwrap and Landlock) provides **no defense** for the socket. Don't
+conflate sandbox unconfinement with Docker-socket containment — they are
+unrelated.
+
+## Required Behavior
+
+### Prohibited operations
+
+- **Never** run `docker run --privileged`, `--cap-add=ALL`, `--pid=host`,
+  `--ipc=host`, `--userns=host`, or `--security-opt seccomp=unconfined`.
+- **Never** bind-mount sensitive host paths into a launched container:
+  - `/` (entire host root)
+  - `$HOME` or `~` (entire user home — even when `--docker-mount-home`
+    is active for shiki itself, that is the user's commitment, not a
+    license to re-expose it to arbitrary sibling containers)
+  - `/var/run/docker.sock` (further socket propagation — nested DooD)
+  - `~/.ssh`, `~/.aws`, `~/.config/op`, `~/.gnupg`, `~/.kube`,
+    `~/.docker`, `~/Library/Group Containers/2BUA8C4S2C.com.1password`
+- **Never** modify the permissions, ownership, or symlink target of
+  `/var/run/docker.sock` inside the container.
+- **Never** install `dockerd`, `containerd`, or any other Docker daemon
+  inside the container. The image installs the CLI + compose plugin
+  only; running a daemon defeats the design.
+- **Never** `docker exec` into, `docker stop`, `docker rm`, or
+  `docker rename` a container the user did not explicitly name in the
+  current session. The host engine sees every container on the machine,
+  including unrelated work.
+- **Never** run `docker system prune`, `docker volume rm`, or
+  `docker network rm` against unnamed/unscoped targets. These hit the
+  host engine globally.
+
+### Required behavior
+
+- Operate only on the **specific sibling projects the user named for
+  this session.** If the user says "work in `~/code/api`," `docker
+  compose` is allowed in that project tree and nowhere else.
+- Prefer `docker compose -f <project>/docker-compose.yml <subcmd>` over
+  freestanding `docker run`. Compose files are reviewable in the repo;
+  ad-hoc `docker run` flags are not.
+- When path symmetry matters (sibling `docker compose` stacks with
+  relative bind sources like `./data:/data`), use the `$HOME`-symmetric
+  path: `cd ~/code/proj && docker compose up -d`. Using
+  `/projects/<name>` will fail because the host daemon resolves bind
+  sources on the host filesystem.
+- Surface the security tradeoff in proposed plans whenever a Docker
+  command would affect a container, volume, network, or image the user
+  has not already named in the conversation.
+
+### Encouraged self-limiting
+
+When the user enables DooD for a session, ask them to name the sibling
+projects you are allowed to operate on (e.g. "I'll be running
+`docker compose` in `~/code/api` and `~/code/worker`"). The socket itself
+does not enforce this scope — the agent's discipline does.
+
+## Examples
+
+### Good
+
+```bash
+# User has named ~/code/api as the project; --docker-mount-home is on:
+cd ~/code/api && docker compose up -d
+
+# Inspect only containers tied to the named project:
+docker compose -f ~/code/api/docker-compose.yml ps
+
+# Tail logs from a specific named service:
+docker compose -f ~/code/api/docker-compose.yml logs -f api
+```
+
+### Bad
+
+```bash
+# Privileged container with full host fs — host escape:
+docker run --rm --privileged -v /:/host alpine sh
+
+# Re-exposes the user's whole home to an arbitrary sibling container:
+docker run --rm -v "$HOME:/h" alpine sh
+
+# Global prune — destroys unrelated work:
+docker system prune -af --volumes
+
+# Touches a container the user did not name:
+docker exec -it some-other-container bash
+
+# Nested DooD — propagates the socket further:
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock alpine
+```
+
+## Future tightening
+
+A future shiki revision may introduce `--docker-host=proxy` to front the
+socket with [Tecnativa/docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy)
+so individual Docker API endpoints can be allow- or deny-listed (e.g.
+permit `containers/create`+`start`, deny `exec`, deny `--privileged`,
+deny bind mounts). Until then, this rule is the enforcement boundary.
