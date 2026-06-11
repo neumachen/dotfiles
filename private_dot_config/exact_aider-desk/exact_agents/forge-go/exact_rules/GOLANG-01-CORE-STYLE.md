@@ -1,0 +1,58 @@
+# Go Rule: Core Style
+
+When modifying or generating Go code, write idiomatic, simple, maintainable Go.
+
+Follow these principles:
+
+- Prefer clarity over cleverness.
+- Keep functions small and focused.
+- Use straightforward control flow.
+- Prefer explicit control flow.
+- Avoid unnecessary abstraction.
+- Follow the existing project style before introducing new patterns.
+- Keep changes minimal and directly related to the requested task.
+- Prefer the Go standard library unless the project already uses another package or a dependency is clearly justified.
+
+Naming conventions:
+
+- Use short variable names for short scopes.
+- Use descriptive names for wider scopes.
+- Use standard Go initialisms consistently:
+  - `ID`
+  - `URL`
+  - `HTTP`
+  - `JSON`
+  - `API`
+  - `SQL`
+  - `UUID`
+- Prefer names like `userID`, `apiURL`, `ServeHTTP`, and `parseJSON`.
+
+Package naming:
+
+- Package names should be short, lowercase, and meaningful.
+- Avoid vague package names such as `common`, `shared`, `helpers`, `utils`, or `misc` unless the repository already uses that convention.
+- Avoid stuttering names.
+
+Good:
+
+```go
+package user
+
+user.Service
+```
+
+Avoid:
+
+```go
+package userservice
+
+userservice.UserService
+```
+
+Comments:
+
+- Comments should explain why code exists, the reasoning behind it, and what it is used for.
+- Comments should not simply define, describe, or restate what a type, function, variable, or block is.
+- Use comments to capture intent, constraints, tradeoffs, invariants, surprising behavior, or operational context.
+- Keep comments accurate and update them when behavior changes.
+- Do not add noisy comments for obvious code.
