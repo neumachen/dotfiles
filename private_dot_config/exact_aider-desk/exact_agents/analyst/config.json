@@ -1,5 +1,5 @@
 {
-  "id": "default",
+  "id": "analyst",
   "name": "Analyst",
   "provider": "anthropic",
   "model": "claude-opus-4-8",
