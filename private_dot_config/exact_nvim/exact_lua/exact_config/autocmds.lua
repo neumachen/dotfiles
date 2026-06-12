@@ -48,6 +48,81 @@ vim.api.nvim_create_autocmd({ 'VimResized' }, {
   end,
 })
 
+-- collapse duplicate buffer windows after a buffer is deleted.
+--
+-- when nvim or Snacks.bufdelete removes a buffer, any window that was
+-- showing the deleted buffer is re-pointed to another buffer in the
+-- list ("Delete buffers without disrupting window layout"). if that
+-- other buffer is already displayed in a different window of the same
+-- tab, the result is two windows showing the same buffer side by side.
+-- this autocmd closes the redundant window so the surviving layout
+-- collapses to a single pane.
+--
+-- scope: current tab only. floating windows, sidebars, and non-normal
+-- buftypes (terminal, quickfix, help, etc.) are left alone. the
+-- currently focused window in a duplicate group is preserved.
+--
+-- deferred via vim.schedule so it runs after nvim has finished
+-- re-pointing windows triggered by the BufDelete/BufWipeout event.
+-- acts as a safety net for direct :bd, bufferline close commands, and
+-- any other code path that bypasses the snacks.lua <leader>bd wrapper.
+vim.api.nvim_create_autocmd({ 'BufDelete', 'BufWipeout' }, {
+  group = augroup('collapse_duplicate_buffer_windows'),
+  callback = function()
+    vim.schedule(function()
+      local sidebar_filetypes = {
+        aerial = true,
+        dbout = true,
+        dbui = true,
+        snacks_dashboard = true,
+        snacks_explorer = true,
+        snacks_picker_input = true,
+        snacks_picker_list = true,
+        trouble = true,
+        yazi = true,
+      }
+      local tab_wins = vim.api.nvim_tabpage_list_wins(0)
+      if #tab_wins <= 1 then return end
+      local current_win = vim.api.nvim_get_current_win()
+      local by_buf = {}
+      for _, w in ipairs(tab_wins) do
+        if vim.api.nvim_win_is_valid(w) then
+          local cfg = vim.api.nvim_win_get_config(w)
+          if cfg.relative == '' then
+            local buf = vim.api.nvim_win_get_buf(w)
+            local ft = vim.bo[buf].filetype
+            local bt = vim.bo[buf].buftype
+            if bt == '' and not sidebar_filetypes[ft] then
+              by_buf[buf] = by_buf[buf] or {}
+              table.insert(by_buf[buf], w)
+            end
+          end
+        end
+      end
+      for _, wins in pairs(by_buf) do
+        if #wins > 1 then
+          local keep = wins[1]
+          for _, w in ipairs(wins) do
+            if w == current_win then
+              keep = w
+              break
+            end
+          end
+          for _, w in ipairs(wins) do
+            if
+              w ~= keep
+              and vim.api.nvim_win_is_valid(w)
+              and #vim.api.nvim_tabpage_list_wins(0) > 1
+            then
+              pcall(vim.api.nvim_win_close, w, false)
+            end
+          end
+        end
+      end
+    end)
+  end,
+})
+
 -- go to last loc when opening a buffer
 vim.api.nvim_create_autocmd('BufReadPost', {
   group = augroup('last_loc'),

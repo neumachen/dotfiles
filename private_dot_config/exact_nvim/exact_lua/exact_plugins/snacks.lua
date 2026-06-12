@@ -233,7 +233,39 @@ return {
       function() Snacks.scratch.select() end,
       desc = 'Select Scratch Buffer',
     },
-    { '<leader>bd', function() Snacks.bufdelete() end, desc = 'Delete Buffer' },
+    {
+      '<leader>bd',
+      function()
+        -- pre-close the current window if there are sibling real
+        -- windows, so Snacks.bufdelete doesn't re-point this window
+        -- into a duplicate of one of the siblings. without this, the
+        -- leftover split shows the same buffer as the other window
+        -- ("mirroring") instead of disappearing.
+        local sidebar_filetypes = {
+          aerial = true,
+          dbout = true,
+          dbui = true,
+          snacks_dashboard = true,
+          snacks_explorer = true,
+          snacks_picker_input = true,
+          snacks_picker_list = true,
+          trouble = true,
+          yazi = true,
+        }
+        local cur_win = vim.api.nvim_get_current_win()
+        local cur_buf = vim.api.nvim_get_current_buf()
+        local real_wins = 0
+        for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+          if vim.api.nvim_win_get_config(w).relative == '' then
+            local ft = vim.bo[vim.api.nvim_win_get_buf(w)].filetype
+            if not sidebar_filetypes[ft] then real_wins = real_wins + 1 end
+          end
+        end
+        if real_wins > 1 then pcall(vim.api.nvim_win_close, cur_win, false) end
+        Snacks.bufdelete(cur_buf)
+      end,
+      desc = 'Delete Buffer',
+    },
     {
       '<leader>bs',
       function() Snacks.scratch() end,
