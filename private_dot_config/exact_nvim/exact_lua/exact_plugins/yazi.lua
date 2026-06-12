@@ -31,6 +31,73 @@ return {
       change_working_directory = '<c-\\>',
       open_and_pick_window = '<c-o>',
     },
+    -- extra bindings layered on top of the upstream keymaps:
+    --   <a-v> = pick a target window, then open the hovered file as a
+    --           vertical split off that window
+    --   <a-x> = same, but horizontal split
+    -- this is the missing composition of <c-o> (open_and_pick_window,
+    -- which only does :edit in the picked window) and <c-v>/<c-x>
+    -- (which split in the previously focused window without asking).
+    -- alt-key combos chosen because <c-a-v>/<c-a-x> don't survive
+    -- many terminals; wezterm passes plain alt cleanly. install
+    -- happens from on_yazi_ready because that hook receives both the
+    -- yazi terminal buffer and the live YaziProcessApi needed to
+    -- drive select_current_file_and_close_yazi.
+    hooks = {
+      on_yazi_ready = function(buffer, cfg, process_api)
+        local ok_helpers, helpers = pcall(require, 'yazi.keybinding_helpers')
+        if not ok_helpers then return end
+
+        local function pick_and_split(split_cmd)
+          return function()
+            helpers.select_current_file_and_close_yazi(cfg, {
+              api = process_api,
+              -- single-file path
+              on_file_opened = function(chosen_file, _, _)
+                if vim.fn.isdirectory(chosen_file) == 1 then return end
+                local ok_pu, picker_util = pcall(require, 'snacks.picker.util')
+                if not ok_pu then return end
+                local picked = picker_util.pick_win()
+                if not picked or not vim.api.nvim_win_is_valid(picked) then
+                  return
+                end
+                vim.api.nvim_set_current_win(picked)
+                vim.cmd(split_cmd .. ' ' .. vim.fn.fnameescape(chosen_file))
+              end,
+              -- multi-file path: pick the target window ONCE, then
+              -- open every selected file as a fresh split off it.
+              on_multiple_files_opened = function(chosen_files)
+                local ok_pu, picker_util = pcall(require, 'snacks.picker.util')
+                if not ok_pu then return end
+                local picked = picker_util.pick_win()
+                if not picked or not vim.api.nvim_win_is_valid(picked) then
+                  return
+                end
+                vim.api.nvim_set_current_win(picked)
+                for _, f in ipairs(chosen_files) do
+                  if vim.fn.isdirectory(f) ~= 1 then
+                    vim.cmd(split_cmd .. ' ' .. vim.fn.fnameescape(f))
+                  end
+                end
+              end,
+            })
+          end
+        end
+
+        vim.keymap.set(
+          't',
+          '<a-v>',
+          pick_and_split('vsplit'),
+          { buffer = buffer, desc = 'yazi: pick window, vsplit' }
+        )
+        vim.keymap.set(
+          't',
+          '<a-x>',
+          pick_and_split('split'),
+          { buffer = buffer, desc = 'yazi: pick window, hsplit' }
+        )
+      end,
+    },
   },
   keys = {
     {
