@@ -34,7 +34,7 @@
   "toolSettings": {
     "power---bash": {
       "allowedPattern": "ls .*;cat .*;git status;git show;git log;go list.*;go mod graph",
-      "deniedPattern": "rm .*;del .*;chown .*;chgrp .*;chmod .*;git push.*;git commit.*"
+      "deniedPattern": "rm .*;del .*;chown .*;chgrp .*;chmod .*;git push.*;git commit.*;terraform\\s+destroy.*;terraform\\s+apply\\s+.*-auto-approve.*;aws\\s+s3\\s+rb\\s+.*;aws\\s+s3\\s+rm\\s+.*--recursive.*;aws\\s+(dynamodb\\s+delete-table|rds\\s+delete-db-(instance|cluster)|kms\\s+schedule-key-deletion|secretsmanager\\s+delete-secret|iam\\s+delete-[a-z-]+).*;kubectl\\s+delete\\s+(ns|namespace)\\s+.*;helm\\s+uninstall\\s+.*;eksctl\\s+delete\\s+cluster.*"
     }
   },
   "includeContextFiles": false,

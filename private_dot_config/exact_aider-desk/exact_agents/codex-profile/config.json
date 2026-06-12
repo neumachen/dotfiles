@@ -34,7 +34,7 @@
   "toolSettings": {
     "power---bash": {
       "allowedPattern": "ls .*;cat .*;git status;git show;git log",
-      "deniedPattern": "rm\\s+(-{1,2}[a-zA-Z-]+\\s+)*/(\\s|$);rm\\s+(-{1,2}[a-zA-Z-]+\\s+)*/\\*;rm\\s+(-{1,2}[a-zA-Z-]+\\s+)*/(bin|boot|dev|etc|lib|lib64|proc|root|run|sbin|srv|sys|usr|var|home)(/\\*?)?(\\s|$);rm\\s+(-{1,2}[a-zA-Z-]+\\s+)*(~|\\$HOME)(/\\*)?(\\s|$);:\\(\\)\\s*\\{.*\\};chmod\\s+(-{1,2}[a-zA-Z-]+\\s+|[0-7]{3,4}\\s+)*/(\\s|$);chown\\s+(-{1,2}[a-zA-Z-]+\\s+|[^/\\s]+\\s+)*/(\\s|$);chgrp\\s+(-{1,2}[a-zA-Z-]+\\s+|[^/\\s]+\\s+)*/(\\s|$);del .*"
+      "deniedPattern": "rm\\s+(-{1,2}[a-zA-Z-]+\\s+)*/(\\s|$);rm\\s+(-{1,2}[a-zA-Z-]+\\s+)*/\\*;rm\\s+(-{1,2}[a-zA-Z-]+\\s+)*/(bin|boot|dev|etc|lib|lib64|proc|root|run|sbin|srv|sys|usr|var|home)(/\\*?)?(\\s|$);rm\\s+(-{1,2}[a-zA-Z-]+\\s+)*(~|\\$HOME)(/\\*)?(\\s|$);:\\(\\)\\s*\\{.*\\};chmod\\s+(-{1,2}[a-zA-Z-]+\\s+|[0-7]{3,4}\\s+)*/(\\s|$);chown\\s+(-{1,2}[a-zA-Z-]+\\s+|[^/\\s]+\\s+)*/(\\s|$);chgrp\\s+(-{1,2}[a-zA-Z-]+\\s+|[^/\\s]+\\s+)*/(\\s|$);del .*;terraform\\s+destroy.*;terraform\\s+apply\\s+.*-auto-approve.*;aws\\s+s3\\s+rb\\s+.*;aws\\s+s3\\s+rm\\s+.*--recursive.*;aws\\s+(dynamodb\\s+delete-table|rds\\s+delete-db-(instance|cluster)|kms\\s+schedule-key-deletion|secretsmanager\\s+delete-secret|iam\\s+delete-[a-z-]+).*;kubectl\\s+delete\\s+(ns|namespace)\\s+.*;helm\\s+uninstall\\s+.*;eksctl\\s+delete\\s+cluster.*"
     }
   },
   "includeContextFiles": false,
