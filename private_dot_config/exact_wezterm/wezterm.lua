@@ -143,6 +143,16 @@ local config = {
   },
   -- separate <Tab> <C-i>
   enable_csi_u_key_encoding = true,
+  -- treat both Alt keys as real Alt modifiers rather than as compose
+  -- keys for typing accented characters. wezterm's defaults are
+  -- left=true (compose), right=false (real Alt), which breaks
+  -- <A-...> bindings in nvim when the user reaches for left Alt by
+  -- reflex (e.g., yazi.nvim's <A-v>/<A-x> pick-then-split keymaps,
+  -- and most lazyvim-style configs that use Alt in their bindings).
+  -- accented-character entry remains available by switching keyboard
+  -- layouts when needed.
+  send_composed_key_when_left_alt_is_pressed = false,
+  send_composed_key_when_right_alt_is_pressed = false,
   leader = { key = 'b', mods = 'CTRL', timeout = 1000 },
   keys = keybinds.create_keybinds(),
   key_tables = keybinds.key_tables,
