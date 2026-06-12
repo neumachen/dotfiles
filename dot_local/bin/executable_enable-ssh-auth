@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# enable-ssh-auth — push a 1Password-agent public key to one or more home
+# nodes' authorized_keys. No private key material leaves 1Password; we only
+# read the public key the agent advertises (ssh-add -L) and append it
+# remotely. Idempotent: skips keys already present on the node.
+#
+# When the agent holds more than one key, you are prompted to choose exactly
+# one (fzf if available, numbered menu otherwise). A single key is used
+# automatically. SSH_KEY_FILTER=<substr> pre-filters by comment/fingerprint.
+#
+# Usage:
+#   enable-ssh-auth user@host [user@host ...]
+#   SSH_KEY_FILTER=<substr> enable-ssh-auth user@host
+set -euo pipefail
+
+# --- echo-* helpers with graceful fallback ---------------------------------
+# Prefer the repo's ~/.local/bin/echo-* binaries; fall back to printf so this
+# script works even where they aren't installed yet.
+_have() { command -v "$1" >/dev/null 2>&1; }
+say_info() { if _have echo-info; then echo-info "$*"; else printf '[INFO] --- %s\n' "$*"; fi; }
+say_warn() { if _have echo-warn; then echo-warn "$*"; else printf '[WARN] --- %s\n' "$*" >&2; fi; }
+say_err()  { if _have echo-err;  then echo-err  "$*"; else printf '[ERROR] --- %s\n' "$*" >&2; fi; }
+say_ok()   { if _have echo-ok;   then echo-ok   "$*"; else printf '[SUCCESS] --- %s\n' "$*"; fi; }
+
+if [ "$#" -eq 0 ]; then
+  say_err "usage: $(basename "$0") user@host [user@host ...]"
+  say_err "       SSH_KEY_FILTER=<substr> $(basename "$0") ..."
+  exit 1
+fi
+
+# --- Verify the agent is reachable -----------------------------------------
+if ! ssh-add -l >/dev/null 2>&1; then
+  say_err "SSH agent not responding (is the 1Password agent running and SSH_AUTH_SOCK set?)"
+  exit 1
+fi
+
+# --- Gather keys: display lines (-l) and install lines (-L), same order ----
+mapfile -t DISPLAY_LINES < <(ssh-add -l)
+mapfile -t PUBKEY_LINES  < <(ssh-add -L)
+
+if [ "${#PUBKEY_LINES[@]}" -eq 0 ]; then
+  say_err "no public keys found in agent"
+  exit 1
+fi
+
+# --- Optional pre-filter by SSH_KEY_FILTER (applied to display lines) ------
+if [ -n "${SSH_KEY_FILTER:-}" ]; then
+  _fd=(); _fp=()
+  for i in "${!DISPLAY_LINES[@]}"; do
+    if printf '%s' "${DISPLAY_LINES[$i]}" | grep -qF -- "$SSH_KEY_FILTER"; then
+      _fd+=("${DISPLAY_LINES[$i]}")
+      _fp+=("${PUBKEY_LINES[$i]}")
+    fi
+  done
+  DISPLAY_LINES=("${_fd[@]}")
+  PUBKEY_LINES=("${_fp[@]}")
+  if [ "${#PUBKEY_LINES[@]}" -eq 0 ]; then
+    say_err "SSH_KEY_FILTER='${SSH_KEY_FILTER}' matched no keys"
+    exit 1
+  fi
+fi
+
+# --- Choose exactly one key ------------------------------------------------
+CHOSEN_PUBKEY=""
+if [ "${#PUBKEY_LINES[@]}" -eq 1 ]; then
+  CHOSEN_PUBKEY="${PUBKEY_LINES[0]}"
+  say_info "Using the only agent key: ${DISPLAY_LINES[0]:-$CHOSEN_PUBKEY}"
+elif _have fzf; then
+  _sel="$(
+    for i in "${!DISPLAY_LINES[@]}"; do printf '%s\t%s\n' "$i" "${DISPLAY_LINES[$i]}"; done \
+      | fzf --with-nth=2.. --delimiter='\t' --prompt='Select SSH key to install > ' --height=40% --reverse
+  )"
+  [ -z "$_sel" ] && { say_err "no key selected"; exit 1; }
+  _idx="${_sel%%$'\t'*}"
+  CHOSEN_PUBKEY="${PUBKEY_LINES[$_idx]}"
+  say_info "Selected: ${DISPLAY_LINES[$_idx]}"
+else
+  say_info "Multiple keys in agent. Choose one to install:"
+  for i in "${!DISPLAY_LINES[@]}"; do
+    printf '  [%d] %s\n' "$((i + 1))" "${DISPLAY_LINES[$i]}" >&2
+  done
+  printf 'Enter number [1-%d]: ' "${#DISPLAY_LINES[@]}" >&2
+  read -r _n < /dev/tty
+  case "$_n" in
+    ''|*[!0-9]*) say_err "invalid selection"; exit 1 ;;
+  esac
+  if [ "$_n" -lt 1 ] || [ "$_n" -gt "${#DISPLAY_LINES[@]}" ]; then
+    say_err "selection out of range"
+    exit 1
+  fi
+  CHOSEN_PUBKEY="${PUBKEY_LINES[$((_n - 1))]}"
+  say_info "Selected: ${DISPLAY_LINES[$((_n - 1))]}"
+fi
+
+if [ -z "$CHOSEN_PUBKEY" ]; then
+  say_err "no key chosen"
+  exit 1
+fi
+
+# --- Install on each target -------------------------------------------------
+for target in "$@"; do
+  say_info "Installing key on ${target}"
+  printf '%s\n' "$CHOSEN_PUBKEY" | ssh "$target" '
+    set -e
+    umask 077
+    mkdir -p ~/.ssh
+    touch ~/.ssh/authorized_keys
+    IFS= read -r key
+    if [ -z "$key" ]; then
+      echo "  no key received" >&2
+      exit 1
+    fi
+    if grep -qxF "$key" ~/.ssh/authorized_keys; then
+      echo "  already present, skipping"
+    else
+      printf "%s\n" "$key" >> ~/.ssh/authorized_keys
+      echo "  added"
+    fi
+  '
+  say_ok "${target} done"
+done
+
+say_ok "All nodes processed. Test with: ssh $1"
