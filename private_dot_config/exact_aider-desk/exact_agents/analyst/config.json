@@ -1,6 +1,6 @@
 {
   "id": "analyst",
-  "name": "Analyst",
+  "name": "analyst",
   "provider": "anthropic",
   "model": "claude-opus-4-8",
   "maxIterations": 200,
