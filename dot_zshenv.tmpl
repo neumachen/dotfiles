@@ -42,6 +42,16 @@ export CLICOLOR=1
 export VISUAL="nvim"
 export EDITOR="nvim"
 
+# TERM sanity for SSH sessions: if this is a remote shell and the inherited
+# TERM has no terminfo entry on this machine, fall back to a universally
+# understood type so cursor/redraw escape sequences don't corrupt the line
+# editor (symptom: typed characters repeat / the prompt redraws wrong).
+# No-op on a local shell (SSH_CONNECTION unset) and when TERM is already
+# known to this machine's terminfo database.
+if [[ -n "${SSH_CONNECTION:-}" ]] && ! infocmp "${TERM:-}" >/dev/null 2>&1; then
+  export TERM=xterm-256color
+fi
+
 # MeinCodex directories (no command dependencies)
 meincodex_dir="${HOME}/MeinCodex"
 if [[ -d "$meincodex_dir" ]]; then
