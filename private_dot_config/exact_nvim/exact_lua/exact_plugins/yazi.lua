@@ -45,57 +45,69 @@ return {
     -- drive select_current_file_and_close_yazi.
     hooks = {
       on_yazi_ready = function(buffer, cfg, process_api)
-        local ok_helpers, helpers = pcall(require, 'yazi.keybinding_helpers')
-        if not ok_helpers then return end
+        -- on_yazi_ready is invoked from a libuv callback while reading
+        -- the ya process's stdout, i.e., inside a "fast event context"
+        -- where nvim_buf_set_keymap and most other vim.api calls are
+        -- forbidden (see :h api-fast). vim.keymap.set ultimately calls
+        -- nvim_buf_set_keymap and would raise E5560. Defer the whole
+        -- install onto the main event loop via vim.schedule so the API
+        -- is callable.
+        vim.schedule(function()
+          if not vim.api.nvim_buf_is_valid(buffer) then return end
+          local ok_helpers, helpers = pcall(require, 'yazi.keybinding_helpers')
+          if not ok_helpers then return end
 
-        local function pick_and_split(split_cmd)
-          return function()
-            helpers.select_current_file_and_close_yazi(cfg, {
-              api = process_api,
-              -- single-file path
-              on_file_opened = function(chosen_file, _, _)
-                if vim.fn.isdirectory(chosen_file) == 1 then return end
-                local ok_pu, picker_util = pcall(require, 'snacks.picker.util')
-                if not ok_pu then return end
-                local picked = picker_util.pick_win()
-                if not picked or not vim.api.nvim_win_is_valid(picked) then
-                  return
-                end
-                vim.api.nvim_set_current_win(picked)
-                vim.cmd(split_cmd .. ' ' .. vim.fn.fnameescape(chosen_file))
-              end,
-              -- multi-file path: pick the target window ONCE, then
-              -- open every selected file as a fresh split off it.
-              on_multiple_files_opened = function(chosen_files)
-                local ok_pu, picker_util = pcall(require, 'snacks.picker.util')
-                if not ok_pu then return end
-                local picked = picker_util.pick_win()
-                if not picked or not vim.api.nvim_win_is_valid(picked) then
-                  return
-                end
-                vim.api.nvim_set_current_win(picked)
-                for _, f in ipairs(chosen_files) do
-                  if vim.fn.isdirectory(f) ~= 1 then
-                    vim.cmd(split_cmd .. ' ' .. vim.fn.fnameescape(f))
+          local function pick_and_split(split_cmd)
+            return function()
+              helpers.select_current_file_and_close_yazi(cfg, {
+                api = process_api,
+                -- single-file path
+                on_file_opened = function(chosen_file, _, _)
+                  if vim.fn.isdirectory(chosen_file) == 1 then return end
+                  local ok_pu, picker_util =
+                    pcall(require, 'snacks.picker.util')
+                  if not ok_pu then return end
+                  local picked = picker_util.pick_win()
+                  if not picked or not vim.api.nvim_win_is_valid(picked) then
+                    return
                   end
-                end
-              end,
-            })
+                  vim.api.nvim_set_current_win(picked)
+                  vim.cmd(split_cmd .. ' ' .. vim.fn.fnameescape(chosen_file))
+                end,
+                -- multi-file path: pick the target window ONCE, then
+                -- open every selected file as a fresh split off it.
+                on_multiple_files_opened = function(chosen_files)
+                  local ok_pu, picker_util =
+                    pcall(require, 'snacks.picker.util')
+                  if not ok_pu then return end
+                  local picked = picker_util.pick_win()
+                  if not picked or not vim.api.nvim_win_is_valid(picked) then
+                    return
+                  end
+                  vim.api.nvim_set_current_win(picked)
+                  for _, f in ipairs(chosen_files) do
+                    if vim.fn.isdirectory(f) ~= 1 then
+                      vim.cmd(split_cmd .. ' ' .. vim.fn.fnameescape(f))
+                    end
+                  end
+                end,
+              })
+            end
           end
-        end
 
-        vim.keymap.set(
-          't',
-          '<a-v>',
-          pick_and_split('vsplit'),
-          { buffer = buffer, desc = 'yazi: pick window, vsplit' }
-        )
-        vim.keymap.set(
-          't',
-          '<a-x>',
-          pick_and_split('split'),
-          { buffer = buffer, desc = 'yazi: pick window, hsplit' }
-        )
+          vim.keymap.set(
+            't',
+            '<a-v>',
+            pick_and_split('vsplit'),
+            { buffer = buffer, desc = 'yazi: pick window, vsplit' }
+          )
+          vim.keymap.set(
+            't',
+            '<a-x>',
+            pick_and_split('split'),
+            { buffer = buffer, desc = 'yazi: pick window, hsplit' }
+          )
+        end)
       end,
     },
   },
