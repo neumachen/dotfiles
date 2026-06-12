@@ -1,9 +1,9 @@
 {
-  "id": "scout",
-  "name": "scout",
-  "provider": "claude-agent-sdk",
-  "model": "haiku",
-  "maxIterations": 150,
+  "id": "analyst-codex",
+  "name": "analyst-codex",
+  "provider": "openai",
+  "model": "gpt-5.5-high",
+  "maxIterations": 200,
   "minTimeBetweenToolCalls": 0,
   "toolApprovals": {
     "aider---get_context_files": "always",
@@ -27,13 +27,13 @@
     "tasks---delete_task": "ask",
     "memory---store_memory": "always",
     "memory---retrieve_memory": "always",
-    "memory---delete_memory": "ask",
+    "memory---delete_memory": "always",
     "memory---list_memories": "always",
-    "memory---update_memory": "ask"
+    "memory---update_memory": "always"
   },
   "toolSettings": {
     "power---bash": {
-      "allowedPattern": "ls .*;cat .*;git status;git show;git log;go list.*;go mod graph",
+      "allowedPattern": "ls .*;cat .*;grep .*;find .*;git status;git show;git log;git diff.*",
       "deniedPattern": "rm\\s+(-{1,2}[a-zA-Z-]+\\s+)*/(\\s|$);rm\\s+(-{1,2}[a-zA-Z-]+\\s+)*/\\*;rm\\s+(-{1,2}[a-zA-Z-]+\\s+)*/(bin|boot|dev|etc|lib|lib64|proc|root|run|sbin|srv|sys|usr|var|home)(/\\*?)?(\\s|$);rm\\s+(-{1,2}[a-zA-Z-]+\\s+)*(~|\\$HOME)(/\\*)?(\\s|$);:\\(\\)\\s*\\{.*\\};chmod\\s+(-{1,2}[a-zA-Z-]+\\s+|[0-7]{3,4}\\s+)*/(\\s|$);chown\\s+(-{1,2}[a-zA-Z-]+\\s+|[^/\\s]+\\s+)*/(\\s|$);chgrp\\s+(-{1,2}[a-zA-Z-]+\\s+|[^/\\s]+\\s+)*/(\\s|$);git push --force.*;chezmoi apply.*;chezmoi re-add.*;chezmoi forget.*;chezmoi destroy.*;terraform\\s+destroy.*;terraform\\s+apply\\s+.*-auto-approve.*;aws\\s+s3\\s+rb\\s+.*;aws\\s+s3\\s+rm\\s+.*--recursive.*;aws\\s+(dynamodb\\s+delete-table|rds\\s+delete-db-(instance|cluster)|kms\\s+schedule-key-deletion|secretsmanager\\s+delete-secret|iam\\s+delete-[a-z-]+).*;kubectl\\s+delete\\s+(ns|namespace)\\s+.*;helm\\s+uninstall\\s+.*;eksctl\\s+delete\\s+cluster.*"
     }
   },
@@ -47,15 +47,15 @@
   "useMemoryTools": true,
   "useSkillsTools": true,
   "useExtensionTools": true,
-  "customInstructions": "Scout — fast read-only triage using Claude Haiku (Agent SDK / subscription). Always activate using-shiki at session start. NEVER make code changes. Use for: repo exploration, log/error summarization, narrowing candidate files, dependency graph reading, and 'what does this code do?' questions. Hand off to Forge for any implementation work. Agent mode only.",
+  "customInstructions": "analyst-codex — large-context read-only analysis using OpenAI GPT-5.5-high (Codex Auth). Always activate using-shiki at session start. NEVER make code changes (file_edit and file_write are disabled). Use as an OpenAI-powered alternative to Analyst for whole-repo impact analysis, cross-cutting dependency tracing, PRD generation from existing code, and large-scale reviews, or for A/B comparison against the Claude-based Analyst.\n\nDELEGATION PROTOCOL (mandatory). analyst-codex is read-only. For ANY file creation, edit, or git commit — including planning docs, PRDs, tasks.md, ADRs, context notes, and scratch files — delegate to Forge via subagents---run_task. The Forge prompt MUST be self-contained and include: (a) the exact absolute file path(s) to create or modify; (b) the full intended file content, or a precise diff if editing; (c) the conventional-commit message Forge should use; (d) a reminder that Forge must not run git push.\n\nDo NOT attempt to write files through any other channel: no shell redirection (>, >>), tee, sed -i, here-documents, or any bash idiom that writes to disk. If you are about to write to disk via bash, stop and delegate to Forge via subagents---run_task instead.",
   "enabledServers": [],
   "subagent": {
     "enabled": false,
-    "systemPrompt": "You are Scout, a fast read-only triage agent. Explore the codebase, summarize findings, identify the right files. Never make code changes.",
+    "systemPrompt": "You are analyst-codex, an OpenAI-powered large-context read-only analysis agent. Analyze entire codebases, trace dependencies, generate PRDs from existing code, and produce comprehensive reviews. Never make code changes — produce analysis and recommendations that Forge then implements.",
     "invocationMode": "on-demand",
-    "color": "#2e8b57",
-    "description": "Fast read-only triage via Claude Haiku (Agent SDK). Use before coding work to explore and narrow scope.",
-    "contextMemory": "off"
+    "color": "#d2691e",
+    "description": "Large-context read-only analysis via OpenAI GPT-5.5-high (Codex Auth). OpenAI alternative to Analyst.",
+    "contextMemory": "full-context"
   },
   "autoCompactThresholdPercentage": 80,
   "autoCompactionType": "handoff",
