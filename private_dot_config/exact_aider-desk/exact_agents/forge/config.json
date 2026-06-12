@@ -1,6 +1,6 @@
 {
   "id": "forge",
-  "name": "Forge",
+  "name": "forge",
   "provider": "anthropic",
   "model": "claude-opus-4-7",
   "maxIterations": 250,

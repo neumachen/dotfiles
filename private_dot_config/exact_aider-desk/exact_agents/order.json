@@ -12,7 +12,6 @@
   "forge-codex-openai": 10,
   "architect": 11,
   "analyst": 12,
-  "scout": 13,
-  "codex-profile": 14,
-  "power-tools": 15
+  "analyst-codex": 13,
+  "scout": 14
 }
