@@ -43,6 +43,44 @@ return {
     -- happens from on_yazi_ready because that hook receives both the
     -- yazi terminal buffer and the live YaziProcessApi needed to
     -- drive select_current_file_and_close_yazi.
+    --
+    -- KNOWN OPEN ISSUE — "splits seem to vanish after <a-v>/<a-x>":
+    -- user reported that picking a target window for the split appears
+    -- to make other previously-open splits disappear (e.g., layout
+    -- [A | B] + <a-v> picking B + selecting file C produces what looks
+    -- like [B | C] with A gone). A diagnostic trace was added to this
+    -- callback that recorded the window list at every step:
+    --   on_file_opened entry / after pick_win / after set_current_win
+    --   / after split cmd
+    -- across multiple reproductions, every snapshot showed all
+    -- pre-existing real (non-floating) windows still present, and
+    -- :vsplit / :split adding exactly one new window. so the callback
+    -- itself is preserving the layout correctly. the diagnostic was
+    -- removed before commit; see git log around this file for the
+    -- session where this was investigated.
+    --
+    -- if the user hits this again, the prime suspects are NOT this
+    -- callback. check in order:
+    --   1. visual collapse from too many vsplits squeezing windows to
+    --      ~0 cols. test with <c-w>= and :ls; if the "missing" buffer
+    --      is in :ls and reappears on equalize, it's purely visual.
+    --   2. the collapse_duplicate_buffer_windows autocmd in
+    --      private_dot_config/exact_nvim/exact_lua/exact_config/
+    --      autocmds.lua (commit 4fcd5b9). it closes redundant windows
+    --      on BufDelete/BufWipeout when two windows share a buffer.
+    --      :vsplit FILE does NOT trigger BufDelete, so this should be
+    --      innocent — but if a delete fires for any other reason
+    --      around the same time, it could collapse a window the user
+    --      blamed on the split flow.
+    --   3. the snacks.bufdelete wrapper on <leader>bd in this same
+    --      directory's snacks.lua: it pre-closes the current window
+    --      when sibling real windows exist. unrelated to the split
+    --      flow, but mentioned here so the full "auto-close window"
+    --      surface area is in one search.
+    -- to re-add the diagnostic: restore the snapshot_wins/vim.notify
+    -- calls inside pick_and_split's on_file_opened and
+    -- on_multiple_files_opened. capture via :Snacks notifier
+    -- show_history or <leader>nh.
     hooks = {
       on_yazi_ready = function(buffer, cfg, process_api)
         -- on_yazi_ready is invoked from a libuv callback while reading
