@@ -9,9 +9,10 @@
   "forge-shell": 7,
   "forge-lua": 8,
   "forge-rust": 9,
-  "forge-codex-openai": 10,
-  "architect": 11,
-  "analyst": 12,
-  "analyst-codex": 13,
-  "scout": 14
+  "forge-docs": 10,
+  "forge-openai-codex": 11,
+  "architect": 12,
+  "analyst": 13,
+  "analyst-openai-codex": 14,
+  "scout": 15
 }
