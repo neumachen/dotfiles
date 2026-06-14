@@ -1,11 +1,102 @@
-sandbox_mode = "workspace-write"
+# ~/.codex/config.toml (chezmoi source: dot_codex/private_config.toml)
+#:schema https://developers.openai.com/codex/config-schema.json
+
+model = "gpt-5.5"
+model_reasoning_effort = "high"
+model_verbosity = "medium"
+
 approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+web_search = "cached"
 
-[projects."/Users/kareemh/MeinCodex/Codekiste/instinct-science/dirty-frag-exploit"]
-trust_level = "trusted"
+file_opener = "vscode"
 
-[projects."/"]
-trust_level = "trusted"
+project_root_markers = [".git", ".hg", ".sl"]
+project_doc_max_bytes = 65536
+project_doc_fallback_filenames = [
+  "AGENTS.md",
+  "CLAUDE.md",
+  "CONTRIBUTING.md",
+  "README.md",
+]
+
+[shell_environment_policy]
+inherit = "core"
+ignore_default_excludes = false
+exclude = [
+  "*TOKEN*",
+  "*SECRET*",
+  "*KEY*",
+  "*PASSWORD*",
+  "AWS_*",
+  "AZURE_*",
+  "OP_SESSION_*",
+  "OP_*",
+  "GITHUB_TOKEN",
+  "OPENAI_API_KEY",
+  "ANTHROPIC_API_KEY",
+  "OPENROUTER_API_KEY",
+]
+include_only = [
+  "PATH",
+  "HOME",
+  "USER",
+  "SHELL",
+  "TERM",
+  "TMPDIR",
+  "LANG",
+  "LC_ALL",
+  "EDITOR",
+  "VISUAL",
+  "GOPATH",
+  "GOROOT",
+  "GOMODCACHE",
+  "GONOPROXY",
+  "GONOSUMDB",
+  "GOPRIVATE",
+  "CARGO_HOME",
+  "RUSTUP_HOME",
+  "MISE_DATA_DIR",
+  "MISE_CONFIG_DIR",
+  "MISE_CACHE_DIR",
+  "XDG_CONFIG_HOME",
+  "XDG_DATA_HOME",
+  "XDG_CACHE_HOME",
+]
+
+[sandbox_workspace_write]
+network_access = false
+exclude_tmpdir_env_var = false
+exclude_slash_tmp = false
+
+[features]
+hooks = true
+multi_agent = true
+shell_snapshot = true
+shell_tool = true
+unified_exec = true
+fast_mode = true
+undo = true
+memories = false
+codex_git_commit = false
+apps = false
+
+[tui]
+notifications = true
+notification_method = "auto"
+notification_condition = "unfocused"
+alternate_screen = "never"
+show_tooltips = false
+animations = false
 
 [tui.model_availability_nux]
 "gpt-5.5" = 2
+
+[analytics]
+enabled = false
+
+[feedback]
+enabled = false
+
+[history]
+max_bytes = 104857600
