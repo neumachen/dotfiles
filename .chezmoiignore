@@ -102,9 +102,12 @@ MeinCodex/Notizen/Obsidian/Main/dot_obsidian/bookmarks.json
 MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/omnisearch/*.db
 MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/omnisearch/*-cache.*
 
-# Codex (~/.codex/) — only config.toml is tracked. Everything below is
-# either a credential, machine-specific state, runtime cache, or a database
-# Codex rewrites on every launch. Patterns are target paths (relative to $HOME).
+# Codex (~/.codex/) — config.toml and the <profile>.config.toml files are
+# tracked. Everything below is either a credential, machine-specific state,
+# runtime cache, or a database Codex rewrites on every launch. Patterns are
+# target paths (relative to $HOME).
+# Note: this repo's own repo-local override at source path .codex/config.toml
+# is auto-ignored by chezmoi (source entries beginning with "." are skipped).
 .codex/auth.json
 .codex/installation_id
 .codex/history.jsonl

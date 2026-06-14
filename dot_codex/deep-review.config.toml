@@ -1,0 +1,12 @@
+# ~/.codex/deep-review.config.toml
+# Usage: codex --profile deep-review
+model = "gpt-5.5"
+model_reasoning_effort = "xhigh"
+model_verbosity = "high"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+web_search = "cached"
+
+[features]
+multi_agent = true
+undo = true
