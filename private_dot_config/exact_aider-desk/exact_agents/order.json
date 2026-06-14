@@ -14,5 +14,6 @@
   "architect": 12,
   "analyst": 13,
   "analyst-openai-codex": 14,
-  "scout": 15
+  "scout": 15,
+  "git-operator": 16
 }
