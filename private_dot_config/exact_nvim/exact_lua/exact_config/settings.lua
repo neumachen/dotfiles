@@ -58,6 +58,18 @@ opt.fillchars = {
   foldopen = '▽', -- '▼'
   foldclose = '▷', -- '▶'
   foldsep = ' ',
+  -- Split / sidebar dividers — solid box-drawing glyphs so the seam
+  -- between windows (yazi, snacks explorer, aerial, trouble, plain
+  -- :vsplit/:split) is visible. The colour comes from WinSeparator,
+  -- overridden in the theme files (themes/tokyonight.lua,
+  -- themes/catpuccin.lua) to a bright palette tone.
+  vert = '│', -- vertical split between windows
+  horiz = '─', -- horizontal split between windows
+  horizup = '┴', -- T-junction: horizontal meeting a vertical from above
+  horizdown = '┬', -- T-junction: horizontal meeting a vertical from below
+  vertleft = '┤', -- T-junction: vertical meeting a horizontal from the left
+  vertright = '├', -- T-junction: vertical meeting a horizontal from the right
+  verthoriz = '┼', -- cross of vertical + horizontal
 }
 -----------------------------------------------------------------------------//
 -- Diff {{{1

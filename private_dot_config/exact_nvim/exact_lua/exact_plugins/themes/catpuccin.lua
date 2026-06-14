@@ -65,4 +65,27 @@ return {
       indentscope_color = '',
     },
   },
+  -- Window dividers: catppuccin's default WinSeparator links to a
+  -- surface tone (~#45475a on mocha) which is nearly invisible against
+  -- the base background. Promote to overlay1 so split seams and
+  -- sidebar edges (yazi, snacks explorer, aerial, trouble, neo-tree)
+  -- are obvious in every dock direction. Mirrors the tokyonight
+  -- override in themes/tokyonight.lua; both run on every (re)apply
+  -- so no ColorScheme autocmd is needed.
+  custom_highlights = function(C)
+    local sep = { fg = C.overlay1, bg = C.base }
+    return {
+      WinSeparator = sep,
+      VertSplit = sep,
+      NeoTreeWinSeparator = sep,
+      YaziWinSeparator = sep,
+      SnacksWinSeparator = sep,
+      FloatBorder = { fg = C.overlay1, bg = C.base },
+      NormalFloat = { fg = C.text, bg = C.base },
+      StatusLine = { fg = C.text, bg = C.mantle },
+      StatusLineNC = { fg = C.overlay1, bg = C.mantle },
+      WinBar = { fg = C.text, bg = C.base },
+      WinBarNC = { fg = C.overlay1, bg = C.base },
+    }
+  end,
 }
