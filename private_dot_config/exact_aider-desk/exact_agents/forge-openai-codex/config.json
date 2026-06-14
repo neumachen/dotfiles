@@ -1,6 +1,6 @@
 {
-  "id": "forge-codex-openai",
-  "name": "forge-codex-openai",
+  "id": "forge-openai-codex",
+  "name": "forge-openai-codex",
   "provider": "openai",
   "model": "gpt-5.5-high",
   "maxIterations": 250,
