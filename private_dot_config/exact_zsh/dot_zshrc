@@ -291,6 +291,18 @@ export PYTHONDONTWRITEBYTECODE=1
 export FORGIT_STASH_FZF_OPTS="--bind='ctrl-d:reload(git stash drop $(cut -d: -f1 <<<{}) 1>/dev/null && git stash list)'"
 export FORGIT_LOG_FZF_OPTS="--bind='ctrl-e:execute(echo {} |grep -Eo [a-f0-9]+ |head -1 |xargs git show |vim -)'"
 
+# Force delta to use the actual fzf preview-pane width instead of the parent
+# shell's $COLUMNS. Without this, side-by-side diffs in `glo`/`gd` previews
+# render at full-terminal width and get cropped to ~60% by fzf, producing
+# cramped columns and a large empty area on the right of the preview pane.
+# Single-quoted so the ${FZF_PREVIEW_COLUMNS:-$COLUMNS} expansion is deferred
+# to preview time, where forgit `eval`s this string inside the bash preview
+# subshell (FORGIT_IN_PREVIEW=1). Host-wide `git diff`, lazygit, and gh-dash
+# keep using the unmodified `delta` from core.pager — this only affects forgit
+# preview rendering, and recomputes on every fzf re-render so terminal resize
+# is handled correctly.
+export FORGIT_PREVIEW_PAGER='delta --width=${FZF_PREVIEW_COLUMNS:-$COLUMNS}'
+
 export RIPGREP_CONFIG_PATH="${HOME}/.config/rg/.ripgreprc"
 
 # Global fzf defaults. Picked up by Ctrl-R / Ctrl-T / Alt-C and any
