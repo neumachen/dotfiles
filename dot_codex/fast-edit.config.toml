@@ -1,0 +1,12 @@
+# ~/.codex/fast-edit.config.toml
+# Usage: codex --profile fast-edit
+model = "gpt-5.5"
+model_reasoning_effort = "medium"
+model_verbosity = "low"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+web_search = "disabled"
+
+[features]
+fast_mode = true
+shell_snapshot = true

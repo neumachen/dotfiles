@@ -1,0 +1,17 @@
+# .codex/config.toml — project-scoped overrides for this dotfiles repo
+# Only loaded when this repo is marked trusted in Codex.
+# Cannot override: model_provider, model_providers, openai_base_url,
+# notify, profile, profiles, otel, or any auth/credential keys.
+
+model_reasoning_effort = "high"
+web_search = "cached"
+project_doc_max_bytes = 98304
+
+[features]
+hooks = true
+multi_agent = true
+undo = true
+shell_snapshot = true
+
+[sandbox_workspace_write]
+network_access = false
