@@ -79,6 +79,7 @@ M.tmux_keybinds = {
 M.default_keybinds = {
   { key = 'n', mods = 'CMD', action = wezterm.action.SpawnWindow },
   { key = 'c', mods = 'CMD', action = act({ CopyTo = 'Clipboard' }) },
+  { key = 'c', mods = 'CMD|SHIFT', action = act({ CopyTo = 'Clipboard' }) },
   { key = 'v', mods = 'CMD', action = act({ PasteFrom = 'Clipboard' }) },
   { key = '=', mods = 'CMD', action = 'ResetFontSize' },
   { key = '+', mods = 'CMD|SHIFT', action = 'IncreaseFontSize' },
