@@ -45,11 +45,14 @@ end)
 -------------------------------------------------------------------------------
 -- WezTerm ⌘C → Markdown fenced code block
 --
--- When WezTerm is frontmost and ⌘C is pressed, the normal copy still happens
--- (we return false so the event propagates). After a short delay to let
+-- When WezTerm is frontmost and ⌘C or ⌘⇧C is pressed, the normal copy still
+-- happens (we return false so the event propagates). After a short delay to let
 -- WezTerm finish writing to the clipboard, we open a chooser so you can pick
 -- (or type) a language tag. On selection the clipboard text is wrapped in a
 -- Markdown fenced code block and written back, ready to paste elsewhere.
+--
+-- ⌘⇧C uses a 150 ms delay instead of 50 ms so that tmux has time to finish
+-- writing the selection to the pasteboard before we read it.
 --
 -- The eventtap is completely independent of the hyper space-switching above.
 -------------------------------------------------------------------------------
@@ -207,14 +210,22 @@ local wezTermCopyTap = hs.eventtap.new(
     -- the trace and return false so the event still propagates AND the
     -- eventtap stays alive (an unguarded error here disables the tap).
     local ok, err = xpcall(function()
-      -- Gate: Cmd+C only. Pure CGEvent reads — no AppKit, no blocking.
-      if not (e:getFlags().cmd and e:getKeyCode() == 8) then return end
+      -- Gate: ⌘C or ⌘⇧C only. Pure CGEvent reads — no AppKit, no blocking.
+      local flags = e:getFlags()
+      local isCmd = flags.cmd
+      local isShift = flags.shift
+      local keyCode = e:getKeyCode()
+      if not (isCmd and keyCode == 8) then return end
+
+      -- Use a longer delay for ⌘⇧C to give tmux time to finish writing
+      -- to the clipboard before we read it (tmux adds latency vs. bare WezTerm).
+      local delay = isShift and 0.15 or 0.05
 
       -- Schedule the rest of the work on the main thread. Both the
       -- frontmost-app check and the chooser presentation run here,
-      -- outside the eventtap timing budget. The 50 ms delay also lets
-      -- WezTerm finish writing the selection to the pasteboard.
-      hs.timer.doAfter(0.05, function()
+      -- outside the eventtap timing budget. The delay also lets
+      -- WezTerm (or tmux) finish writing the selection to the pasteboard.
+      hs.timer.doAfter(delay, function()
         -- Authoritative frontmost-app check, evaluated fresh on every
         -- ⌘C. Replaces the previous cached variable, which went stale
         -- when hs.application.watcher missed activation events around
