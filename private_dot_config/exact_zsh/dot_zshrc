@@ -547,6 +547,14 @@ if command_exists nvim; then
   alias vi='nvim'
 fi
 
+# ngrok's TUI doesn't recognize tmux's $TERM (tmux-256color) and degrades to
+# a no-color "unsupported terminal" fallback (it even mislabels it "solaris").
+# Force a TERM it recognizes so the normal UI works inside tmux. Harmless
+# outside tmux. `command ngrok` avoids recursive alias expansion.
+if command_exists ngrok; then
+  alias ngrok='TERM=xterm-256color command ngrok'
+fi
+
 if [[ -x "/opt/homebrew/opt/macos-trash/bin/trash" ]]; then
   alias rm='/opt/homebrew/opt/macos-trash/bin/trash'
 fi
