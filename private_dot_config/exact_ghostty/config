@@ -1,0 +1,36 @@
+# Ghostty configuration
+# Tokyo Night Storm theme shared with WezTerm, Kitty, Neovim, Starship, and zsh.
+
+# Load the full Tokyo Night Storm palette from our local theme file.
+theme = tokyonight_storm
+
+# Authoritative color overrides — applied AFTER `theme` so the exact storm
+# values always win, even if a built-in theme of the same name (whose
+# background is the darker #1f2335) is ever resolved instead of our file.
+# These hexes are byte-for-byte identical to exact_kitty/current-theme.conf
+# and exact_wezterm/colors/tokyonight_storm.toml.
+background = #24283b
+foreground = #c0caf5
+cursor-color = #c0caf5
+cursor-text = #24283b
+selection-background = #2e3c64
+selection-foreground = #c0caf5
+
+# Font — matches WezTerm (CartographCF Nerd Font @ 15) and Kitty (Cartograph CF).
+font-family = CartographCF Nerd Font
+font-size = 15
+
+# Cursor — WezTerm disables blink (cursor_blink_rate = 0); Kitty sets
+# cursor_blink_interval 0. Mirror that here.
+cursor-style = block
+cursor-style-blink = false
+
+# Window — zero padding to match WezTerm window_padding (all 0) and Kitty
+# window_padding_width 0. Fully opaque, matching window_background_opacity = 1.0.
+# No OS title bar, matching Kitty hide_window_decorations and WezTerm's
+# integrated-titlebar setup (window_decorations = INTEGRATED_BUTTONS|RESIZE).
+window-padding-x = 0
+window-padding-y = 0
+background-opacity = 1
+window-decoration = false
+mouse-hide-while-typing = true
