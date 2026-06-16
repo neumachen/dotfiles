@@ -45,3 +45,8 @@ MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/omnisearch/*-cache.*
 
 # Claude Code local settings
 .claude/
+
+# Node build cruft (AiderDesk extension authoring, etc.) — never tracked.
+node_modules/
+**/node_modules/
+*.tsbuildinfo

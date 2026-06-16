@@ -242,6 +242,10 @@ COPY shiki-mise.toml /etc/mise/config.toml
 #    Both enabled and disabled IDs are installed; the disabled list is
 #    rendered to a CSV that entrypoint.sh reads on container start to
 #    seed settings.extensions.disabled in config.json.
+# Single source of truth for the AiderDesk extensions directory, consumed by
+# the install step below and by codegraph-semantic-search.ts to resolve the
+# sibling `codegraph` engine at runtime (no hard-coded home path).
+ENV AIDER_DESK_EXTENSIONS_DIR=/root/.aider-desk/extensions
 COPY aider-desk-extensions.yaml /usr/local/share/aider-desk/extensions.yaml
 COPY render-aiderdesk-extensions.js /usr/local/lib/aider-desk/render-extensions.js
 COPY install-aiderdesk-extensions.sh /usr/local/bin/install-aiderdesk-extensions.sh
@@ -251,11 +255,16 @@ RUN chmod +x /usr/local/bin/install-aiderdesk-extensions.sh \
         /usr/local/share/aider-desk/extensions-install.csv \
         /usr/local/share/aider-desk/extensions-disabled.csv \
     && /usr/local/bin/install-aiderdesk-extensions.sh \
-        /root/.aider-desk/extensions \
+        "$AIDER_DESK_EXTENSIONS_DIR" \
         /usr/local/share/aider-desk/extensions-seed \
         "$(cat /usr/local/share/aider-desk/extensions-install.csv)" \
         "" \
         ""
+
+# Ship the in-repo CodeGraph semantic-search override (single-file extension).
+# Copied AFTER the install step so the sibling `codegraph` extension's
+# node_modules (the @colbymchenry/codegraph engine it reuses) already exists.
+COPY codegraph-semantic-search.ts ${AIDER_DESK_EXTENSIONS_DIR}/codegraph-semantic-search.ts
 
 # ── 8) Upstream env / volumes / port / healthcheck ────────────────────
 #    Re-declared for clarity; inherited from upstream.

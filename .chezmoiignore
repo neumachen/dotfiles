@@ -147,3 +147,4 @@ MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/omnisearch/*-cache.*
 .config/karabiner/automatic_backups
 .config/karabiner/assets
 .config/karabiner/*.log
+**/node_modules
