@@ -352,6 +352,21 @@ rg-secrets() {
   command rg --no-ignore "$@"
 }
 
+# Deliberate fd bypass for files that are normally gitignored (e.g. .env).
+# The default `fd` (and the fzf pickers that use it) honors .gitignore so
+# secrets are never surfaced accidentally; call this when you explicitly need
+# ignored files. Usage: fd-secrets PATTERN [PATH ...]   e.g.  fd-secrets env
+fd-secrets() {
+  command fd --no-ignore --hidden "$@"
+}
+
+# fzf file picker that deliberately includes gitignored files. Opt-in twin of
+# the default Ctrl-T picker, which honors .gitignore. Pipes a no-ignore fd
+# source into fzf. Usage: fzf-secrets [PATH]   (defaults to current dir)
+fzf-secrets() {
+  command fd --no-ignore --hidden --type f --follow --exclude .git "${@:-.}" | fzf
+}
+
 # Global fzf defaults. Picked up by Ctrl-R / Ctrl-T / Alt-C and any
 # fzf invocation that doesn't override them. Mirrors the popup/inline
 # split used by _ZO_FZF_OPTS below.
