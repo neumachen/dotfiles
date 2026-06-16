@@ -1,0 +1,133 @@
+// ===========================================================================
+// alloy-config.alloy — Alloy (River) pipeline for shipping AiderDesk
+// Winston JSON logs to Loki.
+//
+// Source layout on the host (mounted RO at /aiderdesk-data):
+//   /aiderdesk-data/<session>/data/logs/error-YYYY-MM-DD.log
+//   /aiderdesk-data/<session>/data/logs/combined-YYYY-MM-DD.log
+//   (plus numeric .log.N rotations from Winston's DailyRotateFile)
+//
+// We discover files with two globs, parse each line as JSON to extract
+// `level`, `type`, `name`, `taskId`, and derive `session` + `stream`
+// from the file path. Final labels: job, session, stream, level, type,
+// name. taskId is extracted into structured metadata, NOT a label —
+// it is high-cardinality and would explode the Loki index.
+// ===========================================================================
+
+logging {
+  level  = "warn"
+  format = "logfmt"
+}
+
+// ---------------------------------------------------------------------------
+// Discovery — two file globs, one per stream. We assign the `stream`
+// label up-front from the discoverer so downstream relabeling stages
+// can act on it.
+// ---------------------------------------------------------------------------
+
+local.file_match "aiderdesk_error" {
+  path_targets = [{
+    __path__ = "/aiderdesk-data/*/data/logs/error-*.log*",
+    job      = "aiderdesk",
+    stream   = "error",
+  }]
+  sync_period = "10s"
+}
+
+local.file_match "aiderdesk_combined" {
+  path_targets = [{
+    __path__ = "/aiderdesk-data/*/data/logs/combined-*.log*",
+    job      = "aiderdesk",
+    stream   = "combined",
+  }]
+  sync_period = "10s"
+}
+
+// ---------------------------------------------------------------------------
+// Tail — positions persist under /var/lib/alloy/data (the alloy-data
+// volume) so we do NOT re-ingest on restart.
+// ---------------------------------------------------------------------------
+
+loki.source.file "aiderdesk_error" {
+  targets               = local.file_match.aiderdesk_error.targets
+  forward_to            = [loki.process.aiderdesk.receiver]
+  legacy_positions_file = "/var/lib/alloy/data/positions.yaml"
+  tail_from_end         = false
+}
+
+loki.source.file "aiderdesk_combined" {
+  targets               = local.file_match.aiderdesk_combined.targets
+  forward_to            = [loki.process.aiderdesk.receiver]
+  legacy_positions_file = "/var/lib/alloy/data/positions.yaml"
+  tail_from_end         = false
+}
+
+// ---------------------------------------------------------------------------
+// Process — JSON-parse Winston lines, then promote selected fields to
+// labels. `session` is derived from the file path.
+// ---------------------------------------------------------------------------
+
+loki.process "aiderdesk" {
+  forward_to = [loki.write.default.receiver]
+
+  // Pull `session` out of the path. The path looks like
+  //   /aiderdesk-data/<session>/data/logs/<file>.log
+  // so the first path component after /aiderdesk-data/ is the session.
+  stage.regex {
+    source     = "filename"
+    expression = "^/aiderdesk-data/(?P<session>[^/]+)/data/logs/"
+  }
+  stage.labels {
+    values = { session = "" }
+  }
+
+  // Parse the line as Winston JSON. Each Winston line is a single JSON
+  // object with at least `level`, `message`, `timestamp`; api_error
+  // lines also have `type`, `name`, `isRetryable`, `requestBodyValues`.
+  stage.json {
+    expressions = {
+      level   = "level",
+      type    = "type",
+      name    = "name",
+      task_id = "taskId",
+      ts      = "timestamp",
+    }
+  }
+
+  // Promote low-cardinality JSON fields to labels.
+  stage.labels {
+    values = {
+      level = "",
+      type  = "",
+      name  = "",
+    }
+  }
+
+  // taskId is high-cardinality (one per agent task). Keep it as
+  // structured metadata so it's queryable via `| json` or
+  // `| label_format`, but doesn't bloat the index.
+  stage.structured_metadata {
+    values = { taskId = "task_id" }
+  }
+
+  // Use the Winston timestamp as the line timestamp when present.
+  // Winston defaults to ISO-8601, e.g. "2026-06-16T12:34:56.789Z".
+  stage.timestamp {
+    source          = "ts"
+    format          = "RFC3339Nano"
+    action_on_failure = "skip"
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sink — push to Loki over the internal compose network.
+// ---------------------------------------------------------------------------
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+  external_labels = {
+    host = "shiki",
+  }
+}
