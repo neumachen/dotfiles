@@ -1,14 +1,19 @@
-# Ignore case, unless the pattern includes capital letters
+# Search case-insensitively unless the pattern contains uppercase letters.
 --smart-case
 
-# Include hidden files (good for .eslinrc kind of files)
+# Search hidden files/dirs (e.g. .eslintrc, dotfiles). This does NOT
+# disable .gitignore — ripgrep still honors the global core.excludesFile
+# and every per-directory .gitignore.
 --hidden
 
-# include .env files
---glob=*.env*
---glob=*
+# Never descend into .git/ (ripgrep skips it already; explicit for clarity).
+--glob=!.git/
 
-# Ignore npm/Yarn lock files, etc.
---glob=!package-lock.json
---glob=!yarn.lock
---glob=!.git
+# .gitignore (global + per-directory), .ignore, and .rgignore are honored
+# by DEFAULT. Sensitive files such as .env stay excluded so secrets are not
+# dumped to the terminal on every search. To bypass ignore rules for a
+# single, deliberate search, pass a flag on that one invocation:
+#   rg --no-ignore PATTERN .env   # search a specific ignored file
+#   rg -u PATTERN                 # --no-ignore + search hidden
+#   rg -uu PATTERN                # also search binary files
+# A named helper `rg-secrets` is defined in the zsh config for this purpose.
