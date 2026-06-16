@@ -344,6 +344,14 @@ export FORGIT_PREVIEW_PAGER='delta --width=${FZF_PREVIEW_COLUMNS:-$COLUMNS}'
 
 export RIPGREP_CONFIG_PATH="${HOME}/.config/rg/.ripgreprc"
 
+# Deliberate ripgrep bypass for files that are normally gitignored (e.g. .env).
+# The default `rg` honors .gitignore so secrets are never dumped accidentally;
+# call this named helper when you explicitly need to look inside ignored files.
+# Usage: rg-secrets PATTERN [PATH ...]   e.g.  rg-secrets API_KEY .env
+rg-secrets() {
+  command rg --no-ignore "$@"
+}
+
 # Global fzf defaults. Picked up by Ctrl-R / Ctrl-T / Alt-C and any
 # fzf invocation that doesn't override them. Mirrors the popup/inline
 # split used by _ZO_FZF_OPTS below.
