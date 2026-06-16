@@ -52,4 +52,6 @@ disabled:
   - pirate                                # example/demo extension
   - ui-placement-demo                     # example/demo extension
   - searxng-search                        # auto-starts a Docker container; awkward in-container
-  - chunkhound-on-semantic-search-tool    # overrides power---semantic_search; opt-in per project
+  - chunkhound-on-semantic-search-tool    # overrides power---semantic_search; superseded by the
+                                          # in-repo codegraph-semantic-search.ts override (shipped
+                                          # via shiki.Dockerfile COPY, not this manifest). Kept off.
