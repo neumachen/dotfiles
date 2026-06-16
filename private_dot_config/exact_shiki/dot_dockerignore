@@ -1,0 +1,10 @@
+# Docker build context excludes for the Shiki image build (context = this dir,
+# which renders from exact_shiki to ~/.config/shiki). Keeps build-time cruft
+# out of the image. The CodeGraph override is a single dependency-free .ts
+# file, but this is defensive against any future node_modules.
+node_modules
+**/node_modules
+*.tsbuildinfo
+.DS_Store
+*.tar.gz
+.git
