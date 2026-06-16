@@ -7,6 +7,7 @@
 #   dockerfmt → github:reteps/dockerfmt (prebuilt release)
 [tools]
 "go:github.com/ankitpokhrel/jira-cli/cmd/jira"           = "latest"
+"go:github.com/dualeai/seek/cmd/seek"                    = "latest"
 "go:github.com/go-delve/delve/cmd/dlv"                   = "latest"
 "go:github.com/golangci/golangci-lint/cmd/golangci-lint" = "latest"
 "go:github.com/google/go-jsonnet/cmd/jsonnet"            = "latest"
