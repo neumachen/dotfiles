@@ -1,0 +1,241 @@
+# ============================================================================
+# compose.observability.yaml — shared, persistent log-observability stack
+# for all Shiki (AiderDesk-in-a-container) sessions on this host.
+#
+# This is a STANDALONE compose project — NOT a per-session overlay.
+# It runs once, lives across reboots, and is shared by every Shiki
+# session that the launcher ever starts. Query history (Grafana
+# dashboards, explore state, Loki index, Alloy file positions) must
+# survive AiderDesk session churn, so all stateful services use named
+# Docker-managed volumes.
+#
+#   docker compose -p shiki-observability -f compose.observability.yaml up -d
+#
+# Project name is fixed at `shiki-observability` so repeat `up` calls
+# converge on the same containers/volumes/network rather than spawning
+# parallel stacks.
+#
+# Activation:
+#   Intended to be started by `dot_local/bin/executable_shiki` on first
+#   session of the day (default-on); skipped when the launcher is invoked
+#   with `--no-observability` (or `SHIKI_OBSERVABILITY=0`). Per-session
+#   AiderDesk containers do NOT depend on this stack — if it is down,
+#   sessions still run, they just don't ship logs to Loki. That is by
+#   design: observability is a sidecar, not a critical path.
+#
+# Services:
+#   • loki    (grafana/loki)         — log store, 30-day retention, persistent.
+#   • alloy   (grafana/alloy)        — tails AiderDesk Winston JSON logs from
+#                                      the host data root, ships to Loki.
+#   • grafana (grafana/grafana)      — dashboards + explore UI, persistent.
+#   • dozzle  (amir20/dozzle)        — live raw container-log viewer.
+#
+# Data sources on the host:
+#   AiderDesk writes Winston JSON logs at
+#     ~/.local/share/aider-desk/<session>/data/logs/
+#       error-YYYY-MM-DD.log
+#       combined-YYYY-MM-DD.log
+#       (plus numeric .log.N rotations)
+#   Alloy mounts the entire `~/.local/share/aider-desk` tree READ-ONLY
+#   and globs `**/data/logs/{error,combined}-*.log` so it discovers every
+#   session automatically, present and future, without restart.
+#
+# ── SECURITY — read before bringing this stack up ────────────────────────
+#   • Dozzle requires the host Docker UNIX socket. It is mounted READ-ONLY
+#     (`/var/run/docker.sock:/var/run/docker.sock:ro`). Treat this with
+#     the SAME gravity as `compose.docker-sock.template.yaml`: even RO,
+#     the socket is an unauthenticated host control plane. A read-only
+#     bind mount limits what Dozzle's own process can do via the socket
+#     (it can list/inspect/stream logs but cannot create/exec/destroy
+#     containers), HOWEVER anyone who can reach Dozzle's UI can read the
+#     stdout/stderr of every container on the engine, including secrets
+#     printed by other workloads. This is acceptable on a single-user dev
+#     box; it is NOT acceptable on a shared host.
+#
+#   • AiderDesk logs are SENSITIVE. They contain:
+#       - prompts the user sent (verbatim)
+#       - file contents the agent read (code, .env, secrets if leaked in)
+#       - LLM responses (verbatim)
+#       - `requestBodyValues` on api_error lines (request payloads, often
+#         including conversation history and tool-call arguments)
+#       - `taskId` / `task` correlation fields
+#     Treat the Loki store as confidential. The 30-day retention window
+#     bounds exposure on disk.
+#
+#   • Network exposure is MACHINE-LOCAL by default:
+#       - Loki  (3100) and Alloy (12345) publish NO host ports at all.
+#         Grafana reaches Loki over the internal compose network
+#         (http://loki:3100). For ad-hoc curl/debug from the host, use
+#         OrbStack DNS: `http://loki.shiki-observability.orb.local:3100`,
+#         `http://alloy.shiki-observability.orb.local:12345`.
+#       - Grafana (3000) and Dozzle (8080) publish to 127.0.0.1 ONLY:
+#             ${SHIKI_OBSERVABILITY_BIND:-127.0.0.1}:3000:3000
+#             ${SHIKI_OBSERVABILITY_BIND:-127.0.0.1}:8080:8080
+#         To expose to the LAN (e.g. for a phone on the same Wi-Fi),
+#         export SHIKI_OBSERVABILITY_BIND=0.0.0.0 before `up`. Off by
+#         default and intentionally undocumented in the launcher — opt-in
+#         per-shell, not per-session.
+#
+#   • Grafana's default admin password is randomized to a known-bad value
+#     and login is disabled in favor of anonymous Editor access on
+#     127.0.0.1. If you expose the UI on 0.0.0.0, set GF_SECURITY_*
+#     properly and disable anonymous auth FIRST.
+#
+# ── NOTES — retention, volumes, restart ──────────────────────────────────
+#   • Loki retention: 720h (30d). Enforced by the compactor inside Loki
+#     (see observability/loki-config.yaml). Tune there, not here.
+#
+#   • Volumes are Docker-managed (named, NOT host-bound):
+#       loki-data     — index + chunks
+#       grafana-data  — dashboards/users SQLite DB, plugins, sessions
+#       alloy-data    — positions file + WAL so Alloy does NOT re-ingest
+#                       every line of every log on restart
+#     Stack config (loki-config.yaml, alloy-config.alloy, Grafana
+#     provisioning files, dashboards) is bind-mounted READ-ONLY from
+#     this directory — it lives in the dotfiles repo, not in a volume.
+#
+#   • All four services use `restart: unless-stopped` so the stack
+#     survives host reboots and OrbStack restarts. Stopping is explicit
+#     (`docker compose -p shiki-observability down`).
+#
+#   • This file is plain compose, NOT a chezmoi template and NOT a Shiki
+#     per-session overlay. Sibling `compose.*.template.yaml` files are
+#     overlays the launcher sed-substitutes `__SERVICE__` into; that
+#     mechanism does not apply here.  `${HOME}` and the BIND env var are
+#     expanded by docker compose itself at `up` time.
+# ============================================================================
+
+name: shiki-observability
+
+networks:
+  shiki-observability:
+    name: shiki-observability
+    driver: bridge
+
+volumes:
+  loki-data:
+    name: shiki-observability_loki-data
+  grafana-data:
+    name: shiki-observability_grafana-data
+  alloy-data:
+    name: shiki-observability_alloy-data
+
+services:
+  # ──────────────────────────────────────────────────────────────────────
+  # Loki — single-binary, filesystem-backed log store.
+  # No host port published; reachable in-network as http://loki:3100
+  # and (on OrbStack) as http://loki.shiki-observability.orb.local:3100.
+  # ──────────────────────────────────────────────────────────────────────
+  loki:
+    image: grafana/loki:3.2.1
+    container_name: shiki-observability-loki
+    restart: unless-stopped
+    command:
+      - "-config.file=/etc/loki/config.yaml"
+    volumes:
+      - type: bind
+        source: ./observability/loki-config.yaml
+        target: /etc/loki/config.yaml
+        read_only: true
+      - loki-data:/loki
+    networks:
+      - shiki-observability
+    # No `ports:` — internal only. Use OrbStack DNS for host-side curl.
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Alloy — tails Winston JSON log files from the host AiderDesk data
+  # root and ships them to Loki. Mounts the data root READ-ONLY so a
+  # bug in Alloy cannot corrupt the AiderDesk state.
+  # ──────────────────────────────────────────────────────────────────────
+  alloy:
+    image: grafana/alloy:v1.4.2
+    container_name: shiki-observability-alloy
+    restart: unless-stopped
+    command:
+      # `run` reads the River config; --storage.path keeps positions/WAL
+      # on the persistent volume so we do NOT re-ingest every line of
+      # every log on restart.
+      - "run"
+      - "--server.http.listen-addr=0.0.0.0:12345"
+      - "--storage.path=/var/lib/alloy/data"
+      - "/etc/alloy/config.alloy"
+    volumes:
+      - type: bind
+        source: ./observability/alloy-config.alloy
+        target: /etc/alloy/config.alloy
+        read_only: true
+      # The whole AiderDesk host data root, READ-ONLY. Alloy globs
+      # **/data/logs/{error,combined}-*.log under this, so every
+      # past and future session is discovered automatically.
+      - type: bind
+        source: ${HOME}/.local/share/aider-desk
+        target: /aiderdesk-data
+        read_only: true
+      - alloy-data:/var/lib/alloy/data
+    depends_on:
+      - loki
+    networks:
+      - shiki-observability
+    # No `ports:` — UI is internal. Reach it via OrbStack DNS at
+    # http://alloy.shiki-observability.orb.local:12345 if needed.
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Grafana — dashboards + Explore. Auto-provisions a Loki datasource
+  # and a starter AiderDesk dashboard from this repo.
+  # Anonymous Editor access is enabled because the UI binds to
+  # 127.0.0.1 by default. DO NOT keep anonymous auth on if you set
+  # SHIKI_OBSERVABILITY_BIND=0.0.0.0.
+  # ──────────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: shiki-observability-grafana
+    restart: unless-stopped
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Editor"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_USERS_DEFAULT_THEME: "dark"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_LOG_LEVEL: "warn"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - type: bind
+        source: ./observability/grafana-datasource.yaml
+        target: /etc/grafana/provisioning/datasources/loki.yaml
+        read_only: true
+      - type: bind
+        source: ./observability/grafana-dashboard-provider.yaml
+        target: /etc/grafana/provisioning/dashboards/aiderdesk.yaml
+        read_only: true
+      - type: bind
+        source: ./observability/grafana-dashboard-aiderdesk.json
+        target: /var/lib/grafana/dashboards/aiderdesk.json
+        read_only: true
+    ports:
+      - "${SHIKI_OBSERVABILITY_BIND:-127.0.0.1}:3000:3000"
+    depends_on:
+      - loki
+    networks:
+      - shiki-observability
+
+  # ──────────────────────────────────────────────────────────────────────
+  # Dozzle — live raw container-log view. Talks to the host Docker
+  # engine via the UNIX socket, READ-ONLY. See SECURITY banner above.
+  # ──────────────────────────────────────────────────────────────────────
+  dozzle:
+    image: amir20/dozzle:v8.11.7
+    container_name: shiki-observability-dozzle
+    restart: unless-stopped
+    environment:
+      DOZZLE_NO_ANALYTICS: "true"
+      DOZZLE_LEVEL: "warn"
+    volumes:
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+        read_only: true
+    ports:
+      - "${SHIKI_OBSERVABILITY_BIND:-127.0.0.1}:8080:8080"
+    networks:
+      - shiki-observability

@@ -1,0 +1,93 @@
+# ============================================================================
+# loki-config.yaml — single-binary Loki for the Shiki observability stack.
+#
+# Storage: filesystem only, under /loki (the named volume `loki-data`).
+# Schema:  tsdb (current recommended for Loki 3.x).
+# Retention: 30 days, enforced by the embedded compactor.
+#
+# This config is mounted READ-ONLY into the loki container at
+# /etc/loki/config.yaml; the container's `command` points at it.
+# ============================================================================
+
+auth_enabled: false
+
+server:
+  http_listen_address: 0.0.0.0
+  http_listen_port: 3100
+  grpc_listen_address: 0.0.0.0
+  grpc_listen_port: 9096
+  log_level: warn
+
+common:
+  path_prefix: /loki
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+  # Filesystem object store — no S3/GCS. Everything lives under /loki
+  # (the persistent named volume).
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+
+# tsdb is the modern schema for Loki 3.x. Single period, far in the past
+# so all data lands in it.
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+storage_config:
+  tsdb_shipper:
+    active_index_directory: /loki/tsdb-index
+    cache_location: /loki/tsdb-cache
+  filesystem:
+    directory: /loki/chunks
+
+# Compactor handles both index compaction and retention deletes.
+# retention_period is enforced PER-STREAM by the compactor scanning
+# chunks older than this and deleting them.
+compactor:
+  working_directory: /loki/compactor
+  compaction_interval: 10m
+  retention_enabled: true
+  retention_delete_delay: 2h
+  retention_delete_worker_count: 50
+  delete_request_store: filesystem
+
+# Retention + sane single-binary limits. 720h = 30 days.
+limits_config:
+  retention_period: 720h
+  # Allow JSON-extracted labels with reasonable cardinality (we add
+  # `session`, `stream`, `level`, `type`, `name`).
+  max_label_name_length: 1024
+  max_label_value_length: 4096
+  max_label_names_per_series: 30
+  # Reject log lines older than 30d (matches retention).
+  reject_old_samples: true
+  reject_old_samples_max_age: 720h
+  # Single-tenant defaults are fine; bump ingestion rate so a noisy
+  # session doesn't drop lines.
+  ingestion_rate_mb: 16
+  ingestion_burst_size_mb: 32
+  allow_structured_metadata: true
+  volume_enabled: true
+
+# Disable usage reporting (privacy + we're offline-friendly).
+analytics:
+  reporting_enabled: false
+
+# Ruler still wants a config block even if unused.
+ruler:
+  storage:
+    type: local
+    local:
+      directory: /loki/rules
+  rule_path: /loki/rules-tmp
+  alertmanager_url: ""

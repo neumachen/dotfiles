@@ -1,0 +1,199 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "AiderDesk (Shiki) per-session Winston log overview: error rates, API errors, and filterable log stream by session/taskId.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Error log rate by session (5m)",
+      "description": "count_over_time of error-stream lines, grouped by session label.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "mode": "none", "group": "A" }
+          },
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["max", "mean"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "sum by (session) (count_over_time({job=\"aiderdesk\", stream=\"error\"} [5m]))",
+          "legendFormat": "{{session}}",
+          "queryType": "range"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "API errors (type=api_error)",
+      "description": "Latest Vercel AI SDK / provider API errors across all sessions. Pulled from any stream (combined or error) where the JSON line carries type=\"api_error\".",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 11, "w": 24, "x": 0, "y": 9 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto",
+            "inspect": false,
+            "filterable": true
+          },
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Time" },
+            "properties": [{ "id": "custom.width", "value": 180 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "session" },
+            "properties": [{ "id": "custom.width", "value": 200 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "name" },
+            "properties": [{ "id": "custom.width", "value": 220 }]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "Time", "desc": true }]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{job=\"aiderdesk\"} | json | type=`api_error`",
+          "queryType": "range",
+          "maxLines": 500
+        }
+      ],
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": { "source": "labels", "format": "auto", "keepTime": true, "replace": false }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "id": true, "tsNs": true, "labelTypes": true },
+            "indexByName": {},
+            "renameByName": {}
+          }
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "logs",
+      "title": "Logs (filterable by session / taskId)",
+      "description": "Live log stream from the selected session(s) and (optionally) a specific taskId. Leave taskId = All to see everything.",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 16, "w": 24, "x": 0, "y": 20 },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": true,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{job=\"aiderdesk\", session=~\"$session\"} | json | (taskId =~ \"$taskId\" or taskId = \"\" and \"$taskId\" = \".*\")",
+          "queryType": "range",
+          "maxLines": 2000
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["aiderdesk", "shiki", "logs"],
+  "templating": {
+    "list": [
+      {
+        "name": "session",
+        "label": "session",
+        "type": "query",
+        "datasource": { "type": "loki", "uid": "loki" },
+        "query": { "label": "session", "refId": "LokiVariableQueryEditor-VariableQuery", "stream": "", "type": 1 },
+        "definition": "label_values({job=\"aiderdesk\"}, session)",
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] },
+        "options": [],
+        "hide": 0
+      },
+      {
+        "name": "taskId",
+        "label": "taskId",
+        "type": "query",
+        "datasource": { "type": "loki", "uid": "loki" },
+        "query": { "label": "taskId", "refId": "LokiVariableQueryEditor-VariableQuery", "stream": "{job=\"aiderdesk\", session=~\"$session\"}", "type": 1 },
+        "definition": "label_values({job=\"aiderdesk\", session=~\"$session\"}, taskId)",
+        "refresh": 2,
+        "sort": 1,
+        "multi": false,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": { "selected": true, "text": "All", "value": "$__all" },
+        "options": [],
+        "hide": 0
+      }
+    ]
+  },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "AiderDesk — sessions & errors",
+  "uid": "aiderdesk-shiki",
+  "version": 1,
+  "weekStart": ""
+}
