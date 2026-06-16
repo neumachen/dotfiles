@@ -108,6 +108,29 @@ AWS_SHARE_MODE="${SHIKI_AWS_SHARE:-0}"
 # on the host first.
 KUBE_SHARE_MODE="${SHIKI_KUBE_SHARE:-0}"
 
+# ── Log observability — opt-OUT, default ON ───────────────────────────
+# Defaults ON. Disable via `--no-observability` or by exporting
+# SHIKI_OBSERVABILITY=0 in the shell. When on, the launcher brings up
+# a SHARED, LONG-LIVED compose stack (`shiki-observability` project)
+# containing Grafana + Loki + Alloy + Dozzle. Alloy tails every
+# session's AiderDesk JSON logs under ~/.local/share/aider-desk
+# READ-ONLY and ships them into Loki; Grafana queries Loki; Dozzle
+# tails live container stdout/stderr for any running shiki session.
+#
+# The stack is a STANDALONE compose project (not part of the
+# per-session overlay chain) and is NOT torn down when a session
+# stops. It is reused across sessions and across host reboots.
+# Stop it manually with `docker compose -p shiki-observability down`.
+#
+# UIs bind to 127.0.0.1 by default (machine-only). Override the bind
+# host with SHIKI_OBSERVABILITY_BIND. OrbStack auto-domains also work:
+#   http://grafana.shiki-observability.orb.local
+#   http://dozzle.shiki-observability.orb.local
+#
+# Bring-up is best-effort: a failure here NEVER blocks the session.
+OBSERVABILITY_MODE="${SHIKI_OBSERVABILITY:-1}"
+OBSERVABILITY_BIND="${SHIKI_OBSERVABILITY_BIND:-127.0.0.1}"
+
 SHIKI_ABOUT=$'Shiki — AiderDesk in a container with persistent sessions.\nThis tool wraps AiderDesk with SSH agent forwarding for 1Password commit\nsigning and sensible mounts for your project.'
 
 die() {
@@ -170,6 +193,19 @@ Wrapper options (before --):
                      ~/.kube/instinct-stage; override with
                      SHIKI_KUBECONFIG (container path, colon-joined
                      list allowed). Opt-in per session.
+      --observability
+                     Explicitly enable the shared log-observability
+                     stack (default; provided for symmetry with
+                     --no-observability). Idempotently brings up the
+                     `shiki-observability` compose project (Grafana +
+                     Loki + Alloy + Dozzle), which tails every
+                     session's AiderDesk JSON logs read-only and ships
+                     them into Loki.
+      --no-observability
+                     Skip bringing up the shared observability stack
+                     for this launch. Does NOT stop an already-running
+                     stack — tear it down manually with
+                     `docker compose -p shiki-observability down`.
       --pull         Pull the upstream AiderDesk base image,
                      then exit without starting a container.
       --rebuild[=mods]
@@ -255,6 +291,20 @@ Optional environment variables:
                      on (default: /root/.kube/instinct-stage). Accepts
                      a colon-joined list. Use to select a non-staging
                      context per session.
+  SHIKI_OBSERVABILITY
+                     Set to 0 to disable the shared log-observability
+                     stack (equivalent to passing --no-observability).
+                     Default: 1 (opt-OUT). The stack lives in its own
+                     `shiki-observability` compose project, separate
+                     from per-session projects, and is NEVER stopped
+                     by shiki — stop it with
+                     `docker compose -p shiki-observability down`.
+  SHIKI_OBSERVABILITY_BIND
+                     Host interface the Grafana / Dozzle UIs bind to
+                     (default: 127.0.0.1, machine-only). Set to
+                     0.0.0.0 to expose on the LAN — exposes log data
+                     and a fully-permissive Grafana to anyone on the
+                     network; not recommended.
 
 SSH agent forwarding (required for commit signing):
   Shiki auto-detects a usable SSH agent socket for the container.
@@ -419,6 +469,41 @@ Kubernetes (EKS) host parity (opt-in via --kube-share):
   See:
     private_dot_config/exact_shiki/compose.kube.template.yaml
 
+Log observability (default ON, opt-out via --no-observability):
+  By default, every `shiki` launch idempotently brings up a shared,
+  long-lived `shiki-observability` compose project containing:
+
+    • Loki     — log store
+    • Alloy    — tails ${HOME}/.local/share/aider-desk read-only and
+                 ships every session's AiderDesk JSON logs into Loki
+    • Grafana  — query UI (default datasource: Loki)
+    • Dozzle   — live container stdout/stderr viewer for any running
+                 shiki session
+
+  The stack is its own compose project, completely separate from the
+  per-session `shiki` project — it is NOT torn down when a session
+  stops, and it survives host reboots. It is reused across every
+  session. `shiki --no-observability` (or SHIKI_OBSERVABILITY=0)
+  SKIPS bring-up for that launch, but does NOT stop an already-running
+  stack. Stop it manually with:
+
+    docker compose -p shiki-observability down
+
+  UIs (machine-only by default; override with SHIKI_OBSERVABILITY_BIND):
+    Grafana   http://127.0.0.1:3000  http://grafana.shiki-observability.orb.local
+    Dozzle    http://127.0.0.1:8080  http://dozzle.shiki-observability.orb.local
+
+  Alloy reads ${HOME}/.local/share/aider-desk READ-ONLY; the stack
+  cannot mutate session state.
+
+  Bring-up is best-effort: a missing compose file or a failed
+  `docker compose up` only emits a warning — observability NEVER
+  blocks a session launch.
+
+  See:
+    private_dot_config/exact_shiki/compose.observability.yaml
+    private_dot_config/exact_shiki/observability/
+
 Host localhost access:
   Bridge mode (default):
     New containers get host aliases so processes inside shiki can reach
@@ -456,6 +541,9 @@ Examples:
   shiki --kube-share                            # share host ~/.kube (implies --aws-share)
   SHIKI_KUBECONFIG=/root/.kube/instinct-prod shiki --kube-share
                                                 # pick a non-staging cluster profile
+  shiki --no-observability                      # skip the shared Grafana/Loki/Alloy/Dozzle stack
+  SHIKI_OBSERVABILITY=0 shiki                   # same, via env (e.g. permanently in ~/.zshrc)
+  docker compose -p shiki-observability down    # tear down the shared observability stack
   shiki --pull                                  # pull upstream base image only
   shiki --rebuild                               # rebuild image only (pull + no-cache)
   shiki --rebuild=cache                         # rebuild image only (pull + cache)
@@ -593,6 +681,8 @@ parse_args() {
     --docker-host) DOCKER_HOST_MODE=1; shift ;;
     --aws-share) AWS_SHARE_MODE=1; shift ;;
     --kube-share) KUBE_SHARE_MODE=1; shift ;;
+    --observability) OBSERVABILITY_MODE=1; shift ;;
+    --no-observability) OBSERVABILITY_MODE=0; shift ;;
     --pull) PULL_IMAGE=1; shift ;;
     --rebuild)
       REBUILD_IMAGE=1
@@ -700,6 +790,11 @@ SHIKI_COMPOSE_HOST_NETWORK_TEMPLATE="${SHIKI_DIR}/compose.host-network.template.
 SHIKI_COMPOSE_DOCKER_SOCK_TEMPLATE="${SHIKI_DIR}/compose.docker-sock.template.yaml"
 SHIKI_COMPOSE_AWS_TEMPLATE="${SHIKI_DIR}/compose.aws.template.yaml"
 SHIKI_COMPOSE_KUBE_TEMPLATE="${SHIKI_DIR}/compose.kube.template.yaml"
+# Observability is a STANDALONE shared-project compose file (not a
+# per-session template / overlay). Intentionally NOT included in the
+# bundle-file existence check below — older bundles without it must
+# still launch; ensure_observability_stack() handles absence gracefully.
+SHIKI_COMPOSE_OBSERVABILITY="${SHIKI_DIR}/compose.observability.yaml"
 SHIKI_DOCKERFILE="${SHIKI_DIR}/shiki.Dockerfile"
 SHIKI_ENTRYPOINT="${SHIKI_DIR}/entrypoint.sh"
 SHIKI_EXTENSIONS_INSTALLER="${SHIKI_DIR}/install-aiderdesk-extensions.sh"
@@ -1280,6 +1375,11 @@ print_mount_banner() {
     echo-info "  Kube:     ${HOME}/.kube → /root/.kube (ro; per-profile EKS kubeconfigs)"
     echo-info "  KUBECFG:  ${SHIKI_KUBECONFIG:-/root/.kube/instinct-stage} (agent kubectl/helm hits real clusters)"
   fi
+  if [ "$OBSERVABILITY_MODE" -eq 1 ]; then
+    echo-info "  Grafana:  http://${OBSERVABILITY_BIND}:3000  (or http://grafana.shiki-observability.orb.local)"
+    echo-info "  Dozzle:   http://${OBSERVABILITY_BIND}:8080  (or http://dozzle.shiki-observability.orb.local)"
+    echo-info "  Logs:     Alloy→Loki→Grafana; query {job=\"aiderdesk\"} | json"
+  fi
 }
 
 print_run_hints() {
@@ -1322,6 +1422,49 @@ inspect_host_port() {
   fi
 }
 
+# ---------- observability stack ----------
+# Idempotently bring up the shared `shiki-observability` compose project
+# (Grafana + Loki + Alloy + Dozzle). The stack lives in its own project
+# namespace — completely independent of the per-session compose project
+# — and is reused across sessions and host reboots. It is NEVER torn
+# down implicitly; stop it with `docker compose -p shiki-observability down`.
+#
+# Failure here is non-fatal by design: log observability must never
+# block a session launch. Missing compose file → warn + skip; failed
+# `docker compose up` → warn + continue.
+ensure_observability_stack() {
+  [ "$OBSERVABILITY_MODE" -eq 1 ] || return 0
+
+  if [ ! -f "$SHIKI_COMPOSE_OBSERVABILITY" ]; then
+    echo-warn "Observability is enabled but ${SHIKI_COMPOSE_OBSERVABILITY} is missing."
+    echo-warn "  Re-sync your dotfiles (\`chezmoi apply\`) to pick up the observability bundle,"
+    echo-warn "  or pass --no-observability / set SHIKI_OBSERVABILITY=0 to silence this notice."
+    return 0
+  fi
+
+  local _obs_stderr
+  _obs_stderr="$(
+    HOME="$HOME" SHIKI_OBSERVABILITY_BIND="$OBSERVABILITY_BIND" \
+      docker compose \
+        --project-name shiki-observability \
+        --project-directory "$SHIKI_DIR" \
+        --env-file /dev/null \
+        -f "$SHIKI_COMPOSE_OBSERVABILITY" \
+        up -d 2>&1 >/dev/null
+  )" || {
+    echo-warn "Observability stack bring-up failed (non-fatal; session will continue)."
+    if [ -n "$_obs_stderr" ]; then
+      # Trim to first ~5 lines so a noisy compose error doesn't drown the banner.
+      printf '%s\n' "$_obs_stderr" | head -n 5 | while IFS= read -r _l; do
+        echo-warn "  ${_l}"
+      done
+    fi
+    return 0
+  }
+
+  echo-debug "observability: shiki-observability compose project is up (idempotent)."
+}
+
 echo-debug "compose runtime overlay: $RUNTIME_OVERLAY"
 echo-debug "AIDER_DESK_PROJECTS=${PROJECT_CONTAINER_PATH_LIST}"
 echo-debug "host SSH_AUTH_SOCK source: ${HOST_SSH_AUTH_SOCK:-<unset>}"
@@ -1331,6 +1474,7 @@ echo-debug "network mode: ${NETWORK_MODE}"
 echo-debug "docker-host mode: ${DOCKER_HOST_MODE} (sock: ${DOCKER_SOCK})"
 echo-debug "aws-share mode: ${AWS_SHARE_MODE}"
 echo-debug "kube-share mode: ${KUBE_SHARE_MODE} (KUBECONFIG override: ${SHIKI_KUBECONFIG:-<unset>})"
+echo-debug "observability mode: ${OBSERVABILITY_MODE} (bind: ${OBSERVABILITY_BIND})"
 
 # ---------- dispatch ----------
 case "$SESSION_ACTION" in
@@ -1339,6 +1483,7 @@ case "$SESSION_ACTION" in
   print_mount_banner
   "${compose_cmd[@]}" up -d "$SERVICE_NAME"
   echo-ok "Session '$SESSION_NAME' started."
+  ensure_observability_stack
   print_run_hints "$(inspect_host_port "$SESSION_NAME")"
   ;;
 
@@ -1349,6 +1494,7 @@ case "$SESSION_ACTION" in
 
   if [ "$container_status" = "running" ]; then
     echo-info "Session '$SESSION_NAME' is already running."
+    ensure_observability_stack
     print_run_hints "$bound_port"
   else
     echo-info "Resuming session: $SESSION_NAME"
@@ -1360,6 +1506,7 @@ case "$SESSION_ACTION" in
     fi
     "${compose_base_cmd[@]}" start "$SERVICE_NAME"
     echo-ok "Session '$SESSION_NAME' resumed."
+    ensure_observability_stack
     print_run_hints "$bound_port"
   fi
   ;;
@@ -1369,6 +1516,7 @@ case "$SESSION_ACTION" in
   print_mount_banner "existing"
   "${compose_cmd[@]}" up -d "$SERVICE_NAME"
   echo-ok "Session '$SESSION_NAME' restored."
+  ensure_observability_stack
   print_run_hints "$(inspect_host_port "$SESSION_NAME")"
   ;;
 esac

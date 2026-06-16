@@ -1,0 +1,19 @@
+# ============================================================================
+# grafana-datasource.yaml — Grafana provisioning, Loki datasource.
+# Mounted RO at /etc/grafana/provisioning/datasources/loki.yaml so Grafana
+# picks it up on startup. `http://loki:3100` resolves over the internal
+# compose network.
+# ============================================================================
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: true
+    editable: false
+    jsonData:
+      # Show derived structured-metadata fields (e.g. taskId) in Explore.
+      maxLines: 5000
+      timeout: 60

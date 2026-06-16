@@ -1,0 +1,19 @@
+# ============================================================================
+# grafana-dashboard-provider.yaml — Grafana provisioning, dashboards provider.
+# Mounted RO at /etc/grafana/provisioning/dashboards/aiderdesk.yaml.
+# Loads every JSON file in /var/lib/grafana/dashboards (where the compose
+# file bind-mounts our starter dashboard).
+# ============================================================================
+apiVersion: 1
+
+providers:
+  - name: aiderdesk
+    orgId: 1
+    folder: AiderDesk
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
