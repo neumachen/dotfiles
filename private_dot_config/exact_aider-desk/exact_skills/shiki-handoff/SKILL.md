@@ -130,6 +130,16 @@ Implementation: BLOCKED — only the handoff file is written; no source code, ta
 
 **Reason:** Iron Law 1 — no completion claims without verification.
 
+### Rule: Always emit a copy-paste resume prompt as the final output
+
+**When:** The handoff document has been saved and verified
+
+**Then:** Print a single self-contained, fenced resume prompt directly in the chat as the last action, so the user can copy-paste it into a fresh session without opening the file
+
+**Never:** End the handoff by only reporting the saved file path
+
+**Reason:** The saved doc requires file access and a known SAVE_BASE. A pasteable prompt works across machines, tools, and sessions that cannot read the file. It must inline the essentials (goal, branch, stopping point, next action) and reference the doc path for full detail.
+
 ## Process
 
 ### 1. Resolve paths
@@ -170,7 +180,8 @@ Use the template below. Fill each section from the matching fragment (inline rea
 - Write the file with `file_write`
 - Read it back with `file_read`
 - Report the absolute path to the user
-- Suggest: "Start a fresh task and point it at this file; the new session can activate **shiki-compact-recovery** to rebuild state."
+- **As the final action, print the copy-paste resume prompt** (template §11 below) directly in the chat, fully filled in, inside a single fenced block so the user can select-all and paste it into a fresh session
+- Suggest: "Paste the resume prompt below into a fresh task as its first message; the new session can activate **shiki-compact-recovery** to rebuild state."
 
 ## Handoff Document Template
 
@@ -242,6 +253,31 @@ Patterns / preferences worth promoting via shiki-memory-storage on resume:
 - Secrets, tokens, credentials, PII
 - Full file contents (paths only)
 - Raw logs (linked, not pasted)
+
+## 11. Copy-paste resume prompt
+
+> Print this block verbatim in chat as the final handoff output. It is self-contained: it inlines the essentials and points at the full doc for detail.
+
+```text
+Resume the following work in this fresh session.
+
+Handoff doc (full detail): {SAVE_BASE}/handoff/{timestamp}-{slug}.md
+Project root: {PROJECT_ROOT}
+Branch: {branch} (base: {base})
+
+Goal: {one-line goal from §1}
+
+Where it stopped: {in-progress task id + title; the exact stopping point from §4}
+
+Next actions:
+1. {next action 1 from §6}
+2. {next action 2}
+3. {next action 3}
+
+First, activate the shiki-compact-recovery skill to rebuild mode and the TODO list
+(read the handoff doc above if accessible). Then continue from "Next actions" above.
+Do not run git push.
+```
 ```
 
 ## Preconditions
@@ -255,6 +291,7 @@ Patterns / preferences worth promoting via shiki-memory-storage on resume:
 - [ ] File was read back and its absolute path was reported to the user
 - [ ] No source code, tasks.md, PRD, or agent config was modified
 - [ ] No secrets, full file contents, or raw logs were embedded
+- [ ] A self-contained copy-paste resume prompt was printed in the chat as the final action
 
 ## Success Metrics
 
@@ -263,6 +300,7 @@ This skill is successful when:
 - A fresh session can read only the handoff doc and resume work without re-asking the user for context
 - The skill completes even at very large session sizes (because dispatched mode keeps the orchestrator's context small)
 - A failed sub-job degrades one section, not the whole document
+- A fresh session can resume by pasting only the emitted resume prompt, even without access to the saved handoff file
 
 ## Integration
 
