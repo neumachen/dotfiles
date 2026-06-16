@@ -27,3 +27,6 @@ yq = "latest"         # YAML processor; complement to jq for compose/config work
 kubectl = "1.29"
 awscli = "latest"
 helm = "3.20.0"
+# ── Go-installed tools (mise pulls the Go toolchain on demand) ───────
+# seek: dualeai code-search CLI used inside the container.
+"go:github.com/dualeai/seek/cmd/seek" = "latest"
