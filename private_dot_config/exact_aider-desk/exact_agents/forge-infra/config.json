@@ -57,9 +57,9 @@
     "description": "Infrastructure implementation (Forge). Activated automatically for Dockerfile, docker-compose, Helm, Kubernetes, Terraform, GitHub Actions work.",
     "contextMemory": "full-context"
   },
-  "autoCompactThresholdPercentage": 80,
-  "autoCompactionType": "smart",
+  "autoCompactThresholdPercentage": 75,
+  "autoCompactionType": "handoff",
   "temperature": 0,
   "disabledExtensionTools": [],
-  "autoCompactThresholdTokens": 2000000000
+  "autoCompactThresholdTokens": 150000
 }

@@ -57,9 +57,9 @@
     "description": "OpenAI Codex coding agent (GPT-5.5-high, Codex Auth). Alternative to Forge for OpenAI-style implementation.",
     "contextMemory": "off"
   },
-  "autoCompactThresholdPercentage": 80,
+  "autoCompactThresholdPercentage": 75,
   "autoCompactionType": "handoff",
   "temperature": 0,
   "disabledExtensionTools": [],
-  "autoCompactThresholdTokens": 2000000000
+  "autoCompactThresholdTokens": 150000
 }
