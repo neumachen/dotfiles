@@ -1,6 +1,7 @@
 return {
   'mrjones2014/smart-splits.nvim',
   lazy = false,
+  priority = 900,
   -- TODO: define specific build depending on terminal
   -- build = './kitty/install-kittens.bash',
   config = function()
@@ -41,5 +42,12 @@ return {
     vim.keymap.set('n', '<leader><leader>j', require('smart-splits').swap_buf_down)
     vim.keymap.set('n', '<leader><leader>k', require('smart-splits').swap_buf_up)
     vim.keymap.set('n', '<leader><leader>l', require('smart-splits').swap_buf_right)
+    -- Ensure @pane-is-vim is set in tmux immediately after setup.
+    -- lazy.nvim timing can cause the plugin's own plugin/smart-splits.lua
+    -- startup() to run before config(), leaving @pane-is-vim unset.
+    local mux = require('smart-splits.mux').get()
+    if mux and mux.on_init then
+      mux.on_init()
+    end
   end,
 }
