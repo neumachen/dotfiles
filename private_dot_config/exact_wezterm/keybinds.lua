@@ -64,8 +64,8 @@ M.tmux_keybinds = {
     action = act({ SplitVertical = { domain = 'CurrentPaneDomain' } }),
   },
   {
-    key = '|',
-    mods = 'LEADER|SHIFT',
+    key = '\\',
+    mods = 'LEADER',
     action = act({ SplitHorizontal = { domain = 'CurrentPaneDomain' } }),
   },
   { key = 'Enter', mods = 'CMD', action = 'QuickSelect' },
@@ -194,7 +194,10 @@ M.default_keybinds = {
       for _, ws_name in ipairs(mux.get_workspace_names()) do
         table.insert(choices, { label = ws_name, id = ws_name })
       end
-      table.insert(choices, { label = '+ New workspace…', id = '__wzw_new__' })
+      table.insert(
+        choices,
+        { label = '+ New workspace…', id = '__wzw_new__' }
+      )
       window:perform_action(
         act.InputSelector({
           title = 'Open new window in workspace',
@@ -493,7 +496,9 @@ M.mouse_bindings = {
   {
     event = { Up = { streak = 1, button = 'Left' } },
     mods = 'NONE',
-    action = act({ CompleteSelectionOrOpenLinkAtMouseCursor = 'PrimarySelection' }),
+    action = act({
+      CompleteSelectionOrOpenLinkAtMouseCursor = 'PrimarySelection',
+    }),
   },
   {
     event = { Up = { streak = 1, button = 'Right' } },
