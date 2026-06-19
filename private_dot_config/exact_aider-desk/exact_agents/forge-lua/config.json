@@ -1,8 +1,8 @@
 {
   "id": "forge-lua",
   "name": "forge-lua",
-  "provider": "anthropic",
-  "model": "claude-opus-4-7",
+  "provider": "claude-agent-sdk",
+  "model": "opus",
   "maxIterations": 250,
   "minTimeBetweenToolCalls": 0,
   "toolApprovals": {
