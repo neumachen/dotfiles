@@ -1,8 +1,8 @@
 {
   "id": "forge-rust",
   "name": "forge-rust",
-  "provider": "anthropic",
-  "model": "claude-opus-4-7",
+  "provider": "claude-agent-sdk",
+  "model": "opus",
   "maxIterations": 250,
   "maxTurns": 40,
   "minTimeBetweenToolCalls": 0,
