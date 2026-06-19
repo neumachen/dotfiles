@@ -40,12 +40,24 @@ local function create_tab_title(tab, tabs, panes, config, hover, max_width)
   local pane = tab.active_pane
   local process = utils.basename(pane.foreground_process_name or '')
   local title
-  if process == '' or SHELL_PROCESSES[process] then
-    title = cwd_label(pane)
-    if title == '' then title = process end
+
+  if tab.tab_title and #tab.tab_title > 0 then
+    -- Manual rename (LEADER+T) always wins.
+    title = tab.tab_title
+  elseif process ~= '' and not SHELL_PROCESSES[process] then
+    -- A real process is running: prefix with "tmux".
+    title = 'tmux ' .. process
   else
-    title = process
+    -- Plain shell: fall back to the active workspace (session) name.
+    local workspace = wezterm.mux.get_active_workspace()
+    if workspace and #workspace > 0 then
+      title = workspace
+    else
+      title = cwd_label(pane)
+      if title == '' then title = process end
+    end
   end
+
   title = wezterm.truncate_right(title, max_width)
 
   local copy_mode, n = string.gsub(pane.title, '(.+) mode: .*', '%1', 1)
@@ -62,40 +74,43 @@ end
 ---------------------------------------------------------------
 --- wezterm on
 ---------------------------------------------------------------
-wezterm.on('format-tab-title', function(tab, tabs, panes, config, hover, max_width)
-  local title = create_tab_title(tab, tabs, panes, config, hover, max_width)
+wezterm.on(
+  'format-tab-title',
+  function(tab, tabs, panes, config, hover, max_width)
+    local title = create_tab_title(tab, tabs, panes, config, hover, max_width)
 
-  -- selene: allow(undefined_variable)
-  local solid_left_arrow = utf8.char(0x2590)
-  -- selene: allow(undefined_variable)
-  local solid_right_arrow = utf8.char(0x258c)
-  local edge_background = tn.bg
-  local background = tn.ansi_black
-  local foreground = tn.ansi_blue
+    -- selene: allow(undefined_variable)
+    local solid_left_arrow = utf8.char(0x2590)
+    -- selene: allow(undefined_variable)
+    local solid_right_arrow = utf8.char(0x258c)
+    local edge_background = tn.bg
+    local background = tn.ansi_black
+    local foreground = tn.ansi_blue
 
-  if tab.is_active then
-    background = tn.bright_black
-    foreground = tn.bright_white
-  elseif hover then
-    background = tn.cursor_bg
-    foreground = tn.cursor_fg
+    if tab.is_active then
+      background = tn.bright_black
+      foreground = tn.bright_white
+    elseif hover then
+      background = tn.cursor_bg
+      foreground = tn.cursor_fg
+    end
+    local edge_foreground = background
+
+    return {
+      { Attribute = { Intensity = 'Bold' } },
+      { Background = { Color = edge_background } },
+      { Foreground = { Color = edge_foreground } },
+      { Text = solid_left_arrow },
+      { Background = { Color = background } },
+      { Foreground = { Color = foreground } },
+      { Text = title },
+      { Background = { Color = edge_background } },
+      { Foreground = { Color = edge_foreground } },
+      { Text = solid_right_arrow },
+      { Attribute = { Intensity = 'Normal' } },
+    }
   end
-  local edge_foreground = background
-
-  return {
-    { Attribute = { Intensity = 'Bold' } },
-    { Background = { Color = edge_background } },
-    { Foreground = { Color = edge_foreground } },
-    { Text = solid_left_arrow },
-    { Background = { Color = background } },
-    { Foreground = { Color = foreground } },
-    { Text = title },
-    { Background = { Color = edge_background } },
-    { Foreground = { Color = edge_foreground } },
-    { Text = solid_right_arrow },
-    { Attribute = { Intensity = 'Normal' } },
-  }
-end)
+)
 
 -- https://github.com/wez/wezterm/issues/1680
 -- selene: allow(unused_variable)
@@ -164,7 +179,8 @@ wezterm.on('toggle-tmux-keybinds', function(window, pane)
     overrides.keys = keybinds.default_keybinds
   else
     overrides.window_background_opacity = nil
-    overrides.keys = utils.merge_lists(keybinds.default_keybinds, keybinds.tmux_keybinds)
+    overrides.keys =
+      utils.merge_lists(keybinds.default_keybinds, keybinds.tmux_keybinds)
   end
   window:set_config_overrides(overrides)
 end)
@@ -185,7 +201,10 @@ wezterm.on('trigger-nvim-with-scrollback', function(window, pane)
   window:perform_action(
     act({
       SpawnCommandInNewTab = {
-        args = { os.getenv('HOME') .. '/.local/share/zsh/zinit/polaris/bin/nvim', name },
+        args = {
+          os.getenv('HOME') .. '/.local/share/zsh/zinit/polaris/bin/nvim',
+          name,
+        },
       },
     }),
     pane
