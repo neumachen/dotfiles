@@ -1,0 +1,134 @@
+#!/bin/sh
+# Initialize a git repository with a conventional-commits initial commit.
+#
+# By default creates an empty commit `chore: init repo`. With --readme,
+# creates a README.md (derived from the directory name) and commits it
+# as `docs: add initial README` — unless a README already exists, in
+# which case it falls back to the empty commit.
+#
+# Usage:
+#   git-init-repo [--readme] [-h|--help] [<directory>]
+
+set -u
+
+usage() {
+  cat <<'EOF'
+git-init-repo — initialize a git repository with an initial commit
+
+Usage:
+  git-init-repo [--readme] [-h|--help] [<directory>]
+
+Options:
+  --readme   Create and commit a README.md instead of an empty commit.
+             If a README already exists, fall back to empty commit.
+  -h, --help Show this message and exit.
+
+Arguments:
+  <directory>  Target directory (default: current directory).
+               Created if it doesn't exist.
+EOF
+}
+
+# -----------------------------------------------------------------------------
+# Argument parsing
+# -----------------------------------------------------------------------------
+readme_mode=false
+target_dir="."
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --readme)
+      readme_mode=true
+      shift
+      ;;
+    -*)
+      echo-err "Unknown option: $1"
+      usage >&2
+      exit 2
+      ;;
+    *)
+      if [ "$target_dir" = "." ]; then
+        target_dir="$1"
+      else
+        echo-err "Too many positional arguments: $1"
+        usage >&2
+        exit 2
+      fi
+      shift
+      ;;
+  esac
+done
+
+# -----------------------------------------------------------------------------
+# Ensure target directory exists and cd into it
+# -----------------------------------------------------------------------------
+if [ ! -d "$target_dir" ]; then
+  echo-run mkdir -p "$target_dir"
+fi
+cd "$target_dir" || exit 1
+
+# -----------------------------------------------------------------------------
+# Detect existing repo / commits
+# -----------------------------------------------------------------------------
+# Check if we are already inside a git work tree with THIS directory as the root
+already_repo=false
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  # Ensure .git is in THIS directory (not a parent)
+  if [ -d ".git" ] || [ -f ".git" ]; then
+    already_repo=true
+  fi
+fi
+
+# Check for existing commits
+has_commits=false
+if $already_repo && git rev-parse --verify HEAD >/dev/null 2>&1; then
+  has_commits=true
+fi
+
+if $has_commits; then
+  echo-info "Repository already has commits — nothing to do."
+  exit 0
+fi
+
+# -----------------------------------------------------------------------------
+# Initialize repo if not already one
+# -----------------------------------------------------------------------------
+if ! $already_repo; then
+  echo-run git init
+fi
+
+# -----------------------------------------------------------------------------
+# Initial commit
+# -----------------------------------------------------------------------------
+if $readme_mode; then
+  # Check for existing README (case-insensitive)
+  existing_readme=""
+  for pattern in README README.md README.markdown README.txt README.rst; do
+    # Use find for case-insensitivity; limit to current dir only
+    found=$(find . -maxdepth 1 -iname "$pattern" -type f 2>/dev/null | head -n 1)
+    if [ -n "$found" ]; then
+      existing_readme="$found"
+      break
+    fi
+  done
+
+  if [ -n "$existing_readme" ]; then
+    echo-info "README already exists (${existing_readme}) — leaving untouched."
+    echo-run git commit --allow-empty -m "chore: init repo"
+  else
+    # Derive heading from resolved directory basename
+    dir_basename=$(basename "$(pwd)")
+    printf '# %s\n' "$dir_basename" > README.md
+    echo-info "Created README.md with heading '# ${dir_basename}'"
+    echo-run git add -- README.md
+    echo-run git commit -m "docs: add initial README"
+  fi
+else
+  echo-run git commit --allow-empty -m "chore: init repo"
+fi
+
+echo-ok "Repository initialized."
