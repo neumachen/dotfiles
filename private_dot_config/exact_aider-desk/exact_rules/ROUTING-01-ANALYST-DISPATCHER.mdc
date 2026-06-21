@@ -1,0 +1,149 @@
+---
+description: Analyst-first routing model — all user work starts at Analyst
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# ROUTING-01: Analyst-First Dispatcher Model
+
+## Role Hierarchy
+
+```
+USER
+  │
+  ▼
+ANALYST (default front door)
+  │
+  ├──► SCOUT (research, discovery, web)
+  │       │
+  │       └──► Returns Scout Evidence Report
+  │
+  └──► FORGE / forge-* (implementation)
+          │
+          └──► Returns Forge Implementation Report
+```
+
+## Routing Rules
+
+### 1. Analyst Is the Default Entry Point
+- All user work starts at Analyst
+- Analyst owns: intent interpretation, task decomposition, routing, final synthesis
+- Analyst is READ-ONLY — never modifies files
+
+### 2. Scout Is the Research Delegate
+- Analyst delegates to Scout when:
+  - Information is missing or unclear
+  - Web research is needed
+  - Tech stack detection is required
+  - File discovery or exploration is needed
+- Scout is READ-ONLY — never modifies files
+- Scout returns: Scout Evidence Report format
+
+### 3. Forge Agents Are STRICT Sub-Agents
+- Forge and all forge-* agents are implementation sub-agents
+- They are NOT directly callable by users in normal workflow
+- They are reachable ONLY through Analyst's delegation
+- If brief is ambiguous, they return to Analyst with questions
+- They return: Forge Implementation Report format
+
+## Tech-Stack Routing Table
+
+| Stack | Detection Signals | Delegate To |
+|-------|-------------------|-------------|
+| Go | `*.go`, `go.mod`, `go.sum` | `forge-go` |
+| Elixir/Erlang | `*.ex`, `*.exs`, `mix.exs`, `*.erl`, `*.hrl` | `forge-elixir` |
+| Ruby/Rails | `*.rb`, `Gemfile`, `Rakefile`, `config.ru` | `forge-ruby` |
+| TypeScript/React | `*.ts`, `*.tsx`, `*.js`, `*.jsx`, `vite.config.*`, `tsconfig.json` | `forge-typescript` |
+| Infrastructure | `Dockerfile*`, `docker-compose*`, `*.tf`, `*.yaml` (k8s), `.github/workflows/*` | `forge-infra` |
+| SQL/PostgreSQL | `*.sql`, `migrations/`, `schema.rb` | `forge-data` |
+| Shell/Dotfiles | `*.sh`, `*.bash`, `*.zsh`, chezmoi templates | `forge-shell` |
+| Lua/Neovim | `*.lua`, `init.lua`, `lua/` | `forge-lua` |
+| Rust | `*.rs`, `Cargo.toml` | `forge-rust` |
+| Markdown/Docs | `*.md`, `*.mdx`, `README*`, `ADR*`, `CHANGELOG*` | `forge-docs` |
+
+## Fallback Routing
+
+For stacks without a dedicated forge-* agent, Analyst routes to **generic Forge**.
+
+### Current Fallback Cases
+
+<!-- PLACEHOLDER: No dedicated forge-python sub-agent exists.
+     Implementation for Python (*.py, pyproject.toml, requirements.txt, setup.py)
+     falls back to generic Forge.
+     To add a dedicated agent, request it explicitly in a separate task. -->
+
+### Fallback Decision Tree
+
+```
+1. Analyst determines dominant stack from files in scope
+   (or delegates to Scout if stack is unknown)
+
+2. Analyst checks if dedicated forge-* agent exists for that stack
+
+3. IF yes → Delegate to existing forge-* agent
+   IF no  → Delegate to generic Forge
+
+4. Forge/forge-* returns Implementation Report to Analyst
+
+5. Analyst synthesizes results and responds to user
+```
+
+## Cross-Cutting Changes
+
+For changes spanning multiple stacks (shell, dotfiles, YAML, JSON, Markdown, chezmoi):
+- Analyst delegates to **generic Forge** unless a narrower dedicated agent exists
+- For polyglot tasks, call multiple sub-agents in parallel where possible
+
+## Output Formats
+
+### Scout Evidence Report (returned by Scout)
+
+```markdown
+## Scout Evidence Report
+
+### Questions Investigated
+- ...
+
+### Repo Facts (file paths + line ranges)
+- path/to/file lines X-Y: ...
+
+### External Sources
+- URL: ...
+  Relevant fact: ...
+  Reliability: official / primary / community / uncertain
+
+### Uncertainties / Conflicts
+- ...
+
+### Recommendations for Analyst
+- ...
+
+### Implementation Context for Forge
+- Candidate files: ...
+- Constraints: ...
+- Suggested verification: ...
+- Risks: ...
+```
+
+### Forge Implementation Report (returned by Forge/forge-*)
+
+```markdown
+## Forge Implementation Report
+
+### Summary
+...
+
+### Files Changed
+- path/to/file: what changed and why
+
+### Verification
+- Command: ...
+- Result: ...
+- If not run, why: ...
+
+### Risks / Follow-up
+- ...
+
+### Notes for Analyst
+- ...
+```
