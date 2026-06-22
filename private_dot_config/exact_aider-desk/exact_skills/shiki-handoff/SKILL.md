@@ -180,8 +180,11 @@ Use the template below. Fill each section from the matching fragment (inline rea
 - Write the file with `file_write`
 - Read it back with `file_read`
 - Report the absolute path to the user
-- **As the final action, print the copy-paste resume prompt** (template §11 below) directly in the chat, fully filled in, inside a single fenced block so the user can select-all and paste it into a fresh session
-- Suggest: "Paste the resume prompt below into a fresh task as its first message; the new session can activate **shiki-compact-recovery** to rebuild state."
+- **CRITICAL: As the final action, print the copy-paste resume prompt** (based on template §11) **with ALL placeholders replaced with actual values** from the handoff. The prompt must be:
+  - Printed directly in the chat inside a single fenced code block (use triple backticks with `text` language)
+  - Completely self-contained — no placeholders, no "{variable}" syntax, no references to "see section X"
+  - Ready to select-all and paste into a fresh session immediately
+- Suggest: "Copy the resume prompt below and paste it as the first message in a new task."
 
 ## Handoff Document Template
 
@@ -256,7 +259,9 @@ Patterns / preferences worth promoting via shiki-memory-storage on resume:
 
 ## 11. Copy-paste resume prompt
 
-> Print this block verbatim in chat as the final handoff output. It is self-contained: it inlines the essentials and points at the full doc for detail.
+> **For the saved document:** Fill in all `{placeholders}` below with actual values and include this section in the saved file.
+>
+> **For the chat output:** After saving the handoff doc, print a FULLY FILLED version of this prompt (no placeholders remaining) directly in the chat. The user must be able to copy-paste it immediately without any edits.
 
 ```text
 Resume the following work in this fresh session.
@@ -279,6 +284,33 @@ First, activate the shiki-compact-recovery skill to rebuild mode and the TODO li
 Do not run git push.
 ```
 ```
+
+### Example: Filled Resume Prompt (what the user sees in chat)
+
+When the handoff is complete, the agent prints something like this — notice there are NO placeholders:
+
+```text
+Resume the following work in this fresh session.
+
+Handoff doc (full detail): /root/project/.aider-desk/shiki/outputs/handoff/2025-01-15-1423-api-auth.md
+Project root: /root/project
+Branch: feat/api-auth (base: main)
+
+Goal: Implement JWT authentication for the REST API endpoints
+
+Where it stopped: TASK-003 — Add token refresh endpoint; stopped at src/auth/refresh.go:45 after writing the handler signature, before implementing the token validation logic.
+
+Next actions:
+1. Implement validateRefreshToken() in src/auth/tokens.go
+2. Add unit tests for the refresh endpoint
+3. Update API documentation with the new endpoint
+
+First, activate the shiki-compact-recovery skill to rebuild mode and the TODO list
+(read the handoff doc above if accessible). Then continue from "Next actions" above.
+Do not run git push.
+```
+
+The user copies this entire block and pastes it as the first message in a new task.
 
 ## Preconditions
 
