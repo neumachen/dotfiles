@@ -34,6 +34,10 @@ MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/omnisearch/*-cache.*
 
 .git-ignored/
 
+# Placeholder files — used to force empty directories into git, but should not
+# themselves be tracked (the directories they anchor are created by chezmoi).
+**/.keep
+
 # macOS Finder metadata
 .DS_Store
 
