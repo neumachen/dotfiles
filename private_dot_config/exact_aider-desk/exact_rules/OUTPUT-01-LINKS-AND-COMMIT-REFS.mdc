@@ -1,0 +1,49 @@
+---
+description: Universal output contract — Markdown links and explicit commit-SHA references
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# OUTPUT-01: Links and Commit References
+
+Applies to all user-facing output from every agent. These two clauses are universal and
+safe on every surface (AiderDesk chat, GitHub, Slack). Slack-specific formatting (emphasis
+markers, unrendered delivery) is governed separately by the slack-copy-output skill and is
+NOT covered here.
+
+## When This Rule Applies
+
+- Any user-facing reply that references a URL, link, repository path, or web resource.
+- Any user-facing reply that mentions, reports, or confirms a git commit.
+
+## Required Behavior
+
+### Links
+
+- Reference every URL or link as a Markdown link `[descriptive text](url)`.
+- Do not paste bare URLs in prose when descriptive text is available.
+- Exemption: URLs inside inline code spans or fenced code blocks stay literal — never
+  convert them to `[text](url)`.
+
+### Commit references
+
+- When a commit is involved, reference its SHA explicitly (short SHA is acceptable;
+  prefer a Markdown link to the commit when a remote URL is known).
+- Conditional only: if no commit occurred, do not fabricate, demand, or invent a SHA.
+  Mirror the "do not invent" discipline used by the commit-message prompt.
+
+## Examples
+
+### Good
+
+- See [the routing rule](https://github.com/neumachen/dotfiles/blob/<sha>/path/to/file).
+- Committed as [`01a83f17`](https://github.com/neumachen/dotfiles/commit/01a83f17...).
+
+### Bad
+
+- See https://github.com/... (bare URL in prose)
+- "I committed the change." (commit involved, no SHA cited)
+
+## Exceptions
+
+None for the link and commit-SHA clauses. Code-span/code-fence content is exempt as noted.
