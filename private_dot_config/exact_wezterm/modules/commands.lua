@@ -34,6 +34,19 @@ local function cwd_label(pane)
   return utils.convert_useful_path(path)
 end
 
+-- Extract the tmux session name (#S) from a pane title produced by tmux's
+-- `set-titles-string '❐ #S ● #I'`. Returns nil when the pattern is absent.
+local function tmux_session_from_title(pane_title)
+  if not pane_title or pane_title == '' then return nil end
+  -- Match the session name between the leading glyph and the ' ● ' separator.
+  local session = pane_title:match('❐%s*(.-)%s*●')
+  if session and #session > 0 then return session end
+  -- Fallback: strip any leading decorative glyph and trailing window info.
+  session = pane_title:match('^%s*[^%w]*%s*([%w%p]+)')
+  if session and #session > 0 then return session end
+  return nil
+end
+
 -- selene: allow(unused_variable)
 ---@diagnostic disable-next-line: unused-local
 local function create_tab_title(tab, tabs, panes, config, hover, max_width)
@@ -44,6 +57,10 @@ local function create_tab_title(tab, tabs, panes, config, hover, max_width)
   if tab.tab_title and #tab.tab_title > 0 then
     -- Manual rename (LEADER+T) always wins.
     title = tab.tab_title
+  elseif process == 'tmux' then
+    -- Foreground process is tmux itself: show the session name, not "tmux tmux".
+    local session = tmux_session_from_title(pane.title)
+    title = session and ('tmx-' .. session) or 'tmx'
   elseif process ~= '' and not SHELL_PROCESSES[process] then
     -- A real process is running: prefix with "tmux".
     title = 'tmux ' .. process
