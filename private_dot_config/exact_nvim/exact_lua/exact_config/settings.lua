@@ -176,7 +176,7 @@ opt.expandtab = true -- Convert tabs to spaces globally
 opt.shiftround = true
 opt.shiftwidth = 2
 opt.textwidth = 80
-opt.wrap = false
+opt.wrap = true
 opt.wrapmargin = 2
 -----------------------------------------------------------------------------//
 opt.autowriteall = true -- Automatically :write before running commands and changing files
