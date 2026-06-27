@@ -1,0 +1,341 @@
+#!/bin/bash
+# obsidian-clip-sort
+#
+# Sorts "flat" Obsidian Web Clipper notes that landed directly in the
+# clippings/ directory into the canonical hierarchy:
+#
+#   clippings/<key>/<domain>/<note>.md
+#
+# where:
+#   <domain> = the full host from the note's source: frontmatter URL
+#   <key>    = the second-level domain label (second-to-last label in the host)
+#
+# Run with --dry-run (default) to preview moves, --apply to execute.
+#
+# macOS-compatible: avoids GNU-only flags and bash 4+ features.
+
+set -euo pipefail
+
+# --------------------------------------------------------------------------- #
+# Configuration
+# --------------------------------------------------------------------------- #
+
+VAULT_DIR="${VAULT_DIR:-${HOME}/MeinCodex/Notizen/Obsidian/Main}"
+CLIPPINGS_DIR="${VAULT_DIR}/clippings"
+DUPLICATES_DIR="${CLIPPINGS_DIR}/_duplicates"
+LOG_PREFIX="obsidian-clip-sort"
+
+# --------------------------------------------------------------------------- #
+# Helpers
+# --------------------------------------------------------------------------- #
+
+log_info()  { echo "[INFO]  ${LOG_PREFIX}: $*" >&2; }
+log_ok()    { echo "[OK]    ${LOG_PREFIX}: $*" >&2; }
+log_warn()  { echo "[WARN]  ${LOG_PREFIX}: $*" >&2; }
+log_err()   { echo "[ERROR] ${LOG_PREFIX}: $*" >&2; }
+log_skip()  { echo "[SKIP]  ${LOG_PREFIX}: $*" >&2; }
+log_dup()   { echo "[DUP]   ${LOG_PREFIX}: $*" >&2; }
+log_move()  { echo "[MOVE]  ${LOG_PREFIX}: $*" >&2; }
+
+usage() {
+  cat <<EOF
+Usage: ${0##*/} [OPTIONS]
+
+Sort flat Obsidian Web Clipper notes in clippings/ into <key>/<domain>/ hierarchy.
+
+Options:
+  --dry-run       Preview moves without making changes (DEFAULT)
+  --apply         Actually move files
+  --vault <path>  Override VAULT_DIR (default: \${VAULT_DIR} or ~/MeinCodex/Notizen/Obsidian/Main)
+  -h, --help      Show this help
+
+Environment:
+  VAULT_DIR       Path to the Obsidian vault (can be overridden by --vault)
+
+Examples:
+  ${0##*/}                  # Dry-run (preview)
+  ${0##*/} --apply          # Actually move files
+  ${0##*/} --vault /path    # Use alternate vault
+EOF
+  exit 0
+}
+
+# Extract frontmatter value for a given key from a file.
+# Reads only between the first two --- delimiters.
+# Usage: extract_frontmatter_value <file> <key>
+extract_frontmatter_value() {
+  local file="$1"
+  local key="$2"
+  # awk: print value of "key: value" or "key: \"value\"" within frontmatter
+  awk -v key="$key" '
+    /^---$/ { fm++; next }
+    fm == 1 {
+      # Match key: value or key: "value"
+      if ($0 ~ "^" key ":") {
+        sub("^" key ":[[:space:]]*", "")
+        # Strip surrounding quotes if present
+        gsub(/^"/, ""); gsub(/"$/, "")
+        print
+        exit
+      }
+    }
+    fm >= 2 { exit }
+  ' "$file"
+}
+
+# Extract host from URL (lowercase)
+# Usage: extract_host <url>
+extract_host() {
+  local url="$1"
+  # Strip scheme (http:// or https://)
+  local noscheme
+  noscheme="${url#http://}"
+  noscheme="${noscheme#https://}"
+  # Take everything up to first / ? or #
+  local host
+  host=$(printf '%s\n' "$noscheme" | sed -E 's|[/?#].*||')
+  # Lowercase (macOS bash 3.2 compatible)
+  printf '%s' "$host" | tr '[:upper:]' '[:lower:]'
+}
+
+# Extract second-level domain label (key) from host
+# Usage: extract_key <host>
+extract_key() {
+  local host="$1"
+  # Split on dots, count labels
+  local count
+  count=$(printf '%s\n' "$host" | tr '.' '\n' | wc -l | tr -d ' ')
+  if [ "$count" -ge 2 ]; then
+    # Get second-to-last label
+    printf '%s\n' "$host" | awk -F. '{print $(NF-1)}'
+  else
+    # Single label (rare), use as-is
+    printf '%s\n' "$host"
+  fi
+}
+
+# Find unique filename in destination dir
+# Usage: find_unique_path <dir> <basename>
+# Returns: unique filename (basename only)
+find_unique_path() {
+  local dir="$1"
+  local base="$2"
+  local name="${base%.md}"
+  local ext=".md"
+  local candidate="$base"
+  local counter=1
+
+  while [ -e "${dir}/${candidate}" ]; do
+    candidate="${name} ${counter}${ext}"
+    counter=$((counter + 1))
+  done
+  printf '%s' "$candidate"
+}
+
+# --------------------------------------------------------------------------- #
+# Main
+# --------------------------------------------------------------------------- #
+
+main() {
+  local dry_run=1  # Default: dry-run
+  local errors=0
+  local moved=0
+  local skipped=0
+  local duplicates=0
+
+  # Parse arguments
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --dry-run)
+        dry_run=1
+        shift
+        ;;
+      --apply)
+        dry_run=0
+        shift
+        ;;
+      --vault)
+        if [ -z "${2:-}" ]; then
+          log_err "--vault requires a path argument"
+          exit 1
+        fi
+        VAULT_DIR="$2"
+        CLIPPINGS_DIR="${VAULT_DIR}/clippings"
+        DUPLICATES_DIR="${CLIPPINGS_DIR}/_duplicates"
+        shift 2
+        ;;
+      -h|--help)
+        usage
+        ;;
+      *)
+        log_err "Unknown option: $1"
+        exit 1
+        ;;
+    esac
+  done
+
+  # Banner
+  echo "============================================================"
+  if [ "$dry_run" -eq 1 ]; then
+    echo "  DRY RUN - No files will be moved"
+  else
+    echo "  APPLY MODE - Files will be moved"
+  fi
+  echo "  Vault:     ${VAULT_DIR}"
+  echo "  Clippings: ${CLIPPINGS_DIR}"
+  echo "============================================================"
+  echo ""
+
+  # Validate paths
+  if [ ! -d "$VAULT_DIR" ]; then
+    log_err "Vault directory does not exist: ${VAULT_DIR}"
+    exit 1
+  fi
+
+  if [ ! -d "$CLIPPINGS_DIR" ]; then
+    log_err "Clippings directory does not exist: ${CLIPPINGS_DIR}"
+    exit 1
+  fi
+
+  # Enable nullglob for safe globbing (no match = empty)
+  shopt -s nullglob
+
+  # Collect flat .md files (glob into array, handles special chars)
+  local files=("${CLIPPINGS_DIR}"/*.md)
+
+  shopt -u nullglob
+
+  if [ ${#files[@]} -eq 0 ]; then
+    log_info "No flat .md files in ${CLIPPINGS_DIR} — nothing to do"
+    exit 0
+  fi
+
+  log_info "Found ${#files[@]} flat .md file(s) to process"
+  echo ""
+
+  # Process each file
+  for file in "${files[@]}"; do
+    local basename
+    basename=$(basename "$file")
+
+    # Extract source URL from frontmatter
+    local source_url
+    source_url=$(extract_frontmatter_value "$file" "source")
+
+    # Validate source URL
+    if [ -z "$source_url" ]; then
+      log_skip "(no source) ${basename}"
+      skipped=$((skipped + 1))
+      continue
+    fi
+
+    # Check it's an http(s) URL
+    case "$source_url" in
+      http://*|https://*)
+        ;;
+      *)
+        log_skip "(invalid source) ${basename}"
+        skipped=$((skipped + 1))
+        continue
+        ;;
+    esac
+
+    # Extract host and key
+    local host key
+    host=$(extract_host "$source_url")
+    key=$(extract_key "$host")
+
+    if [ -z "$host" ] || [ -z "$key" ]; then
+      log_skip "(parse failed) ${basename}"
+      skipped=$((skipped + 1))
+      continue
+    fi
+
+    # Determine destination
+    local dest_dir="${CLIPPINGS_DIR}/${key}/${host}"
+    local dest_path="${dest_dir}/${basename}"
+    local is_duplicate=0
+    local final_dest_dir="$dest_dir"
+    local final_basename="$basename"
+
+    # Check for collision
+    if [ -e "$dest_path" ]; then
+      is_duplicate=1
+      final_dest_dir="${DUPLICATES_DIR}/${key}/${host}"
+      final_basename=$(find_unique_path "$final_dest_dir" "$basename")
+    fi
+
+    local final_dest_path="${final_dest_dir}/${final_basename}"
+    local rel_dest="${final_dest_path#"${CLIPPINGS_DIR}/"}"
+
+    if [ "$is_duplicate" -eq 1 ]; then
+      log_dup "${basename}  ->  ${rel_dest}"
+      duplicates=$((duplicates + 1))
+    else
+      log_move "${basename}  ->  ${rel_dest}"
+    fi
+
+    # Execute if not dry-run
+    if [ "$dry_run" -eq 0 ]; then
+      if ! mkdir -p "$final_dest_dir"; then
+        log_err "Failed to create directory: ${final_dest_dir}"
+        errors=$((errors + 1))
+        continue
+      fi
+
+      if ! mv -n "$file" "$final_dest_path"; then
+        log_err "Failed to move: ${basename}"
+        errors=$((errors + 1))
+        continue
+      fi
+
+      # Verify move
+      if [ -e "$file" ]; then
+        log_err "Source still exists after move: ${basename}"
+        errors=$((errors + 1))
+        continue
+      fi
+
+      if [ ! -e "$final_dest_path" ]; then
+        log_err "Target does not exist after move: ${final_dest_path}"
+        errors=$((errors + 1))
+        continue
+      fi
+
+      if [ "$is_duplicate" -eq 0 ]; then
+        moved=$((moved + 1))
+      fi
+    else
+      if [ "$is_duplicate" -eq 0 ]; then
+        moved=$((moved + 1))
+      fi
+    fi
+  done
+
+  # Summary
+  echo ""
+  echo "============================================================"
+  echo "  Summary"
+  echo "============================================================"
+  if [ "$dry_run" -eq 1 ]; then
+    echo "  Would move:    ${moved}"
+  else
+    echo "  Moved:         ${moved}"
+  fi
+  echo "  Duplicates:    ${duplicates}"
+  echo "  Skipped:       ${skipped}"
+  echo "  Errors:        ${errors}"
+  echo "============================================================"
+
+  if [ "$dry_run" -eq 1 ] && [ $((moved + duplicates)) -gt 0 ]; then
+    echo ""
+    echo "To apply these changes, run:"
+    echo "  ${0##*/} --apply"
+  fi
+
+  if [ "$errors" -gt 0 ]; then
+    exit 1
+  fi
+}
+
+main "$@"
