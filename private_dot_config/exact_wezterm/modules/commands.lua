@@ -62,8 +62,8 @@ local function create_tab_title(tab, tabs, panes, config, hover, max_width)
     local session = tmux_session_from_title(pane.title)
     title = session and ('tmx-' .. session) or 'tmx'
   elseif process ~= '' and not SHELL_PROCESSES[process] then
-    -- A real process is running: prefix with "tmux".
-    title = 'tmux ' .. process
+    -- A real foreground process (nvim, htop, …) is running: show its name.
+    title = process
   else
     -- Plain shell: fall back to the active workspace (session) name.
     local workspace = wezterm.mux.get_active_workspace()
