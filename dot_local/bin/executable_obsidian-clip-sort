@@ -10,6 +10,9 @@
 #   <domain> = the full host from the note's source: frontmatter URL
 #   <key>    = the second-level domain label (second-to-last label in the host)
 #
+# ALSO runs a duplicate-merge pass to detect and quarantine true duplicates
+# (same source URL + same body content) across the sorted hierarchy.
+#
 # Run with --dry-run (default) to preview moves, --apply to execute.
 #
 # macOS-compatible: avoids GNU-only flags and bash 4+ features.
@@ -23,7 +26,19 @@ set -euo pipefail
 VAULT_DIR="${VAULT_DIR:-${HOME}/MeinCodex/Notizen/Obsidian/Main}"
 CLIPPINGS_DIR="${VAULT_DIR}/clippings"
 DUPLICATES_DIR="${CLIPPINGS_DIR}/_duplicates"
+MERGE_LOG="${DUPLICATES_DIR}/MERGE-LOG.md"
 LOG_PREFIX="obsidian-clip-sort"
+
+# Detect SHA command (macOS: shasum, Linux: sha256sum)
+SHA_CMD=""
+if command -v shasum >/dev/null 2>&1; then
+  SHA_CMD="shasum -a 256"
+elif command -v sha256sum >/dev/null 2>&1; then
+  SHA_CMD="sha256sum"
+else
+  echo "[ERROR] ${LOG_PREFIX}: No SHA-256 command found (shasum or sha256sum)" >&2
+  exit 1
+fi
 
 # --------------------------------------------------------------------------- #
 # Helpers
@@ -36,12 +51,14 @@ log_err()   { echo "[ERROR] ${LOG_PREFIX}: $*" >&2; }
 log_skip()  { echo "[SKIP]  ${LOG_PREFIX}: $*" >&2; }
 log_dup()   { echo "[DUP]   ${LOG_PREFIX}: $*" >&2; }
 log_move()  { echo "[MOVE]  ${LOG_PREFIX}: $*" >&2; }
+log_merge() { echo "[MERGE] ${LOG_PREFIX}: $*" >&2; }
 
 usage() {
   cat <<EOF
 Usage: ${0##*/} [OPTIONS]
 
-Sort flat Obsidian Web Clipper notes in clippings/ into <key>/<domain>/ hierarchy.
+Sort flat Obsidian Web Clipper notes in clippings/ into <key>/<domain>/ hierarchy,
+then detect and quarantine true duplicates (same source URL + body content).
 
 Options:
   --dry-run       Preview moves without making changes (DEFAULT)
@@ -132,6 +149,401 @@ find_unique_path() {
   printf '%s' "$candidate"
 }
 
+# Compute SHA-256 hash of file body (everything after frontmatter)
+# Usage: compute_body_hash <file>
+# Returns: hex hash or empty if file has no body
+compute_body_hash() {
+  local file="$1"
+  # Extract body: skip from first --- to next ---, then print rest
+  awk '
+    /^---$/ { fm++; next }
+    fm >= 2 { print }
+  ' "$file" | $SHA_CMD | cut -d' ' -f1
+}
+
+# --------------------------------------------------------------------------- #
+# Flat-Sort Pass
+# --------------------------------------------------------------------------- #
+
+run_flat_sort_pass() {
+  local dry_run="$1"
+  local moved_ref="$2"
+  local skipped_ref="$3"
+  local duplicates_ref="$4"
+  local errors_ref="$5"
+
+  # Enable nullglob for safe globbing (no match = empty)
+  shopt -s nullglob
+  local files=("${CLIPPINGS_DIR}"/*.md)
+  shopt -u nullglob
+
+  if [ ${#files[@]} -eq 0 ]; then
+    log_info "No flat .md files in ${CLIPPINGS_DIR} — nothing to sort"
+    return 0
+  fi
+
+  log_info "Found ${#files[@]} flat .md file(s) to process"
+  echo ""
+
+  local file basename source_url host key
+  local dest_dir dest_path is_duplicate final_dest_dir final_basename final_dest_path rel_dest
+
+  for file in "${files[@]}"; do
+    basename=$(basename "$file")
+
+    # Extract source URL from frontmatter
+    source_url=$(extract_frontmatter_value "$file" "source")
+
+    # Validate source URL
+    if [ -z "$source_url" ]; then
+      log_skip "(no source) ${basename}"
+      eval "$skipped_ref=\$((\$$skipped_ref + 1))"
+      continue
+    fi
+
+    # Check it's an http(s) URL
+    case "$source_url" in
+      http://*|https://*)
+        ;;
+      *)
+        log_skip "(invalid source) ${basename}"
+        eval "$skipped_ref=\$((\$$skipped_ref + 1))"
+        continue
+        ;;
+    esac
+
+    # Extract host and key
+    host=$(extract_host "$source_url")
+    key=$(extract_key "$host")
+
+    if [ -z "$host" ] || [ -z "$key" ]; then
+      log_skip "(parse failed) ${basename}"
+      eval "$skipped_ref=\$((\$$skipped_ref + 1))"
+      continue
+    fi
+
+    # Determine destination
+    dest_dir="${CLIPPINGS_DIR}/${key}/${host}"
+    dest_path="${dest_dir}/${basename}"
+    is_duplicate=0
+    final_dest_dir="$dest_dir"
+    final_basename="$basename"
+
+    # Check for collision
+    if [ -e "$dest_path" ]; then
+      is_duplicate=1
+      final_dest_dir="${DUPLICATES_DIR}/${key}/${host}"
+      final_basename=$(find_unique_path "$final_dest_dir" "$basename")
+    fi
+
+    final_dest_path="${final_dest_dir}/${final_basename}"
+    rel_dest="${final_dest_path#"${CLIPPINGS_DIR}/"}"
+
+    if [ "$is_duplicate" -eq 1 ]; then
+      log_dup "${basename}  ->  ${rel_dest}"
+      eval "$duplicates_ref=\$((\$$duplicates_ref + 1))"
+    else
+      log_move "${basename}  ->  ${rel_dest}"
+    fi
+
+    # Execute if not dry-run
+    if [ "$dry_run" -eq 0 ]; then
+      if ! mkdir -p "$final_dest_dir"; then
+        log_err "Failed to create directory: ${final_dest_dir}"
+        eval "$errors_ref=\$((\$$errors_ref + 1))"
+        continue
+      fi
+
+      if ! mv -n "$file" "$final_dest_path"; then
+        log_err "Failed to move: ${basename}"
+        eval "$errors_ref=\$((\$$errors_ref + 1))"
+        continue
+      fi
+
+      # Verify move
+      if [ -e "$file" ]; then
+        log_err "Source still exists after move: ${basename}"
+        eval "$errors_ref=\$((\$$errors_ref + 1))"
+        continue
+      fi
+
+      if [ ! -e "$final_dest_path" ]; then
+        log_err "Target does not exist after move: ${final_dest_path}"
+        eval "$errors_ref=\$((\$$errors_ref + 1))"
+        continue
+      fi
+
+      if [ "$is_duplicate" -eq 0 ]; then
+        eval "$moved_ref=\$((\$$moved_ref + 1))"
+      fi
+    else
+      if [ "$is_duplicate" -eq 0 ]; then
+        eval "$moved_ref=\$((\$$moved_ref + 1))"
+      fi
+    fi
+  done
+}
+
+# --------------------------------------------------------------------------- #
+# Duplicate-Merge Pass
+# --------------------------------------------------------------------------- #
+
+run_dedup_pass() {
+  local dry_run="$1"
+  local dup_groups_ref="$2"
+  local quarantined_ref="$3"
+  local dedup_skipped_ref="$4"
+  # shellcheck disable=SC2034  # Reserved for future error tracking
+  local dedup_errors_ref="$5"
+
+  echo ""
+  echo "------------------------------------------------------------"
+  echo "  Duplicate-Merge Pass"
+  echo "------------------------------------------------------------"
+  echo ""
+
+  # Create temp dir for grouping data
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  # shellcheck disable=SC2064
+  trap "rm -rf '$tmpdir'" EXIT
+
+  local index_file="${tmpdir}/index.tsv"
+
+  # Find all .md files in sorted hierarchy, excluding _duplicates/
+  # Use process substitution to keep loop in current shell (bash 3.2 supported)
+  log_info "Scanning sorted hierarchy for duplicates..."
+
+  local file_count=0
+  while IFS= read -r -d '' file; do
+    local basename source_url host key body_hash created_date
+
+    basename=$(basename "$file")
+    source_url=$(extract_frontmatter_value "$file" "source")
+
+    # Skip files without valid http(s) source
+    if [ -z "$source_url" ]; then
+      log_skip "(dedup: no source) ${basename}"
+      eval "$dedup_skipped_ref=\$((\$$dedup_skipped_ref + 1))"
+      continue
+    fi
+
+    case "$source_url" in
+      http://*|https://*)
+        ;;
+      *)
+        log_skip "(dedup: invalid source) ${basename}"
+        eval "$dedup_skipped_ref=\$((\$$dedup_skipped_ref + 1))"
+        continue
+        ;;
+    esac
+
+    # Compute body hash
+    body_hash=$(compute_body_hash "$file")
+    if [ -z "$body_hash" ]; then
+      body_hash="EMPTY"
+    fi
+
+    # Get created date (for canonical selection)
+    created_date=$(extract_frontmatter_value "$file" "created")
+    if [ -z "$created_date" ]; then
+      created_date="9999-99-99"  # Sort last if missing
+    fi
+
+    # Write index entry: source_url<TAB>body_hash<TAB>created<TAB>path
+    # We store source_url and body_hash separately (both form the group key)
+    printf '%s\t%s\t%s\t%s\n' "$source_url" "$body_hash" "$created_date" "$file" >> "$index_file"
+
+    file_count=$((file_count + 1))
+  done < <(find "$CLIPPINGS_DIR" -mindepth 3 -maxdepth 3 -name '*.md' -not -path "${DUPLICATES_DIR}/*" -print0 2>/dev/null)
+
+  if [ ! -f "$index_file" ] || [ "$file_count" -eq 0 ]; then
+    log_info "No files to check for duplicates"
+    return 0
+  fi
+
+  log_info "Indexed ${file_count} file(s), checking for duplicate groups..."
+
+  # Sort by source_url (field 1), body_hash (field 2), created (field 3), path (field 4)
+  local groups_file="${tmpdir}/groups.tsv"
+  sort -t$'\t' -k1,1 -k2,2 -k3,3 -k4,4 "$index_file" > "${tmpdir}/sorted.tsv"
+
+  # Process groups: group by source_url+body_hash, output members with source_url
+  # Output format: GROUP<TAB>source_url<TAB>count, then MEMBER<TAB>created<TAB>path
+  awk -F'\t' '
+    BEGIN { OFS="\t" }
+    {
+      # Fields: source_url, body_hash, created, path
+      group_key = $1 "\t" $2
+      source_url = $1
+      created = $3
+      path = $4
+      
+      if (group_key != prev_key && NR > 1) {
+        # Output previous group if >1 members
+        if (count > 1) {
+          print "GROUP", prev_source_url, count
+          for (i = 1; i <= count; i++) {
+            print "MEMBER", members[i]
+          }
+        }
+        count = 0
+        delete members
+      }
+      prev_key = group_key
+      prev_source_url = source_url
+      count++
+      members[count] = created "\t" path
+    }
+    END {
+      if (count > 1) {
+        print "GROUP", prev_source_url, count
+        for (i = 1; i <= count; i++) {
+          print "MEMBER", members[i]
+        }
+      }
+    }
+  ' "${tmpdir}/sorted.tsv" > "$groups_file"
+
+  # Check if we have any groups
+  local group_count
+  group_count=$(grep -c '^GROUP' "$groups_file" 2>/dev/null || echo 0)
+
+  if [ "$group_count" -eq 0 ]; then
+    log_info "No duplicate groups found"
+    return 0
+  fi
+
+  log_info "Found ${group_count} duplicate group(s)"
+  echo ""
+
+  # Process each group
+  local current_group_count=0 member_idx=0
+  local canonical_path="" canonical_created="" canonical_rel=""
+  local quarantine_paths=()
+  local group_source_url=""
+
+  while IFS=$'\t' read -r line_type rest; do
+    if [ "$line_type" = "GROUP" ]; then
+      # New group starting
+      # First, finalize previous group if any
+      if [ -n "$canonical_path" ] && [ ${#quarantine_paths[@]} -gt 0 ]; then
+        process_duplicate_group "$dry_run" "$group_source_url" "$canonical_path" "$canonical_rel" "${quarantine_paths[@]}"
+        eval "$dup_groups_ref=\$((\$$dup_groups_ref + 1))"
+        eval "$quarantined_ref=\$((\$$quarantined_ref + ${#quarantine_paths[@]}))"
+      fi
+
+      # Parse new group header: rest = source_url<TAB>count
+      group_source_url=$(printf '%s' "$rest" | cut -f1)
+      # shellcheck disable=SC2034  # Kept for debugging/logging
+      current_group_count=$(printf '%s' "$rest" | cut -f2)
+      member_idx=0
+      canonical_path=""
+      canonical_created=""
+      canonical_rel=""
+      quarantine_paths=()
+
+    elif [ "$line_type" = "MEMBER" ]; then
+      member_idx=$((member_idx + 1))
+      # rest = created<TAB>path
+      local m_created m_path
+      m_created=$(printf '%s' "$rest" | cut -f1)
+      m_path=$(printf '%s' "$rest" | cut -f2)
+
+      if [ "$member_idx" -eq 1 ]; then
+        # First member (earliest created due to sorting) is canonical
+        canonical_path="$m_path"
+        # shellcheck disable=SC2034  # Kept for audit/debugging purposes
+        canonical_created="$m_created"
+        canonical_rel="${canonical_path#"${CLIPPINGS_DIR}/"}"
+      else
+        # Subsequent members are quarantined
+        quarantine_paths+=("$m_path")
+      fi
+    fi
+  done < "$groups_file"
+
+  # Finalize last group
+  if [ -n "$canonical_path" ] && [ ${#quarantine_paths[@]} -gt 0 ]; then
+    process_duplicate_group "$dry_run" "$group_source_url" "$canonical_path" "$canonical_rel" "${quarantine_paths[@]}"
+    eval "$dup_groups_ref=\$((\$$dup_groups_ref + 1))"
+    eval "$quarantined_ref=\$((\$$quarantined_ref + ${#quarantine_paths[@]}))"
+  fi
+}
+
+# Process a single duplicate group: move redundant copies to _duplicates/
+# Usage: process_duplicate_group <dry_run> <source_url> <canonical_path> <canonical_rel> <quarantine_path>...
+process_duplicate_group() {
+  local dry_run="$1"
+  local source_url="$2"
+  local canonical_path="$3"
+  local canonical_rel="$4"
+  shift 4
+  local quarantine_paths=("$@")
+
+  local q_path q_basename q_host q_key q_dest_dir q_final_basename q_final_path q_rel
+  local quarantined_rels=()
+  local timestamp
+
+  for q_path in "${quarantine_paths[@]}"; do
+    q_basename=$(basename "$q_path")
+
+    # Compute key/domain from the note's own source URL
+    q_host=$(extract_host "$source_url")
+    q_key=$(extract_key "$q_host")
+
+    q_dest_dir="${DUPLICATES_DIR}/${q_key}/${q_host}"
+    q_final_basename=$(find_unique_path "$q_dest_dir" "$q_basename")
+    q_final_path="${q_dest_dir}/${q_final_basename}"
+    q_rel="${q_final_path#"${CLIPPINGS_DIR}/"}"
+
+    quarantined_rels+=("$q_rel")
+
+    local src_rel="${q_path#"${CLIPPINGS_DIR}/"}"
+    log_merge "quarantine: ${src_rel}  ->  ${q_rel}"
+
+    if [ "$dry_run" -eq 0 ]; then
+      mkdir -p "$q_dest_dir"
+      if ! mv -n "$q_path" "$q_final_path"; then
+        log_err "Failed to quarantine: ${q_basename}"
+      fi
+    fi
+  done
+
+  log_merge "kept: ${canonical_rel} (${#quarantine_paths[@]} copy/copies quarantined)"
+
+  # Write to MERGE-LOG.md if applying
+  if [ "$dry_run" -eq 0 ]; then
+    timestamp=$(date +"%Y-%m-%dT%H:%M:%S%z")
+
+    # Create log file with header if it doesn't exist
+    if [ ! -f "$MERGE_LOG" ]; then
+      mkdir -p "$(dirname "$MERGE_LOG")"
+      cat > "$MERGE_LOG" <<'HEADER'
+# Duplicate Merge Log
+
+This log records clips that were identified as true duplicates (same source URL
+and body content) and quarantined by `obsidian-clip-sort --apply`.
+
+---
+
+HEADER
+    fi
+
+    # Append merge entry
+    {
+      echo "## ${timestamp}"
+      echo "- URL: ${source_url}"
+      echo "- Kept: ${canonical_rel}"
+      echo "- Quarantined:"
+      for qr in "${quarantined_rels[@]}"; do
+        echo "  - ${qr}"
+      done
+      echo ""
+    } >> "$MERGE_LOG"
+  fi
+}
+
 # --------------------------------------------------------------------------- #
 # Main
 # --------------------------------------------------------------------------- #
@@ -142,6 +554,10 @@ main() {
   local moved=0
   local skipped=0
   local duplicates=0
+  local dup_groups=0
+  local quarantined=0
+  local dedup_skipped=0
+  local dedup_errors=0
 
   # Parse arguments
   while [ $# -gt 0 ]; do
@@ -162,6 +578,7 @@ main() {
         VAULT_DIR="$2"
         CLIPPINGS_DIR="${VAULT_DIR}/clippings"
         DUPLICATES_DIR="${CLIPPINGS_DIR}/_duplicates"
+        MERGE_LOG="${DUPLICATES_DIR}/MERGE-LOG.md"
         shift 2
         ;;
       -h|--help)
@@ -197,143 +614,51 @@ main() {
     exit 1
   fi
 
-  # Enable nullglob for safe globbing (no match = empty)
-  shopt -s nullglob
-
-  # Collect flat .md files (glob into array, handles special chars)
-  local files=("${CLIPPINGS_DIR}"/*.md)
-
-  shopt -u nullglob
-
-  if [ ${#files[@]} -eq 0 ]; then
-    log_info "No flat .md files in ${CLIPPINGS_DIR} — nothing to do"
-    exit 0
-  fi
-
-  log_info "Found ${#files[@]} flat .md file(s) to process"
+  # Pass 1: Flat-sort
+  echo "------------------------------------------------------------"
+  echo "  Flat-Sort Pass"
+  echo "------------------------------------------------------------"
   echo ""
+  run_flat_sort_pass "$dry_run" "moved" "skipped" "duplicates" "errors"
 
-  # Process each file
-  for file in "${files[@]}"; do
-    local basename
-    basename=$(basename "$file")
-
-    # Extract source URL from frontmatter
-    local source_url
-    source_url=$(extract_frontmatter_value "$file" "source")
-
-    # Validate source URL
-    if [ -z "$source_url" ]; then
-      log_skip "(no source) ${basename}"
-      skipped=$((skipped + 1))
-      continue
-    fi
-
-    # Check it's an http(s) URL
-    case "$source_url" in
-      http://*|https://*)
-        ;;
-      *)
-        log_skip "(invalid source) ${basename}"
-        skipped=$((skipped + 1))
-        continue
-        ;;
-    esac
-
-    # Extract host and key
-    local host key
-    host=$(extract_host "$source_url")
-    key=$(extract_key "$host")
-
-    if [ -z "$host" ] || [ -z "$key" ]; then
-      log_skip "(parse failed) ${basename}"
-      skipped=$((skipped + 1))
-      continue
-    fi
-
-    # Determine destination
-    local dest_dir="${CLIPPINGS_DIR}/${key}/${host}"
-    local dest_path="${dest_dir}/${basename}"
-    local is_duplicate=0
-    local final_dest_dir="$dest_dir"
-    local final_basename="$basename"
-
-    # Check for collision
-    if [ -e "$dest_path" ]; then
-      is_duplicate=1
-      final_dest_dir="${DUPLICATES_DIR}/${key}/${host}"
-      final_basename=$(find_unique_path "$final_dest_dir" "$basename")
-    fi
-
-    local final_dest_path="${final_dest_dir}/${final_basename}"
-    local rel_dest="${final_dest_path#"${CLIPPINGS_DIR}/"}"
-
-    if [ "$is_duplicate" -eq 1 ]; then
-      log_dup "${basename}  ->  ${rel_dest}"
-      duplicates=$((duplicates + 1))
-    else
-      log_move "${basename}  ->  ${rel_dest}"
-    fi
-
-    # Execute if not dry-run
-    if [ "$dry_run" -eq 0 ]; then
-      if ! mkdir -p "$final_dest_dir"; then
-        log_err "Failed to create directory: ${final_dest_dir}"
-        errors=$((errors + 1))
-        continue
-      fi
-
-      if ! mv -n "$file" "$final_dest_path"; then
-        log_err "Failed to move: ${basename}"
-        errors=$((errors + 1))
-        continue
-      fi
-
-      # Verify move
-      if [ -e "$file" ]; then
-        log_err "Source still exists after move: ${basename}"
-        errors=$((errors + 1))
-        continue
-      fi
-
-      if [ ! -e "$final_dest_path" ]; then
-        log_err "Target does not exist after move: ${final_dest_path}"
-        errors=$((errors + 1))
-        continue
-      fi
-
-      if [ "$is_duplicate" -eq 0 ]; then
-        moved=$((moved + 1))
-      fi
-    else
-      if [ "$is_duplicate" -eq 0 ]; then
-        moved=$((moved + 1))
-      fi
-    fi
-  done
+  # Pass 2: Dedup
+  run_dedup_pass "$dry_run" "dup_groups" "quarantined" "dedup_skipped" "dedup_errors"
 
   # Summary
   echo ""
   echo "============================================================"
   echo "  Summary"
   echo "============================================================"
+  echo ""
+  echo "  Flat-Sort Pass:"
   if [ "$dry_run" -eq 1 ]; then
-    echo "  Would move:    ${moved}"
+    echo "    Would move:      ${moved}"
   else
-    echo "  Moved:         ${moved}"
+    echo "    Moved:           ${moved}"
   fi
-  echo "  Duplicates:    ${duplicates}"
-  echo "  Skipped:       ${skipped}"
-  echo "  Errors:        ${errors}"
+  echo "    Collisions:      ${duplicates}"
+  echo "    Skipped:         ${skipped}"
+  echo "    Errors:          ${errors}"
+  echo ""
+  echo "  Duplicate-Merge Pass:"
+  echo "    Duplicate groups: ${dup_groups}"
+  if [ "$dry_run" -eq 1 ]; then
+    echo "    Would quarantine: ${quarantined}"
+  else
+    echo "    Quarantined:      ${quarantined}"
+  fi
+  echo "    Skipped:          ${dedup_skipped}"
+  echo "    Errors:           ${dedup_errors}"
   echo "============================================================"
 
-  if [ "$dry_run" -eq 1 ] && [ $((moved + duplicates)) -gt 0 ]; then
+  if [ "$dry_run" -eq 1 ] && [ $((moved + duplicates + quarantined)) -gt 0 ]; then
     echo ""
     echo "To apply these changes, run:"
     echo "  ${0##*/} --apply"
   fi
 
-  if [ "$errors" -gt 0 ]; then
+  local total_errors=$((errors + dedup_errors))
+  if [ "$total_errors" -gt 0 ]; then
     exit 1
   fi
 }
