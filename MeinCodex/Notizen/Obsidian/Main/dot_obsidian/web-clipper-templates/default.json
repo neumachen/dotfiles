@@ -3,39 +3,17 @@
 	"name": "Default",
 	"behavior": "overwrite",
 	"noteNameFormat": "{{title|safe_name}}",
-	"path": "clips/{{domain|replace:\"/^(?:.*\\.)?([^.]+)\\.[^.]+$/\":\"$1\"}}/{{domain}}",
+	"path": "{{domain|replace:\"/^(?:.*\\.)?([^.]+)\\.[^.]+$/\":\"$1\"}}/{{domain}}",
 	"noteContentFormat": "{{content}}",
 	"properties": [
-		{
-			"name": "title",
-			"value": "{{title}}",
-			"type": "text"
-		},
-		{
-			"name": "url",
-			"value": "{{url}}",
-			"type": "text"
-		},
-		{
-			"name": "site",
-			"value": "{{site}}",
-			"type": "text"
-		},
-		{
-			"name": "domain",
-			"value": "{{domain}}",
-			"type": "text"
-		},
-		{
-			"name": "tags",
-			"value": "clip",
-			"type": "multitext"
-		},
-		{
-			"name": "created_at.utc",
-			"value": "{{date|date:\"YYYY-MM-DDTHH:mm:ss\"}}Z",
-			"type": "text"
-		}
+		{ "name": "title", "value": "{{title}}", "type": "text" },
+		{ "name": "source", "value": "{{url}}", "type": "text" },
+		{ "name": "author", "value": "{{author}}", "type": "multitext" },
+		{ "name": "published", "value": "{{published}}", "type": "date" },
+		{ "name": "created", "value": "{{date|date:\"YYYY-MM-DD\"}}", "type": "date" },
+		{ "name": "description", "value": "{{description}}", "type": "text" },
+		{ "name": "tags", "value": "clippings", "type": "multitext" },
+		{ "name": "modified_at.utc", "value": "{{date|date:\"YYYY-MM-DDTHH:mm:ss\"}}Z", "type": "text" }
 	],
 	"triggers": []
 }
