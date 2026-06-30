@@ -1,12 +1,12 @@
 ---
 name: slack-copy-output
-description: "Format the final user-facing reply as Slack-compatible, paste-ready mrkdwn. Use when the user asks for Slack output, copy-paste output, or says \"for Slack\". Single-asterisk emphasis, no rendered code fence wrapper."
+description: "Format the final user-facing reply as Slack-compatible, paste-ready mrkdwn. Use when the user asks for Slack output, copy-paste output, or says \"for Slack\". Single-asterisk emphasis, wrapped in a Markdown code block for clean copy-paste."
 license: Apache-2.0
 ---
 
 # Slack Copy Output
 
-Format the final user-facing reply as unrendered, paste-ready Slack mrkdwn.
+Format the final user-facing reply as paste-ready Slack mrkdwn wrapped in a Markdown code block.
 
 **Announce at start:** "I'm using the slack-copy-output skill to format this for Slack."
 
@@ -54,16 +54,22 @@ emitted verbatim (a diff line containing `**` must stay `**`).
 `[text](url)` into a link on send. Programmatic mrkdwn surfaces (webhooks, bots) require
 `<url|text>` instead — if the destination is programmatic, state that and switch syntax.
 
-### Rule: Deliver unrendered, paste-ready text
+### Rule: Wrap the reply in a Markdown code block
 
 **When:** Emitting the final Slack-bound reply
 
-**Then:** Output raw Markdown text directly in the reply
+**Then:** Wrap the entire reply in a fenced Markdown code block (```) so the raw mrkdwn
+stays literal and one-click copyable.
 
-**Never:** Wrap the whole reply in a rendered code fence; the user must copy raw mrkdwn.
+**Never:** Emit the Slack mrkdwn outside a code fence; rendered emphasis/links defeat
+copy-paste of the raw markers.
 
-**Reason:** Wrapping in a fence defeats copy-paste. Mirrors the commit-prompt's
-"no code fences" delivery precedent.
+**Note:** If the reply itself contains a fenced code block, the outer wrapping fence must
+use more backticks than any inner fence (e.g. four backticks outside, three inside) so the
+block does not terminate early.
+
+**Reason:** The user copies the raw mrkdwn (`*text*`, `[text](url)`) out of the code block
+and pastes it into the Slack composer, which renders it on send.
 
 ### Rule: Cite commit SHA when a commit is involved
 
@@ -84,10 +90,11 @@ emitted verbatim (a diff line containing `**` must stay `**`).
 - Keep `[text](url)` links; leave code-span/fence URLs literal.
 - Ensure any commit reference includes its SHA.
 
-### 3. Emit raw
+### 3. Emit inside a code fence
 
-- Print the result as raw Markdown text, not wrapped in an outer rendered fence.
-- Tell the user where the copy-paste region begins.
+- Print the result inside a fenced Markdown code block so the mrkdwn stays raw.
+- If the reply contains its own fenced block, use a longer outer fence (more backticks).
+- Tell the user the code block is the copy-paste region.
 
 ## Preconditions
 
@@ -99,7 +106,7 @@ emitted verbatim (a diff line containing `**` must stay `**`).
 - [ ] No `**` outside code spans/fences
 - [ ] All links are `[text](url)` (or `<url|text>` if programmatic)
 - [ ] Any commit reference includes its SHA
-- [ ] Output is raw Markdown, not wrapped in an outer rendered code fence
+- [ ] Output is wrapped in a Markdown code block so the raw mrkdwn is copy-paste-ready
 - [ ] Code spans and fenced blocks are emitted verbatim
 
 ## Success Metrics
@@ -113,9 +120,9 @@ This skill is successful when:
 ## Integration
 
 - **OUTPUT-01-LINKS-AND-COMMIT-REFS** — supplies the always-on link and commit-SHA clauses;
-  this skill adds only the Slack-specific emphasis and unrendered-delivery clauses.
+  this skill adds only the Slack-specific emphasis and code-block-wrapped-delivery clauses.
 - **shiki-handoff** — shares the "emit a paste-ready block as the final action" pattern.
 
 ## Next Steps
 
-- After emitting, stop. Do not re-wrap or re-render the output.
+- After emitting the code block, stop. Do not add commentary inside the fence.
