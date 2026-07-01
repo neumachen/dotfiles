@@ -61,7 +61,7 @@
                         ]
                     },
                     {
-                        "description": "Right Command + button6 double-press → Option+Tab (ELECOM IST PRO only)",
+                        "description": "button6 double-press → Option+Tab (ELECOM IST PRO only)",
                         "manipulators": [
                             {
                                 "conditions": [
@@ -81,7 +81,6 @@
                                     }
                                 ],
                                 "from": {
-                                    "modifiers": { "mandatory": ["right_command"] },
                                     "pointing_button": "button6"
                                 },
                                 "to": [
@@ -111,7 +110,6 @@
                                     }
                                 ],
                                 "from": {
-                                    "modifiers": { "mandatory": ["right_command"] },
                                     "pointing_button": "button6"
                                 },
                                 "parameters": { "basic.to_delayed_action_delay_milliseconds": 300 },
@@ -136,6 +134,91 @@
                                         {
                                             "set_variable": {
                                                 "name": "button6_ready",
+                                                "value": 0
+                                            }
+                                        }
+                                    ]
+                                },
+                                "type": "basic"
+                            }
+                        ]
+                    },
+                    {
+                        "description": "Right Command + button6 double-press → Cmd+Tab (ELECOM IST PRO only)",
+                        "manipulators": [
+                            {
+                                "conditions": [
+                                    {
+                                        "identifiers": [
+                                            {
+                                                "product_id": 394,
+                                                "vendor_id": 1390
+                                            }
+                                        ],
+                                        "type": "device_if"
+                                    },
+                                    {
+                                        "name": "button6_cmd_ready",
+                                        "type": "variable_if",
+                                        "value": 1
+                                    }
+                                ],
+                                "from": {
+                                    "modifiers": { "mandatory": ["right_command"] },
+                                    "pointing_button": "button6"
+                                },
+                                "to": [
+                                    {
+                                        "set_variable": {
+                                            "name": "button6_cmd_ready",
+                                            "value": 0
+                                        }
+                                    },
+                                    {
+                                        "key_code": "tab",
+                                        "modifiers": ["left_command"]
+                                    }
+                                ],
+                                "type": "basic"
+                            },
+                            {
+                                "conditions": [
+                                    {
+                                        "identifiers": [
+                                            {
+                                                "product_id": 394,
+                                                "vendor_id": 1390
+                                            }
+                                        ],
+                                        "type": "device_if"
+                                    }
+                                ],
+                                "from": {
+                                    "modifiers": { "mandatory": ["right_command"] },
+                                    "pointing_button": "button6"
+                                },
+                                "parameters": { "basic.to_delayed_action_delay_milliseconds": 300 },
+                                "to": [
+                                    {
+                                        "set_variable": {
+                                            "name": "button6_cmd_ready",
+                                            "value": 1
+                                        }
+                                    }
+                                ],
+                                "to_delayed_action": {
+                                    "to_if_canceled": [
+                                        {
+                                            "set_variable": {
+                                                "name": "button6_cmd_ready",
+                                                "value": 0
+                                            }
+                                        }
+                                    ],
+                                    "to_if_invoked": [
+                                        {
+                                            "set_variable": {
+                                                "name": "button6_cmd_ready",
                                                 "value": 0
                                             }
                                         }
@@ -177,7 +260,7 @@
                         ]
                     },
                     {
-                        "description": "button7: hold → Mission Control; Right Command + double-press → Cmd+` (ELECOM IST PRO only)",
+                        "description": "button7 double-press → Cmd+` (ELECOM IST PRO only)",
                         "manipulators": [
                             {
                                 "conditions": [
@@ -197,7 +280,6 @@
                                     }
                                 ],
                                 "from": {
-                                    "modifiers": { "mandatory": ["right_command"] },
                                     "pointing_button": "button7"
                                 },
                                 "to": [
@@ -227,7 +309,6 @@
                                     }
                                 ],
                                 "from": {
-                                    "modifiers": { "mandatory": ["right_command"] },
                                     "pointing_button": "button7"
                                 },
                                 "parameters": { "basic.to_delayed_action_delay_milliseconds": 300 },
@@ -257,7 +338,45 @@
                                         }
                                     ]
                                 },
-                                "to_if_alone": [{ "pointing_button": "button7" }],
+                                "type": "basic"
+                            }
+                        ]
+                    },
+                    {
+                        "description": "Right Command + button7 double-press → Mission Control (ELECOM IST PRO only)",
+                        "manipulators": [
+                            {
+                                "conditions": [
+                                    {
+                                        "identifiers": [
+                                            {
+                                                "product_id": 394,
+                                                "vendor_id": 1390
+                                            }
+                                        ],
+                                        "type": "device_if"
+                                    },
+                                    {
+                                        "name": "button7_cmd_ready",
+                                        "type": "variable_if",
+                                        "value": 1
+                                    }
+                                ],
+                                "from": {
+                                    "modifiers": { "mandatory": ["right_command"] },
+                                    "pointing_button": "button7"
+                                },
+                                "to": [
+                                    {
+                                        "set_variable": {
+                                            "name": "button7_cmd_ready",
+                                            "value": 0
+                                        }
+                                    },
+                                    {
+                                        "apple_vendor_keyboard_key_code": "mission_control"
+                                    }
+                                ],
                                 "type": "basic"
                             },
                             {
@@ -272,9 +391,37 @@
                                         "type": "device_if"
                                     }
                                 ],
-                                "from": { "pointing_button": "button7" },
-                                "parameters": { "basic.to_if_held_down_threshold_milliseconds": 500 },
-                                "to_if_held_down": [{ "apple_vendor_keyboard_key_code": "mission_control" }],
+                                "from": {
+                                    "modifiers": { "mandatory": ["right_command"] },
+                                    "pointing_button": "button7"
+                                },
+                                "parameters": { "basic.to_delayed_action_delay_milliseconds": 300 },
+                                "to": [
+                                    {
+                                        "set_variable": {
+                                            "name": "button7_cmd_ready",
+                                            "value": 1
+                                        }
+                                    }
+                                ],
+                                "to_delayed_action": {
+                                    "to_if_canceled": [
+                                        {
+                                            "set_variable": {
+                                                "name": "button7_cmd_ready",
+                                                "value": 0
+                                            }
+                                        }
+                                    ],
+                                    "to_if_invoked": [
+                                        {
+                                            "set_variable": {
+                                                "name": "button7_cmd_ready",
+                                                "value": 0
+                                            }
+                                        }
+                                    ]
+                                },
                                 "to_if_alone": [{ "pointing_button": "button7" }],
                                 "type": "basic"
                             }
