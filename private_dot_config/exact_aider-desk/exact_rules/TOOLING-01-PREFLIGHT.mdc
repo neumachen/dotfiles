@@ -1,0 +1,56 @@
+---
+description: Toolchain preflight — verify tooling once per session before build/test/lint; auto-install (user-space) or notify
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# TOOLING-01: Toolchain Preflight for Coding Agents
+
+Before a Forge coding agent runs its first build/test/lint/format command in a session, it
+must verify its toolchain is present. The specific tools each agent needs are defined by
+that agent's own `power---bash` allow-list (its `config.json`) — this rule defines only the
+shared algorithm, so it is written once and never duplicated per language.
+
+## When This Rule Applies
+
+- Any Forge coding sub-agent about to run a build/test/lint/format/run command.
+- Exactly once per session (see sentinel), before the first such command.
+- Exempt: read-only agents (Analyst, Scout) and `forge-docs`.
+
+## Shared tooling (assumed present, do not re-install)
+
+`git`, `command -v`, and `mise` are baseline in every environment. Never probe or install
+these.
+
+## Algorithm (run once)
+
+1. **Sentinel.** If `${TMPDIR:-/tmp}/.forge-preflight-<agent>` exists, skip — preflight
+   already ran this session. Otherwise proceed and create it at the end.
+2. **Detect.** For each binary this agent needs (per its own allow-list / task), run
+   `command -v <bin>` and a `--version`.
+3. **Present → proceed** silently.
+4. **Missing → auto-install, user-space only.** If the repo has a `mise.toml` /
+   `.mise.toml` / `.tool-versions`, run `mise install`. Otherwise use the language's own
+   user-space installer (e.g. `rustup component add rust-analyzer`). NEVER `sudo`, never
+   mutate system paths, never use privileged OS package managers.
+5. **Container guard.** Inside the shiki container (`/etc/mise/config.toml` present and no
+   project mise file), a runtime install only unblocks the current task — the durable fix
+   is adding the tool to `private_dot_config/exact_shiki/shiki-mise.toml` and rebuilding.
+   State this in the notification.
+6. **Re-probe + notify (always).** Re-run the probe. If still missing, STOP and return to
+   Analyst with the notification instead of running the build command. Always include the
+   Tooling Preflight block below.
+
+## Notification Format
+
+```markdown
+### Tooling Preflight
+- Detected: <tool> <version> (or MISSING)
+- Action: none needed | auto-installed via <command> | install failed
+- Durable fix (if in shiki): add <tool> to private_dot_config/exact_shiki/shiki-mise.toml and rebuild
+```
+
+## Exceptions
+
+Read-only agents and `forge-docs` are exempt. A task may assert tooling is present to skip
+the probe, but the agent must still notify if a tool turns out missing at run time.
