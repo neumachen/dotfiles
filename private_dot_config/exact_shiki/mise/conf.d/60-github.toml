@@ -16,8 +16,4 @@
 # `erlang -> erlfmt` mapping in plugins/conform.lua will pick it up once it is
 # resolvable on $PATH. Revisit if upstream starts publishing release binaries
 # or a mise registry/aqua route appears.
-# misc
-"github:dlvhdr/gh-dash"  = "latest"
-"github:marph91/jimmy"   = "latest"
-"github:mr-karan/doggo"  = "latest"
 "github:mrjosh/helm-ls"  = "latest"
