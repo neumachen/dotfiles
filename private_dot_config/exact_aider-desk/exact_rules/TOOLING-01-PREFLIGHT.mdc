@@ -26,8 +26,14 @@ these.
 
 1. **Sentinel.** If `${TMPDIR:-/tmp}/.forge-preflight-<agent>` exists, skip — preflight
    already ran this session. Otherwise proceed and create it at the end.
-2. **Detect.** For each binary this agent needs (per its own allow-list / task), run
-   `command -v <bin>` and a `--version`.
+2. **Detect (exit-code, not judgment).** Run a probe that exits non-zero if any required
+   binary is missing, so presence is a shell fact, not a model guess. Pattern:
+   ```sh
+   for bin in <required bins>; do
+     command -v "$bin" >/dev/null 2>&1 || { echo "PREFLIGHT_FAIL: missing $bin"; exit 87; }
+   done
+   ```
+   Exit 87 with a `PREFLIGHT_FAIL: missing <bin>` line is the canonical missing-tool signal.
 3. **Present → proceed** silently.
 4. **Missing → auto-install, user-space only.** If the repo has a `mise.toml` /
    `.mise.toml` / `.tool-versions`, run `mise install`. Otherwise use the language's own
@@ -37,9 +43,10 @@ these.
    project mise file), a runtime install only unblocks the current task — the durable fix
    is adding the tool to `private_dot_config/exact_shiki/shiki-mise.toml` and rebuilding.
    State this in the notification.
-6. **Re-probe + notify (always).** Re-run the probe. If still missing, STOP and return to
-   Analyst with the notification instead of running the build command. Always include the
-   Tooling Preflight block below.
+6. **Re-probe.** Re-run the exit-code probe from step 2. If it now exits 0, proceed. If it
+   STILL exits non-zero (auto-install failed or was unsafe), do NOT run any
+   build/test/lint/format command — HALT and emit the Deterministic Failure Signal below,
+   then return to Analyst. Never continue on a broken toolchain.
 
 ## Notification Format
 
@@ -49,6 +56,21 @@ these.
 - Action: none needed | auto-installed via <command> | install failed
 - Durable fix (if in shiki): add <tool> to private_dot_config/exact_shiki/shiki-mise.toml and rebuild
 ```
+
+## Deterministic Failure Signal
+
+When tooling is unresolved after the install attempt, the agent MUST bubble the failure up
+as a machine-detectable signal, not as soft prose Analyst might overlook:
+
+1. The **first line** of the Implementation Report MUST be exactly:
+   `STATUS: BLOCKED_MISSING_TOOLING`
+2. The report MUST include the failing probe's `PREFLIGHT_FAIL: missing <bin>` line and its
+   exit code (87) verbatim under Verification.
+3. The agent MUST NOT report partial success, MUST NOT mark the task done, and MUST NOT run
+   the build/test command that depends on the missing tool.
+
+This turns a missing tool from a polite note into a typed blocker the caller is required to
+detect (see ROUTING-01).
 
 ## Exceptions
 
