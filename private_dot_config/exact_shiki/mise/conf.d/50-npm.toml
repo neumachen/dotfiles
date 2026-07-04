@@ -11,7 +11,6 @@
 #   "npm:@mermaid-js/mermaid-cli" = { version = "latest", bun_args = "--trust" }
 [tools]
 "npm:@fsouza/prettierd"            = "latest"
-"npm:@mermaid-js/mermaid-cli"      = "latest"
 "npm:@openai/codex"                = "latest"
 "npm:@prsense/cli"                 = "latest"
 "npm:@tailwindcss/language-server" = "latest"
@@ -21,7 +20,6 @@
 "npm:biome"                        = "latest"
 "npm:cspell"                       = "latest"
 "npm:oxlint"                       = "latest"
-"npm:pake-cli"                     = "latest"
 "npm:pnpm"                         = "latest"
 "npm:prettier"                     = "latest"
 "npm:rustywind"                    = "latest"

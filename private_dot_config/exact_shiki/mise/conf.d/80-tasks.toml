@@ -9,64 +9,6 @@
 # Run any task with: `mise run <task-name>` (e.g. `mise run espanso:install`).
 # List all tasks with: `mise tasks`.
 
-# --- espanso ---------------------------------------------------------------
-# espanso is a macOS .app bundle that needs Accessibility permission and a
-# background service. mise has no binary backend that can produce a working
-# /Applications/Espanso.app, so installation goes through Homebrew cask while
-# day-to-day lifecycle (start/restart/status) is exposed here as `mise run`
-# tasks for muscle-memory consistency with the rest of the toolchain.
-#
-# `cask "espanso"` is also listed in the XDG Brewfile (rendered to
-# $XDG_CONFIG_HOME/homebrew/Brewfile), so a fresh-machine `chezmoi apply`
-# + the existing run_once_02-install-brew-apps script will install
-# espanso without needing `mise run espanso:install`. The install
-# task below is here for explicit on-demand re-runs; it is idempotent because
-# `brew install espanso` is a no-op when the cask is already present.
-
-[tasks."espanso:install"]
-description = "Install espanso via Homebrew cask (idempotent)."
-run = '''
-if command -v espanso >/dev/null 2>&1; then
-  echo "espanso already installed at: $(command -v espanso)"
-  espanso --version
-  exit 0
-fi
-if ! command -v brew >/dev/null 2>&1; then
-  echo "error: Homebrew not found on PATH. Bootstrap brew first." >&2
-  exit 1
-fi
-brew install espanso
-echo
-echo "Next steps:"
-echo "  1. Grant Accessibility permission when macOS prompts (System Settings"
-echo "     -> Privacy & Security -> Accessibility -> enable Espanso)."
-echo "  2. Register the background service:  mise run espanso:start"
-'''
-
-[tasks."espanso:start"]
-description = "Register espanso as a launch-agent service and start it."
-# `espanso service register` writes the launchd plist that auto-starts
-# espanso at login. `espanso start` then launches it for the current session.
-# Both are idempotent: register is a no-op if already registered, and start
-# silently returns if the daemon is already running.
-run = '''
-espanso service register
-espanso start
-espanso status
-'''
-
-[tasks."espanso:status"]
-description = "Show whether the espanso daemon is currently running."
-run = "espanso status"
-
-[tasks."espanso:restart"]
-description = "Restart the espanso service (reload config + match files)."
-# Use the top-level `espanso restart` rather than `espanso service restart`
-# because the former works regardless of whether espanso is currently
-# running as a managed service or in foreground mode — useful after editing
-# match files via `chezmoi apply`.
-run = "espanso restart"
-
 # --- terraform / opentofu --------------------------------------------------
 # Terraform itself is installed via the mise registry (see
 # exact_conf.d/10-registry.toml: `terraform = "latest"`). The tasks below
