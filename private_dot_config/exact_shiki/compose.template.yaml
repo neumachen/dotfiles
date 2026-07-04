@@ -38,6 +38,12 @@ services:
       # The socket is mounted read-only below; this env var tells ssh/git
       # where to find it inside the container.
       SSH_AUTH_SOCK: /run/1password/agent.sock
+      # Crush (charmbracelet) hardening: disable provider auto-update and
+      # opt out of all metrics/telemetry. Crush honors DO_NOT_TRACK and its
+      # own CRUSH_* opt-outs. Version control is delegated to mise/the image.
+      CRUSH_DISABLE_PROVIDER_AUTO_UPDATE: "1"
+      CRUSH_DISABLE_METRICS: "1"
+      DO_NOT_TRACK: "1"
     volumes:
       - ${SESSION_DATA}:/app/state
       - ${SESSION_CLAUDE}:/root/.claude
@@ -71,6 +77,12 @@ services:
       - ${AIDER_DESK_GLOBAL}/rules:/root/.aider-desk/rules
       - ${AIDER_DESK_GLOBAL}/skills:/root/.aider-desk/skills
       - ${CODEX_AUTH_HOST_PATH}:${CODEX_AUTH_CONTAINER_PATH}
+      # OpenCode managed config layer. Mirrors the Claude settings.json
+      # mount: the chezmoi-managed host config (permission.edit=ask,
+      # permission.bash=ask, autoupdate=false, share=disabled) is bind-
+      # mounted read-only so the same conservative policy applies inside
+      # every session. Read-only — canonical on the host.
+      - ${OPENCODE_HOST}/opencode.json:/root/.config/opencode/opencode.json:ro
       # 1Password SSH agent socket.
       # macOS default: ~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock
       # Linux default: ~/.1password/agent.sock

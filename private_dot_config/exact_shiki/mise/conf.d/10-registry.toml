@@ -12,6 +12,7 @@ bat                  = "latest"
 bfs                  = "latest"
 bun                  = "latest"
 cocogitto            = "latest"
+crush                = "latest"
 delta                = "latest"
 deno                 = "latest"
 difftastic           = "latest"
@@ -34,6 +35,7 @@ kubens               = "latest"
 localstack           = "latest"
 lua-language-server  = "latest"
 marksman             = "latest"
+opencode             = "latest"
 # OpenTofu CLI. Registry short name is `opentofu` (resolves to
 # aqua:opentofu/opentofu); the installed binary is `tofu`, so editor
 # tooling and tasks still invoke `tofu` directly. Paired with the
