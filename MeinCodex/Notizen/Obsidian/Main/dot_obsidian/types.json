@@ -1,8 +1,14 @@
 {
   "types": {
     "aliases": "aliases",
+    "author": "multitext",
+    "created": "date",
     "cssclasses": "multitext",
+    "description": "text",
+    "published": "date",
+    "source": "text",
     "tags": "tags",
+    "title": "text",
     "TQ_explain": "checkbox",
     "TQ_extra_instructions": "text",
     "TQ_short_mode": "checkbox",
