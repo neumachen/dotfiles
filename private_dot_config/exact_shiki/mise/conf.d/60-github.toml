@@ -1,0 +1,23 @@
+# github: — release binaries from GitHub.
+[tools]
+"github:JohnnyMorganz/StyLua" = "latest"
+"github:bufbuild/buf"         = "latest"
+"github:clangd/clangd"        = "latest"
+# docker stack
+"github:docker/docker-language-server" = { version = "latest", bin = "docker-language-server" }
+"github:reteps/dockerfmt"              = "latest"   # Dockerfile formatter
+# erlang
+"github:erlang-ls/erlang_ls" = "latest"
+# erlfmt is intentionally NOT listed here: WhatsApp/erlfmt ships no compiled
+# release artifacts (it's an Erlang escript distributed via hex), so mise's
+# `github:` backend cannot fetch it, and no `mise registry` entry exists either.
+# Install out-of-band when needed: `mix escript.install hex erlfmt` (puts the
+# escript under ~/.mix/escripts; ensure that dir is on $PATH). conform.nvim's
+# `erlang -> erlfmt` mapping in plugins/conform.lua will pick it up once it is
+# resolvable on $PATH. Revisit if upstream starts publishing release binaries
+# or a mise registry/aqua route appears.
+# misc
+"github:dlvhdr/gh-dash"  = "latest"
+"github:marph91/jimmy"   = "latest"
+"github:mr-karan/doggo"  = "latest"
+"github:mrjosh/helm-ls"  = "latest"

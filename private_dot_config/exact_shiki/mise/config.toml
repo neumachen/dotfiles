@@ -1,0 +1,59 @@
+[settings]
+http_timeout = "120s"
+# Respect idiomatic version files for all language runtimes managed here.
+# This allows .nvmrc, .node-version, .python-version, .ruby-version,
+# .go-version, rust-toolchain.toml, .java-version etc. to be picked up
+# per-project without requiring a mise.toml in every repo.
+idiomatic_version_file_enable_tools = [
+  "bun",
+  "deno",
+  "elixir",
+  "go",
+  "java",
+  "kotlin",
+  "lua",
+  "node",
+  "python",
+  "ruby",
+  "rust",
+  "zig",
+]
+
+[settings.npm]
+# Use Bun as the install driver for the npm backend (i.e. `npm:*` entries in
+# conf.d/50-npm.toml). The backend identity stays "npm" — mise still resolves
+# packages from npmjs.org — but installs go through `bun add --global` instead
+# of `npm install -g`. Bun must be installed (see conf.d/10-registry.toml).
+#
+# Notable behavior differences vs. npm:
+#   - Bun does NOT execute dependency lifecycle scripts by default. Packages
+#     that rely on postinstall (e.g. @mermaid-js/mermaid-cli downloading
+#     Chromium) may need `bun_args = "--trust"` on that specific entry.
+#   - `allow_builds` is ignored under Bun (Bun uses its own trustedDependencies
+#     model, not pnpm/aube-style per-package build approvals).
+package_manager = "bun"
+
+[tools]
+# Convention:
+#   - Language runtimes live here.
+#   - Backend-grouped tool fragments live in conf.d/, loaded alphabetically:
+#       10-registry.toml  – plain names via mise's default registry
+#       20-aqua.toml      – aqua: prebuilt binaries
+#       30-cargo.toml     – cargo: crates
+#       40-go.toml        – go: install paths
+#       50-npm.toml       – npm: globals
+#       60-github.toml    – github: releases
+#       70-gem.toml       – gem: ruby gems
+#   - Runtime-installable tools live in conf.d/, NOT in ~/.default-*-packages,
+#     so versions are pin-able and `mise outdated` covers the full toolset.
+elixir = "1.19.5-otp-28"
+erlang = "28.4.1"
+go     = "1.26.3"
+java   = "26.0.1"
+kotlin = "2.3.21"
+lua    = "5.5.0"
+node   = "26.1.0"
+python = ["3.14.3", "3.12.13"]
+ruby   = "4.0.4"
+rust   = "1.95.0"
+zig    = "0.16.0"

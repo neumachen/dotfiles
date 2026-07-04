@@ -1,0 +1,99 @@
+# mise registry — plain names, mostly aqua-backed prebuilt binaries.
+[tools]
+act                  = "latest"
+action-validator     = "latest"
+actionlint           = "latest"
+age                  = "latest"
+ast-grep             = "latest"
+atuin                = "latest"
+aws                  = "latest"
+aws-sam              = "latest"
+awscli-local         = "latest"
+bat                  = "latest"
+bfs                  = "latest"
+bottom               = "latest"
+bun                  = "latest"
+cocogitto            = "latest"
+ctop                 = "latest"
+delta                = "latest"
+deno                 = "latest"
+difftastic           = "latest"
+direnv               = "latest"
+dive                 = "latest"
+dust                 = "latest"
+dyff                 = "latest"
+editorconfig-checker = "latest"
+elixir-ls            = "latest"
+fd                   = "latest"
+fzf                  = "latest"
+ghq                  = "latest"
+github-cli           = "latest"
+glow                 = "latest"
+hadolint             = "latest"
+hyperfine            = "latest"
+jq                   = "latest"
+just                 = "latest"
+k9s                  = "latest"
+kind                 = "latest"
+kubectl              = "latest"
+kubectx              = "latest"
+kubens               = "latest"
+localstack           = "latest"
+lua-language-server  = "latest"
+marksman             = "latest"
+neovim               = "latest"
+# OpenTofu CLI. Registry short name is `opentofu` (resolves to
+# aqua:opentofu/opentofu); the installed binary is `tofu`, so editor
+# tooling and tasks still invoke `tofu` directly. Paired with the
+# `terraform*` entries further down — see the Terraform/OpenTofu
+# comment block there for the workflow context.
+opentofu             = "latest"
+protoc               = "latest"
+protolint            = "latest"
+rebar                = "latest"
+ripgrep              = "latest"
+ripgrep-all          = "latest"
+ruff                 = "latest"
+shellcheck           = "latest"
+shellspec            = "latest"
+skaffold             = "latest"
+sops                 = "latest"
+sqlite               = "latest"
+starship             = "latest"
+stern                = "latest"
+swag                 = "latest"
+taplo                = "latest"
+# Terraform stack.
+# All entries below resolve to `aqua:` prebuilt binaries via the mise
+# registry (verified against mise-en-place's registry table). The full
+# stack is here, not split into 20-aqua.toml, because the short names
+# round-trip through the registry — keeping them in 10-registry.toml is
+# consistent with the existing convention used for the LSP/format/lint
+# triad of every other language in this fragment.
+#
+# Per private_dot_config/exact_aider-desk/exact_rules/TERRAFORM-01-CORE-STYLE.mdc,
+# the workflow expects: `terraform fmt`, `terraform validate`, `tflint`,
+# and pinned provider/module versions. terraform-docs feeds module READMEs.
+# OpenTofu (registry short name `opentofu`, CLI binary `tofu`) is pinned
+# separately above next to its alphabetical neighbours — the rule covers
+# both Terraform and OpenTofu and conform.lua falls back to `tofu_fmt`
+# when `terraform fmt` is unavailable.
+terraform            = "latest"
+terraform-docs       = "latest"
+terraform-ls         = "latest"
+terragrunt           = "latest"
+tflint               = "latest"
+tmux                 = "latest"
+trdsql               = "latest"
+tree-sitter          = "latest"
+trivy                = "latest"
+trufflehog           = "latest"
+typos                = "latest"
+usql                 = "latest"
+uv                   = "latest"
+vim                  = "latest"
+xh                   = "latest"
+yamlfmt              = "latest"
+yamllint             = "latest"
+yazi                 = "latest"
+zoxide               = "latest"
