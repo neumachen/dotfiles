@@ -178,7 +178,7 @@ RUN printf '#!/bin/sh\nexec git check-ignore "$@"\n' >/usr/local/bin/check-ignor
 #    note.
 RUN install -m 0755 -d /etc/apt/keyrings \
     && curl -fsSL https://download.docker.com/linux/debian/gpg \
-        | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
+    | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
     && chmod a+r /etc/apt/keyrings/docker.gpg \
     && . /etc/os-release \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian ${VERSION_CODENAME} stable" \
@@ -217,7 +217,7 @@ ENV MISE_CACHE_DIR=/root/.cache/mise
 ENV PATH=/usr/local/share/mise/shims:/root/.local/share/mise/shims:${PATH}
 
 RUN mkdir -p "${MISE_CONFIG_DIR}" "${MISE_DATA_DIR}" "${MISE_CACHE_DIR}" /etc/mise \
-    && curl -fsSL https://mise.run | sh \
+    && curl -fsSL https://mise.run | MISE_INSTALL_MUSL=1 sh \
     && mise --version \
     && echo 'eval "$(mise activate bash)"' >>/root/.bashrc
 
