@@ -1045,6 +1045,7 @@ export SESSION_DATA SESSION_CLAUDE
 # mount so chezmoi-managed permissions/model/env policy applies inside
 # every session.
 export CLAUDE_HOST="${HOME}/.claude"
+export OPENCODE_HOST="${HOME}/.config/opencode"
 export SESSION_MISE_CONFIG SESSION_MISE_DATA SESSION_MISE_CACHE
 export AIDER_DESK_GLOBAL
 export CODEX_AUTH_HOST_PATH CODEX_AUTH_CONTAINER_PATH
@@ -1313,6 +1314,12 @@ mkdir -p "$SESSION_DATA" "$SESSION_CLAUDE" "$SESSION_MISE_CONFIG" "$SESSION_MISE
 if [ ! -f "$CLAUDE_HOST/settings.json" ]; then
   echo-err "Missing ${CLAUDE_HOST}/settings.json (bind-mounted into the container)."
   echo-err "Run \`chezmoi apply ~/.claude/settings.json\` to materialize it, then re-run shiki."
+  exit 1
+fi
+
+if [ ! -f "$OPENCODE_HOST/opencode.json" ]; then
+  echo-err "Missing ${OPENCODE_HOST}/opencode.json (bind-mounted into the container)."
+  echo-err "Run \`chezmoi apply ~/.config/opencode/opencode.json\` to materialize it, then re-run shiki."
   exit 1
 fi
 
