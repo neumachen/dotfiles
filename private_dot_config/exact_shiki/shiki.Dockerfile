@@ -45,7 +45,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 #    devcontainer Dockerfile so the agent has the same operational
 #    surface (shell utilities, optional outbound-firewall tooling). Tools
 #    that are better managed by mise — gh, jq, fzf, vim, delta — are
-#    omitted here and shipped via shiki-mise.toml below.
+#    omitted here and shipped via the mise config under mise/ (config.toml + conf.d/).
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         openssh-client \
@@ -216,23 +216,36 @@ ENV MISE_DATA_DIR=/root/.local/share/mise
 ENV MISE_CACHE_DIR=/root/.cache/mise
 ENV PATH=/usr/local/share/mise/shims:/root/.local/share/mise/shims:${PATH}
 
-RUN mkdir -p "${MISE_CONFIG_DIR}" "${MISE_DATA_DIR}" "${MISE_CACHE_DIR}" /etc/mise \
+RUN mkdir -p "${MISE_CONFIG_DIR}" "${MISE_DATA_DIR}" "${MISE_CACHE_DIR}" \
     && curl -fsSL https://mise.run | MISE_INSTALL_MUSL=1 sh \
     && mise --version \
     && echo 'eval "$(mise activate bash)"' >>/root/.bashrc
 
-# System-wide mise config: the baseline tools every shiki session gets
-# (gh, jq, fzf, vim, delta, plus cluster tooling kubectl/awscli/helm).
-# Installed on first container start by entrypoint.sh into the
-# per-session MISE_DATA_DIR bind mount.
+# Host-mirrored mise config: full toolchain from the host's mise config layout.
+# Loaded from ${MISE_CONFIG_DIR} (=/root/.config/mise) which mise auto-discovers.
+#   - config.toml: language runtimes (go, node, python, ruby, rust, elixir, etc.)
+#     plus mise [settings] (idiomatic version files, npm via bun, etc.)
+#   - conf.d/: backend-grouped tool fragments, loaded alphabetically:
+#       10-registry.toml  – plain names via mise's default registry (gh, jq, fzf, vim, delta, kubectl, awscli, helm, ...)
+#       20-aqua.toml      – aqua: prebuilt binaries (docker/buildx, docker/cli, docker/compose)
+#       30-cargo.toml     – cargo: crates (eza, fd, broot, ...)
+#       40-go.toml        – go: install paths (lazygit, golangci-lint, gopls, ...)
+#       50-npm.toml       – npm: globals (prettier, biome, typescript, ...)
+#       60-github.toml    – github: releases (StyLua, buf, erlang_ls, ...)
+#       70-gem.toml       – gem: ruby gems (bundler, rubocop, ruby-lsp)
+#       80-tasks.toml     – mise tasks (espanso:*, terraform:*)
 #
-# kubectl/awscli/helm are only USEFUL when the session was launched
-# with `shiki --aws-share` and/or `shiki --kube-share` — those flags
-# add the read-only ~/.aws and ~/.kube bind mounts the CLIs need. They
-# are still installed by default so the binaries are ready the moment
-# the operator opts in; the install cost lands in the per-session
-# MISE_DATA_DIR (persisted on the host) so it is paid once per session.
-COPY shiki-mise.toml /etc/mise/config.toml
+# Installed on first container start by entrypoint.sh into the per-session
+# MISE_DATA_DIR bind mount.
+#
+# kubectl/awscli/helm (in conf.d/10-registry.toml) are only USEFUL when the
+# session was launched with `shiki --aws-share` and/or `shiki --kube-share` —
+# those flags add the read-only ~/.aws and ~/.kube bind mounts the CLIs need.
+# They are still installed by default so the binaries are ready the moment
+# the operator opts in; the install cost lands in the per-session MISE_DATA_DIR
+# (persisted on the host) so it is paid once per session.
+COPY mise/config.toml   ${MISE_CONFIG_DIR}/config.toml
+COPY mise/conf.d/       ${MISE_CONFIG_DIR}/conf.d/
 
 # ── 7) Preinstall AiderDesk extensions into the image ─────────────────
 #    The set of extensions and which of them are disabled by default is

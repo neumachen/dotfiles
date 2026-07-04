@@ -19,7 +19,7 @@
 #      (client + server) and `docker compose version` succeed. Skipped
 #      entirely when the flag is not set.
 #   5. Post-mise-install: `gh` is on PATH (delivered by mise via
-#      shiki-mise.toml) and GH_TOKEN + GITHUB_TOKEN are non-empty in
+#      conf.d/10-registry.toml: github-cli) and GH_TOKEN + GITHUB_TOKEN are non-empty in
 #      the environment (injected by the launcher from host
 #      `gh auth token`). Hard-fail if any is missing.
 #
@@ -238,7 +238,7 @@ fi
 echo ""
 
 # ── Install shiki's baseline mise toolchain (gh, jq, fzf, vim, delta) ─
-#    /etc/mise/config.toml is baked into the image; the per-session
+#    ${MISE_CONFIG_DIR}/config.toml + conf.d/ are baked into the image; the per-session
 #    MISE_DATA_DIR bind mount makes installs persistent across container
 #    restarts of the same session. Non-fatal — a flaky first install
 #    shouldn't block the container; rerun `mise install` interactively
@@ -253,7 +253,7 @@ if [ "${SHIKI_SKIP_MISE_INSTALL:-0}" != "1" ] && command -v mise >/dev/null 2>&1
 fi
 
 # ── Check: gh on PATH (required, post-mise) ───────────────────────────
-# `gh` is delivered via mise (shiki-mise.toml: github-cli) and the
+# `gh` is delivered via mise (conf.d/10-registry.toml: github-cli) and the
 # launcher injects GH_TOKEN + GITHUB_TOKEN into the environment. Both
 # need to be present for in-container GitHub operations (release
 # tooling, MCP servers, aider's GitHub integration). Hard-fail if
@@ -266,7 +266,7 @@ fi
 gh_errors=0
 if ! command -v gh >/dev/null 2>&1; then
   echo "FATAL: 'gh' binary not found on PATH." >&2
-  echo "       Expected via mise (shiki-mise.toml: github-cli). Causes:" >&2
+  echo "       Expected via mise (conf.d/10-registry.toml: github-cli). Causes:" >&2
   echo "         • mise install failed earlier in this session" >&2
   echo "         • SHIKI_SKIP_MISE_INSTALL=1 set without gh installed" >&2
   echo "         • PATH does not include mise shims (~/.local/share/mise/shims)" >&2

@@ -1,0 +1,34 @@
+# go: — installed via `go install <path>@<ver>` against mise's managed Go.
+#
+# Conflict-resolved drops (binary provisioned elsewhere — do NOT re-add):
+#   glow      → plain `glow`   (registry, aqua prebuilt)
+#   kind      → plain `kind`   (registry, aqua prebuilt)
+#   usql      → plain `usql`   (registry)
+#   dockerfmt → github:reteps/dockerfmt (prebuilt release)
+[tools]
+"go:github.com/ankitpokhrel/jira-cli/cmd/jira"           = "latest"
+"go:github.com/dualeai/seek/cmd/seek"                    = "latest"
+"go:github.com/go-delve/delve/cmd/dlv"                   = "latest"
+"go:github.com/golangci/golangci-lint/cmd/golangci-lint" = "latest"
+"go:github.com/google/go-jsonnet/cmd/jsonnet"            = "latest"
+"go:github.com/google/go-jsonnet/cmd/jsonnet-deps"       = "latest"
+"go:github.com/google/go-jsonnet/cmd/jsonnet-lint"       = "latest"
+"go:github.com/google/go-jsonnet/cmd/jsonnetfmt"         = "latest"
+"go:github.com/grafana/jsonnet-language-server"          = "latest"
+"go:github.com/hjr265/gittop"                            = "latest"
+"go:github.com/jesseduffield/lazydocker"                 = "latest"
+"go:github.com/jesseduffield/lazygit"                    = "latest"
+"go:github.com/mgechev/revive"                           = "latest"
+"go:github.com/mikefarah/yq/v4"                          = "latest"
+"go:github.com/nametake/golangci-lint-langserver"        = "latest"
+"go:github.com/neur0map/glazepkg/cmd/gpk"                = "latest"
+"go:github.com/noahgorstein/jqp"                         = "latest"
+"go:github.com/segmentio/golines"                        = "latest"
+"go:github.com/unkn0wn-root/resterm/cmd/resterm"         = "latest"
+"go:github.com/wader/jq-lsp"                             = "latest"
+"go:golang.org/x/tools/cmd/godoc"                        = "latest"
+"go:golang.org/x/tools/cmd/goimports"                    = "latest"
+"go:golang.org/x/tools/gopls"                            = "latest"
+"go:gotest.tools/gotestsum"                              = "latest"
+"go:mvdan.cc/gofumpt"                                    = "latest"
+"go:mvdan.cc/sh/v3/cmd/shfmt"                            = "latest"
