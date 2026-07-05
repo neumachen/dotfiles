@@ -136,3 +136,8 @@ _gitignored/
 # Claude Code local settings
 .claude/
 **/.claude/settings.local.json
+
+# Codex CLI local config (chezmoi renders the `dot_codex/` source to the
+# `~/.codex/` target; a literal `.codex/` in a source tree is accidental
+# and must never be tracked).
+.codex/
