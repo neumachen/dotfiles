@@ -280,6 +280,17 @@ function clippaste() {
 # and live in ${ZDOTDIR}/completions/. Regenerate via that script after upgrading
 # any listed tool, or via `chezmoi apply` after editing it.
 
+# magic-enter: pressing Enter on an EMPTY prompt prints a quick status
+# snapshot (dir listing + short git status) instead of a bare new prompt.
+# The upstream default also dumps the AUTO_PUSHD dirstack as its first
+# command; with DIRSTACKSIZE=20 that floods the screen with every repo
+# path visited this session. Override the `commands` zstyle to keep the
+# useful two lines and drop the dirstack noise. Read at Enter-press time,
+# so placement here (after init.zsh) is fine.
+zstyle ':zim:magic-enter' commands \
+  'ls -AF' \
+  'git --no-pager status -sb --untracked-files=no 2>/dev/null'
+
 # fzf-tab recommended: disable zsh's default menu for fzf-tab to take over
 zstyle ':completion:*' menu no
 
