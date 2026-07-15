@@ -105,6 +105,11 @@ MeinCodex/Notizen/Obsidian/Main/dot_obsidian/bookmarks.json
 MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/omnisearch/*.db
 MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/omnisearch/*-cache.*
 
+# Homebrew (~/.config/homebrew/) — Brewfile is tracked; runtime trust/lock state is not.
+.config/homebrew/trust.json
+.config/homebrew/trust.json.lock
+.config/homebrew/Brewfile.lock.json
+
 # Codex (~/.codex/) — config.toml and the <profile>.config.toml files are
 # tracked. Everything below is either a credential, machine-specific state,
 # runtime cache, or a database Codex rewrites on every launch. Patterns are
