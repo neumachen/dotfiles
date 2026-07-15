@@ -1,5 +1,6 @@
 [settings]
 http_timeout = "120s"
+experimental = true
 # Respect idiomatic version files for all language runtimes managed here.
 # This allows .nvmrc, .node-version, .python-version, .ruby-version,
 # .go-version, rust-toolchain.toml, .java-version etc. to be picked up
