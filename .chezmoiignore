@@ -72,6 +72,9 @@ MeinCodex/Notizen/Obsidian/Main/akten/[0-9]*
 MeinCodex/Notizen/Obsidian/Main/zakki/[0-9]*
 MeinCodex/Notizen/Obsidian/Main/kadai/[0-9]*
 MeinCodex/Notizen/Obsidian/Main/assets/**
+# Home.md is the vault landing-page note (dashboard). It is content owned by the
+# vault's own git repo (like akten/zakki/kadai notes), not chezmoi-managed config.
+MeinCodex/Notizen/Obsidian/Main/Home.md
 
 # Obsidian plugin compiled/bundled files — downloaded by Obsidian on first launch, not tracked.
 # manifest.json (tracked) is sufficient for Obsidian to detect and download missing plugins.

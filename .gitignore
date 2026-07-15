@@ -12,6 +12,9 @@ MeinCodex/Notizen/Obsidian/Main/kadai/*
 !MeinCodex/Notizen/Obsidian/Main/kadai/.gitkeep
 !MeinCodex/Notizen/Obsidian/Main/kadai/_bases/
 MeinCodex/Notizen/Obsidian/Main/assets/
+# Home.md is the vault landing-page note (dashboard). It is content owned by the
+# vault's own git repo (like akten/zakki/kadai notes), not chezmoi-managed config.
+MeinCodex/Notizen/Obsidian/Main/Home.md
 
 # Obsidian plugin compiled files — downloaded by Obsidian on first launch, not tracked in git.
 # Exception: local-only plugins (those not in the community store) must ship their
