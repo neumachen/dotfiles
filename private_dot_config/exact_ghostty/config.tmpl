@@ -27,13 +27,25 @@ cursor-style-blink = false
 
 # Window — zero padding to match WezTerm window_padding (all 0) and Kitty
 # window_padding_width 0. Fully opaque, matching window_background_opacity = 1.0.
-# No OS title bar, matching Kitty hide_window_decorations and WezTerm's
-# integrated-titlebar setup (window_decorations = INTEGRATED_BUTTONS|RESIZE).
 window-padding-x = 0
 window-padding-y = 0
 background-opacity = 1
-window-decoration = false
 mouse-hide-while-typing = true
+
+# Window decoration / titlebar is OS-specific:
+#   - macOS: native tabs live in the titlebar, so decoration MUST be enabled
+#     for Cmd-T tabs to work. `macos-titlebar-style = tabs` gives the compact
+#     integrated tabs-in-titlebar look (closest to a borderless aesthetic while
+#     keeping working tabs). See Ghostty issue #8264.
+#   - Linux/GTK: keep it borderless (matching Kitty hide_window_decorations /
+#     WezTerm integrated titlebar); GTK tabs work via gtk-tabs-location below
+#     regardless of decoration.
+{{ if eq .chezmoi.os "darwin" -}}
+window-decoration = true
+macos-titlebar-style = tabs
+{{- else -}}
+window-decoration = false
+{{- end }}
 
 # Quit/close without the confirmation prompt.
 confirm-close-surface = false
