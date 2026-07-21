@@ -1,0 +1,53 @@
+#compdef tmx
+# Completion for `tmx` (~/.local/bin/tmx), the tmux launcher.
+#
+# Design:
+#   - At the FIRST argument position, offer a small CURATED shortlist of the
+#     session-management subcommands actually used with a launcher, plus tmx's
+#     own -k/--kill kill-picker flag. This avoids dumping all ~175 tmux
+#     subcommands+flags (which triggers zsh-autocomplete's "list all N?" prompt).
+#   - The full `_tmux` completer is used as a CONDITIONAL fallback: it runs only
+#     when the curated shortlist matches nothing the user typed (e.g.
+#     `dis`<TAB> -> display-message). `_describe` returns non-zero when it adds
+#     no matches, so `_describe ... && return 0` stops on a shortlist hit and
+#     otherwise falls through to `_tmux`.
+#   - For every later position, defer entirely to `_tmux` so per-subcommand
+#     flags and live session-name completion (`tmx attach -t <TAB>`) work
+#     exactly like real tmux.
+#
+# The fzf pickers in the tmx script itself are a separate, runtime concern and
+# are unaffected by this completion — they fire when tmx is run with no args
+# (attach/create picker) or with -k (kill picker).
+
+_tmx() {
+  if (( CURRENT == 2 )); then
+    local -a tmx_flags common_cmds
+    tmx_flags=(
+      '-k:fzf multi-select kill-session picker'
+      '--kill:fzf multi-select kill-session picker'
+    )
+    common_cmds=(
+      'attach:attach to an existing session (attach-session)'
+      'new:create a new session (new-session)'
+      'new-session:create a new session'
+      'kill-session:kill a session'
+      'kill-server:kill the tmux server and all sessions'
+      'ls:list sessions (list-sessions)'
+      'list-sessions:list sessions'
+      'switch-client:switch the attached client to another session'
+      'rename-session:rename a session'
+    )
+    # Curated shortlist first; stop as soon as one of them matches. Only if
+    # NEITHER matches the typed prefix do we fall through to the full tmux
+    # completer (so e.g. `dis`<TAB> -> display-message still works).
+    _describe -t tmx-flags 'tmx option' tmx_flags && return 0
+    _describe -t tmux-common 'common tmux command' common_cmds && return 0
+    _tmux "$@"
+    return
+  fi
+
+  # Later positions: full real tmux completion (flags, live session names, …).
+  _tmux "$@"
+}
+
+_tmx "$@"

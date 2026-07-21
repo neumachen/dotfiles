@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+#
+# tmx - interactive tmux session picker (attach-or-create) with kill mode.
+#
+# Behavior:
+#   - `-k` or `--kill` as FIRST arg -> fzf multi-select kill picker (replaces
+#     the old `fztmux` script); select one or more sessions, each is killed.
+#   - already inside tmux ($TMUX set) -> pass through to real tmux
+#   - any args given (e.g. `tmx ls`, `tmx kill-server`) -> pass through to real tmux
+#   - no args, outside tmux -> fzf picker of existing sessions plus
+#     "new session" and "new named session" entries; falls back to a plain
+#     numbered `select` menu when fzf is unavailable.
+#
+# Both `tmx` and the interactive `tmux` alias (defined in .zshrc) route here.
+# Using `-k` for kill deliberately keeps real `tmux kill-server`/`kill-session`
+# subcommands passing straight through the alias.
+
+set -o pipefail
+if [[ -n "$DEBUG" ]]; then
+  set -x
+fi
+
+fail() {
+  printf '%s\n' "$1" >&2
+  exit "${2:-1}"
+}
+
+has() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+has tmux || fail "Can't find tmux in \$PATH"
+
+# --------------------------------------------------------------------------
+# Kill mode: -k / --kill
+# --------------------------------------------------------------------------
+if [[ "$1" == "-k" || "$1" == "--kill" ]]; then
+  shift
+
+  sessions=()
+  while IFS= read -r line; do
+    sessions+=("$line")
+  done < <(tmux list-sessions 2>/dev/null)
+
+  if [[ ${#sessions[@]} -eq 0 ]]; then
+    printf '%s\n' "No tmux sessions running."
+    exit 0
+  fi
+
+  if has fzf; then
+    # fzf multi-select; parse session name from "name: ..." lines
+    selected="$(printf '%s\n' "${sessions[@]}" | fzf --multi --exit-0 \
+      --prompt='Kill session(s) > ' --height=40% --reverse \
+      --header='Tab: multi-select · Enter: kill · Esc: cancel')" || exit 0
+    while IFS= read -r line; do
+      [[ -z "$line" ]] && continue
+      name="${line%%:*}"
+      printf '%s\n' "Killing $name"
+      tmux kill-session -t "$name"
+    done <<< "$selected"
+  else
+    # Fallback: numbered select, kill one session
+    PS3='Kill session (number): '
+    select line in "${sessions[@]}"; do
+      if [[ -n "$line" ]]; then
+        name="${line%%:*}"
+        printf '%s\n' "Killing $name"
+        tmux kill-session -t "$name"
+        break
+      fi
+    done
+  fi
+  exit 0
+fi
+
+# --------------------------------------------------------------------------
+# Pass-through: inside tmux or args supplied
+# --------------------------------------------------------------------------
+if [[ -n "$TMUX" ]] || (( $# > 0 )); then
+  exec tmux "$@"
+fi
+
+# --------------------------------------------------------------------------
+# Default: attach-or-create picker
+# --------------------------------------------------------------------------
+sessions=()
+while IFS= read -r name; do
+  [[ -n "$name" ]] && sessions+=("$name")
+done < <(tmux list-sessions -F '#{session_name}' 2>/dev/null)
+
+new_entry="＋ new session"
+named_entry="＋ new named session…"
+choice=""
+
+if has fzf; then
+  choice="$(
+    { printf '%s\n' "$new_entry" "$named_entry"; printf '%s\n' "${sessions[@]}"; } \
+      | awk 'NF' \
+      | fzf --prompt='tmux session > ' --height=40% --reverse \
+            --header='Enter: attach/create · Esc: cancel'
+  )"
+else
+  # Fallback: plain numbered menu
+  PS3='tmux session (number): '
+  select choice in "$new_entry" "$named_entry" "${sessions[@]}"; do
+    [[ -n "$choice" ]] && break
+  done
+fi
+
+# Cancelled (Esc / EOF / empty selection): do nothing, stay in shell.
+[[ -z "$choice" ]] && exit 0
+
+case "$choice" in
+  "$new_entry")
+    exec tmux new-session
+    ;;
+  "$named_entry")
+    read -r -p "New session name: " name
+    [[ -z "$name" ]] && exit 0
+    exec tmux new-session -A -s "$name"
+    ;;
+  *)
+    exec tmux attach -t "$choice"
+    ;;
+esac
