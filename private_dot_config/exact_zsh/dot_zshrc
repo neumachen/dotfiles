@@ -12,45 +12,6 @@ source "${XDG_CONFIG_HOME:-$HOME/.config}/sh/lib.sh"
 command_exists() { (( $+commands[$1] )); }
 
 #############################
-# tmux auto-start (opt-in, attach-or-create)
-#############################
-#
-# Disabled by default. Enable per-host or per-terminal by exporting
-# ZSH_TMUX_AUTOSTART=1 (e.g. in dot_zprofile.tmpl, or via Ghostty's
-# `command = env ZSH_TMUX_AUTOSTART=1 zsh -l`).
-#
-# Guards, in order:
-#   - interactive shells only (never CI / scripts / `ghostty +validate-config`)
-#   - opt-in via ZSH_TMUX_AUTOSTART
-#   - tmux must be installed
-#   - skip if already inside tmux (no nested sessions)
-#   - skip over SSH unless ZSH_TMUX_AUTOSTART_SSH=1 (avoid surprising remote logins)
-#   - if ZSH_TMUX_AUTOSTART_GHOSTTY_ONLY=1, only fire inside Ghostty
-#
-# `exec` replaces this shell with tmux so exiting tmux closes the window
-# cleanly. `new-session -A -s <name>` attaches to the session if it exists,
-# otherwise creates it.
-if [[ -o interactive ]] \
-  && [[ "${ZSH_TMUX_AUTOSTART:-0}" == "1" ]] \
-  && command_exists tmux \
-  && [[ -z "$TMUX" ]]; then
-  _zsh_tmux_ok=1
-  # Don't hijack SSH logins unless explicitly opted in.
-  if [[ -n "${SSH_TTY:-}${SSH_CONNECTION:-}" && "${ZSH_TMUX_AUTOSTART_SSH:-0}" != "1" ]]; then
-    _zsh_tmux_ok=0
-  fi
-  # Optionally restrict auto-start to Ghostty only.
-  if [[ "${ZSH_TMUX_AUTOSTART_GHOSTTY_ONLY:-0}" == "1" && -z "${GHOSTTY_RESOURCES_DIR:-}" ]]; then
-    _zsh_tmux_ok=0
-  fi
-  if [[ "$_zsh_tmux_ok" == "1" ]]; then
-    unset _zsh_tmux_ok
-    exec tmux new-session -A -s "${ZSH_TMUX_AUTOSTART_SESSION:-main}"
-  fi
-  unset _zsh_tmux_ok
-fi
-
-#############################
 # zsh-vi-mode Configuration (MUST be before zimfw bootstrap)
 # zvm_config() is called by zsh-vi-mode during its own sourcing inside
 # init.zsh. With ZVM_INIT_MODE=sourcing the call happens synchronously,

@@ -187,16 +187,6 @@ fi
 # GPG TTY for signing (required when gpg installed via brew)
 [[ -z "${GPG_TTY}" ]] && export GPG_TTY=$(command tty 2>/dev/null)
 
-# tmux auto-start — enabled by default, scoped to Ghostty only.
-# The attach-or-create logic lives in .zshrc and keys off these vars.
-# ZSH_TMUX_AUTOSTART turns the feature on; ZSH_TMUX_AUTOSTART_GHOSTTY_ONLY
-# restricts it to Ghostty (detected via $GHOSTTY_RESOURCES_DIR), so WezTerm
-# and every other terminal are structurally excluded. Override per-session
-# by exporting ZSH_TMUX_AUTOSTART=0 before launching the shell.
-export ZSH_TMUX_AUTOSTART=1
-export ZSH_TMUX_AUTOSTART_GHOSTTY_ONLY=1
-
-
 {{- if (hasKey . "envvars") }}
 {{ range .envvars }}
 export {{ . }}
