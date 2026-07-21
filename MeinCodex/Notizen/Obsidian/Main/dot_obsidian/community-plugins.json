@@ -5,10 +5,7 @@
   "nldates-obsidian",
   "omnisearch",
   "obsidian-style-settings",
-  "mysnippets-plugin",
-  "obsidian-editor-shortcuts",
   "obsidian-plugin-update-tracker",
-  "settings-search",
   "tag-wrangler",
   "homepage",
   "templater-obsidian",
@@ -20,5 +17,6 @@
   "shiki-highlighter",
   "quickadd",
   "mein-codex-sync",
-  "obsidian-git"
+  "obsidian-git",
+  "better-export-pdf"
 ]
