@@ -77,6 +77,6 @@
   "wezterm-types": { "branch": "main", "commit": "4d1caf27e61b4fb87ed855e2036a651a7db07b46" },
   "which-key.nvim": { "branch": "main", "commit": "3aab2147e74890957785941f0c1ad87d0a44c15a" },
   "window-picker": { "branch": "main", "commit": "6382540b2ae5de6c793d4aa2e3fe6dbb518505ec" },
-  "yank-path.nvim": { "branch": "main", "commit": "7727d3a2a53853c4a04582f13cd9341a1901e961" },
+  "yank-path.nvim": { "branch": "main", "commit": "0fd02f21584e1967495bb45763e148dc2137b0d9" },
   "yazi.nvim": { "branch": "main", "commit": "8d6c25cb4e7c5702d6cd5a263cb36129fa78aa4c" }
 }
