@@ -20,11 +20,26 @@
 # (attach/create picker) or with -k (kill picker).
 
 _tmx() {
+  # `tmx -r <TAB>` / `tmx --restore <TAB>`: complete saved session names read
+  # straight from the last tmux-resurrect snapshot (works even with no server).
+  if (( CURRENT == 3 )) && [[ "${words[2]}" == "-r" || "${words[2]}" == "--restore" ]]; then
+    local resurrect_last saved_sessions
+    resurrect_last="${XDG_DATA_HOME:-$HOME/.local/share}/tmux/resurrect/last"
+    [[ -r "$resurrect_last" ]] || resurrect_last="$HOME/.tmux/resurrect/last"
+    if [[ -r "$resurrect_last" ]]; then
+      saved_sessions=(${(f)"$(awk -F '\t' '($1 == "pane" || $1 == "window") { print $2 }' "$resurrect_last" | sort -u)"})
+      _describe -t saved-sessions 'saved tmux session' saved_sessions && return 0
+    fi
+    return
+  fi
+
   if (( CURRENT == 2 )); then
     local -a tmx_flags common_cmds
     tmx_flags=(
       '-k:fzf multi-select kill-session picker'
       '--kill:fzf multi-select kill-session picker'
+      '-r:opt-in resurrect restore (optionally a saved session name)'
+      '--restore:opt-in resurrect restore (optionally a saved session name)'
     )
     common_cmds=(
       'attach:attach to an existing session (attach-session)'

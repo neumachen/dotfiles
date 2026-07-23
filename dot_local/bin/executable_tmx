@@ -1,19 +1,30 @@
 #!/usr/bin/env bash
 #
-# tmx - interactive tmux session picker (attach-or-create) with kill mode.
+# tmx - interactive tmux session picker (attach-or-create) with kill mode
+#       and opt-in, name-scoped tmux-resurrect resume.
 #
 # Behavior:
-#   - `-k` or `--kill` as FIRST arg -> fzf multi-select kill picker (replaces
-#     the old `fztmux` script); select one or more sessions, each is killed.
+#   - `-k` / `--kill` as FIRST arg -> fzf multi-select kill picker.
+#   - `-r` / `--restore [name]` as FIRST arg -> opt-in resurrect restore.
+#       * with a name: restore ONLY that saved session, then attach.
+#       * without a name: full tmux-resurrect restore (all saved sessions),
+#         then attach the snapshot's active session.
 #   - already inside tmux ($TMUX set) -> pass through to real tmux
-#   - any args given (e.g. `tmx ls`, `tmx kill-server`) -> pass through to real tmux
-#   - no args, outside tmux -> fzf picker of existing sessions plus
-#     "new session" and "new named session" entries; falls back to a plain
-#     numbered `select` menu when fzf is unavailable.
+#   - any other args (e.g. `tmx ls`, `tmx kill-server`) -> pass through to tmux
+#   - no args, outside tmux -> fzf picker of live sessions, plus saved
+#     (offline) sessions from the last resurrect snapshot shown as
+#     "↻ resume: <name>", plus "new session" / "new named session" entries.
+#
+# Resume model (paired with `@continuum-restore 'off'` in ~/.tmux.conf):
+#   Nothing is auto-restored on boot. A saved session is only brought back when
+#   you (a) reuse its exact name via "new named session", (b) pick its
+#   "↻ resume:" entry, or (c) run `tmx -r <name>`. Per-session restore filters
+#   the snapshot into a temp dir and points @resurrect-dir at it for a single
+#   restore, so the real save history is never mutated.
 #
 # Both `tmx` and the interactive `tmux` alias (defined in .zshrc) route here.
-# Using `-k` for kill deliberately keeps real `tmux kill-server`/`kill-session`
-# subcommands passing straight through the alias.
+# Using `-k` for kill and `-r` for restore deliberately keeps real tmux
+# subcommands (kill-server, kill-session, …) passing straight through.
 
 set -o pipefail
 if [[ -n "$DEBUG" ]]; then
@@ -30,6 +41,58 @@ has() {
 }
 
 has tmux || fail "Can't find tmux in \$PATH"
+
+# --------------------------------------------------------------------------
+# tmux-resurrect helpers
+# --------------------------------------------------------------------------
+resurrect_dir() {
+  local d="${XDG_DATA_HOME:-$HOME/.local/share}/tmux/resurrect"
+  [[ -d "$d" ]] || d="$HOME/.tmux/resurrect"
+  printf '%s\n' "$d"
+}
+
+resurrect_restore_script() {
+  printf '%s\n' "$HOME/.tmux/plugins/tmux-resurrect/scripts/restore.sh"
+}
+
+# Unique session names present in the last resurrect snapshot.
+resurrect_saved_sessions() {
+  local last
+  last="$(resurrect_dir)/last"
+  [[ -r "$last" ]] || return 0
+  awk -F '\t' '($1 == "pane" || $1 == "window") { print $2 }' "$last" | sort -u
+}
+
+# Succeeds if $1 is a session name present in the snapshot.
+resurrect_has_session() {
+  local target="$1" s
+  while IFS= read -r s; do
+    [[ "$s" == "$target" ]] && return 0
+  done < <(resurrect_saved_sessions)
+  return 1
+}
+
+# Restore ONLY the named session from the snapshot. Filters the snapshot into a
+# private temp dir and points @resurrect-dir there for one restore, leaving the
+# real save history untouched. The session is created detached; the caller is
+# responsible for attaching.
+resurrect_restore_session() {
+  local target="$1" last restore tmpdir
+  last="$(resurrect_dir)/last"
+  restore="$(resurrect_restore_script)"
+  [[ -r "$last" && -x "$restore" ]] || return 1
+  tmpdir="$(mktemp -d "${TMPDIR:-/tmp}/tmx-resurrect.XXXXXX")" || return 1
+  awk -F '\t' -v s="$target" \
+    '($1 == "pane" || $1 == "window") && $2 == s' "$last" > "$tmpdir/last"
+  if [[ ! -s "$tmpdir/last" ]]; then
+    rm -rf "$tmpdir"
+    return 1
+  fi
+  tmux set-option -g @resurrect-dir "$tmpdir"
+  "$restore"
+  tmux set-option -gu @resurrect-dir
+  rm -rf "$tmpdir"
+}
 
 # --------------------------------------------------------------------------
 # Kill mode: -k / --kill
@@ -74,6 +137,32 @@ if [[ "$1" == "-k" || "$1" == "--kill" ]]; then
 fi
 
 # --------------------------------------------------------------------------
+# Opt-in resume mode: -r / --restore [name]
+# --------------------------------------------------------------------------
+if [[ "$1" == "-r" || "$1" == "--restore" ]]; then
+  shift
+  restore="$(resurrect_restore_script)"
+  [[ -x "$restore" ]] || fail "tmux-resurrect restore script not found."
+
+  if [[ -n "$1" ]]; then
+    # Restore only the named session, then attach to it.
+    resurrect_has_session "$1" || fail "No saved session named '$1'."
+    resurrect_restore_session "$1" || fail "Failed to restore session '$1'."
+    [[ -z "$TMUX" ]] && exec tmux attach -t "$1"
+    exit 0
+  fi
+
+  # Full restore (all saved sessions).
+  "$restore"
+  if [[ -z "$TMUX" ]]; then
+    active="$(awk -F '\t' '$1 == "state" { print $2; exit }' "$(resurrect_dir)/last" 2>/dev/null)"
+    [[ -n "$active" ]] && exec tmux attach -t "$active"
+    exec tmux attach
+  fi
+  exit 0
+fi
+
+# --------------------------------------------------------------------------
 # Pass-through: inside tmux or args supplied
 # --------------------------------------------------------------------------
 if [[ -n "$TMUX" ]] || (( $# > 0 )); then
@@ -81,12 +170,21 @@ if [[ -n "$TMUX" ]] || (( $# > 0 )); then
 fi
 
 # --------------------------------------------------------------------------
-# Default: attach-or-create picker
+# Default: attach-or-create picker (+ opt-in resume of saved sessions)
 # --------------------------------------------------------------------------
 sessions=()
 while IFS= read -r name; do
   [[ -n "$name" ]] && sessions+=("$name")
 done < <(tmux list-sessions -F '#{session_name}' 2>/dev/null)
+
+# Saved-but-not-live sessions available to resume from the last snapshot.
+resume_prefix="↻ resume: "
+saved=()
+while IFS= read -r s; do
+  [[ -z "$s" ]] && continue
+  tmux has-session -t "=$s" 2>/dev/null && continue
+  saved+=("$resume_prefix$s")
+done < <(resurrect_saved_sessions)
 
 new_entry="＋ new session"
 named_entry="＋ new named session…"
@@ -94,15 +192,17 @@ choice=""
 
 if has fzf; then
   choice="$(
-    { printf '%s\n' "$new_entry" "$named_entry"; printf '%s\n' "${sessions[@]}"; } \
+    { printf '%s\n' "$new_entry" "$named_entry"
+      printf '%s\n' "${sessions[@]}"
+      printf '%s\n' "${saved[@]}"; } \
       | awk 'NF' \
       | fzf --prompt='tmux session > ' --height=40% --reverse \
-            --header='Enter: attach/create · Esc: cancel'
+            --header='Enter: attach/create/resume · Esc: cancel'
   )"
 else
   # Fallback: plain numbered menu
   PS3='tmux session (number): '
-  select choice in "$new_entry" "$named_entry" "${sessions[@]}"; do
+  select choice in "$new_entry" "$named_entry" "${sessions[@]}" "${saved[@]}"; do
     [[ -n "$choice" ]] && break
   done
 fi
@@ -117,7 +217,25 @@ case "$choice" in
   "$named_entry")
     read -r -p "New session name: " name
     [[ -z "$name" ]] && exit 0
-    exec tmux new-session -A -s "$name"
+    # Reuse-by-name resume: live -> attach; saved -> restore just that one and
+    # attach; otherwise create fresh.
+    if tmux has-session -t "=$name" 2>/dev/null; then
+      exec tmux attach -t "$name"
+    elif resurrect_has_session "$name"; then
+      resurrect_restore_session "$name" || exec tmux new-session -A -s "$name"
+      exec tmux attach -t "$name"
+    else
+      exec tmux new-session -A -s "$name"
+    fi
+    ;;
+  "$resume_prefix"*)
+    name="${choice#"$resume_prefix"}"
+    if tmux has-session -t "=$name" 2>/dev/null; then
+      exec tmux attach -t "$name"
+    else
+      resurrect_restore_session "$name" || fail "Failed to restore session '$name'."
+      exec tmux attach -t "$name"
+    fi
     ;;
   *)
     exec tmux attach -t "$choice"
