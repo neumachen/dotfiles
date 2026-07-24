@@ -66,7 +66,18 @@ return {
           'fileformat',
           'filetype',
         },
-        lualine_y = { 'progress' },
+        lualine_y = {
+          {
+            function()
+              return '󰉿 ' .. vim.fn.wordcount().visual_chars
+            end,
+            cond = function()
+              local m = vim.fn.mode()
+              return m == 'v' or m == 'V' or m == '\22' -- charwise, linewise, blockwise visual
+            end,
+          },
+          'progress',
+        },
         lualine_z = { 'location' },
       },
       inactive_sections = {
