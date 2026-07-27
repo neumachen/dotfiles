@@ -21,7 +21,6 @@
 "npm:biome"                        = "latest"
 "npm:cspell"                       = "latest"
 "npm:oxlint"                       = "latest"
-"npm:pake-cli"                     = "latest"
 "npm:pnpm"                         = "latest"
 "npm:prettier"                     = "latest"
 "npm:rustywind"                    = "latest"

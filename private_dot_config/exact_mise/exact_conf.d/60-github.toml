@@ -17,6 +17,7 @@
 # resolvable on $PATH. Revisit if upstream starts publishing release binaries
 # or a mise registry/aqua route appears.
 # misc
+"github:Dicklesworthstone/destructive_command_guard" = { version = "latest", bin = "dcg" }
 "github:dlvhdr/gh-dash"  = "latest"
 "github:marph91/jimmy"   = "latest"
 "github:mr-karan/doggo"  = "latest"
