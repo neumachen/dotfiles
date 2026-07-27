@@ -14,6 +14,11 @@ set -u
 ZSH_COMP_DIR="${ZDOTDIR:-$HOME/.config/zsh}/completions"
 mkdir -p "$ZSH_COMP_DIR"
 
+# Remove stale generated completions for tools that have been consolidated or
+# renamed so they disappear on the next regen.
+rm -f "$ZSH_COMP_DIR"/_dots "$ZSH_COMP_DIR"/_fzbrew "$ZSH_COMP_DIR"/_dotfiles \
+  "$ZSH_COMP_DIR"/_dots.zwc "$ZSH_COMP_DIR"/_fzbrew.zwc "$ZSH_COMP_DIR"/_dotfiles.zwc
+
 have() { command -v "$1" >/dev/null 2>&1; }
 
 generate() {
@@ -34,7 +39,7 @@ generate() {
 have aider && generate _aider aider --shell-completion zsh
 have chezmoi && generate _chezmoi chezmoi completion zsh
 have codex && generate _codex codex completion zsh
-have dcg && generete _dcg dcg completion zsh
+have dcg && generate _dcg dcg completion zsh
 have gh && generate _gh gh completion -s zsh
 have helm && generate _helm helm completion zsh
 have istioctl && generate _istioctl istioctl completion zsh
@@ -61,17 +66,29 @@ generate_inline() {
   printf '  generated  %s\n' "$out"
 }
 
-have fzbrew && generate_inline _fzbrew <<'EOF'
-#compdef fzbrew
-_fzbrew() {
+have dotb && generate_inline _dotb <<'EOF'
+#compdef dotb
+_dotb() {
   local -a commands=(
-    'install:Select one or more formulae to install'
-    'uninstall:Select one or more installed formulae to uninstall'
-    'update:Select one or more installed formulae to upgrade'
+    'install:Search and install formulae/casks'
+    'uninstall:Uninstall selected formulae'
+    'upgrade:Upgrade selected outdated packages (list|all subcommands)'
+    'purge:Zap selected packages (--force --zap)'
   )
-  _describe -t commands 'fzbrew command' commands
+  _describe -t commands 'dotb command' commands
 }
-_fzbrew "$@"
+_dotb "$@"
+EOF
+
+have dotm && generate_inline _dotm <<'EOF'
+#compdef dotm
+_dotm() {
+  local -a commands=(
+    'upgrade:Upgrade outdated tools (list subcommand available)'
+  )
+  _describe -t commands 'dotm command' commands
+}
+_dotm "$@"
 EOF
 
 have fzdocker && generate_inline _fzdocker <<'EOF'
@@ -88,11 +105,12 @@ _fzdocker() {
 _fzdocker "$@"
 EOF
 
-have dots && generate_inline _dots <<'EOF'
-#compdef dots
-_dots() {
+have dotc && generate_inline _dotc <<'EOF'
+#compdef dotc
+_dotc() {
   local -a commands=(
-    'apply:Show diff and apply changes locally'
+    'apply:Apply changes (fzf picker; --all for bulk)'
+    're-add:Re-add modified managed files (fzf picker)'
     'update:Pull updates and apply changes'
     'init:Initialize chezmoi (first-time setup)'
     'diff:Show pending changes'
@@ -114,6 +132,7 @@ _dots() {
     '--recursive[Use --recursive flag]'
     '-h[Show help]'
     '--help[Show help]'
+    '--all[Apply all pending changes (bulk mode)]'
   )
   _arguments -s \
     '1:command:->commands' \
@@ -121,14 +140,14 @@ _dots() {
 
   case "$state" in
     commands)
-      _describe -t commands 'dots command' commands
+      _describe -t commands 'dotc command' commands
       ;;
     options)
-      _describe -t options 'dots option' options
+      _describe -t options 'dotc option' options
       ;;
   esac
 }
-_dots "$@"
+_dotc "$@"
 EOF
 
 # Pre-compile to .zwc so the first compinit doesn't pay the parse cost.

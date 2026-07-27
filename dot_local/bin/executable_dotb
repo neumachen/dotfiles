@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+#
+# dotb - fzf-powered Homebrew helper
+#
+# Consolidates: fzbrew (install/uninstall/upgrade) and update-brew-packages.
+
+set -o pipefail
+if [[ -n "$DEBUG" ]]; then
+  set -x
+fi
+
+fail() {
+  printf '%s\n' "$1" >&2
+  exit "${2-1}"
+}
+
+has() {
+  command -v "$@" > /dev/null 2>&1
+}
+
+if ! has brew; then
+  fail "Can't find brew in your PATH"
+fi
+
+usage() {
+  cat <<'USAGE'
+Usage: dotb <command>
+
+Commands:
+  install [query]   Search and install one or more formulae/casks
+  uninstall         Uninstall one or more selected leaf formulae
+  upgrade           Upgrade selected outdated packages (fzf picker)
+  upgrade list      List outdated formulae and casks
+  upgrade all       Upgrade everything that is outdated
+  purge             Zap selected packages (--force --zap; requires confirm)
+USAGE
+}
+
+cmd_install() {
+  local inst
+  # shellcheck disable=SC2068
+  inst=$(brew search $@ | fzf --multi --cycle --reverse --preview 'brew info {}')
+  if [[ -n $inst ]]; then
+    for prog in $inst; do
+      brew install "$prog"
+    done
+  fi
+}
+
+cmd_uninstall() {
+  local uninst
+  uninst=$(brew leaves | fzf --multi --cycle --reverse --preview 'brew info {}')
+  if [[ -n $uninst ]]; then
+    for prog in $uninst; do
+      brew uninstall "$prog"
+    done
+  fi
+}
+
+cmd_upgrade() {
+  local sub="${1:-}"
+  case "$sub" in
+    list)
+      brew outdated --verbose
+      ;;
+    all)
+      brew upgrade
+      ;;
+    "")
+      local outdated sel
+      outdated=$(brew outdated)
+      if [[ -z $outdated ]]; then
+        printf '%s\n' "Everything is up to date. 🎉"
+        return 0
+      fi
+      sel=$(printf '%s\n' "$outdated" | fzf --multi --cycle --reverse --preview 'brew info {}')
+      if [[ -n $sel ]]; then
+        for prog in $sel; do
+          brew upgrade "$prog"
+        done
+      fi
+      ;;
+    *)
+      usage
+      exit 1
+      ;;
+  esac
+}
+
+cmd_purge() {
+  local sel
+  sel=$(brew leaves | fzf --multi --cycle --reverse --preview 'brew info {}')
+  if [[ -n $sel ]]; then
+    local list="${sel//$'\n'/, }"
+    if confirm "Zap (remove all files + app data) for: ${list}?"; then
+      # shellcheck disable=SC2086
+      brew uninstall --force --zap $sel
+    fi
+  fi
+}
+
+case "${1:-}" in
+  install)   shift; cmd_install "$@" ;;
+  uninstall) shift; cmd_uninstall "$@" ;;
+  upgrade)   shift; cmd_upgrade "$@" ;;
+  purge)     shift; cmd_purge "$@" ;;
+  -h|--help) usage ;;
+  *)         usage; exit 1 ;;
+esac

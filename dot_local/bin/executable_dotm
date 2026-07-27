@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+#
+# dotm - fzf-powered mise helper
+#
+# Manage outdated mise-managed tools.
+
+set -o pipefail
+if [[ -n "$DEBUG" ]]; then
+  set -x
+fi
+
+fail() {
+  printf '%s\n' "$1" >&2
+  exit "${2-1}"
+}
+
+has() {
+  command -v "$@" > /dev/null 2>&1
+}
+
+if ! has mise; then
+  fail "Can't find mise in your PATH"
+fi
+
+usage() {
+  cat <<'USAGE'
+Usage: dotm <command>
+
+Commands:
+  upgrade        Upgrade selected outdated tools (fzf picker)
+  upgrade list   List outdated tools (tool / requested / current / latest)
+USAGE
+}
+
+cmd_upgrade() {
+  local sub="${1:-}"
+  case "$sub" in
+    list)
+      mise outdated
+      ;;
+    "")
+      local tools sel
+      tools=$(mise outdated 2>/dev/null | awk 'NF {print $1}')
+      if [[ -z $tools ]]; then
+        printf '%s\n' "All mise tools are up to date. 🎉"
+        return 0
+      fi
+      sel=$(printf '%s\n' "$tools" | fzf --multi --cycle --reverse --preview 'mise ls {1}')
+      if [[ -n $sel ]]; then
+        for tool in $sel; do
+          mise upgrade "$tool"
+        done
+      fi
+      ;;
+    *)
+      usage
+      exit 1
+      ;;
+  esac
+}
+
+case "${1:-}" in
+  upgrade)   shift; cmd_upgrade "$@" ;;
+  -h|--help) usage ;;
+  *)         usage; exit 1 ;;
+esac

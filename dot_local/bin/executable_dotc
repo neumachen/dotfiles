@@ -99,7 +99,9 @@ usage="Wrapper for chezmoi dotfile manager with sensible defaults.
 
 Usage:
   $(basename "$0") -h | --help                Show usage and exit.
-  $(basename "$0") apply [OPTIONS]            Show diff and apply changes locally.
+  $(basename "$0") apply [OPTIONS]            Pick files (fzf) and apply changes.
+  $(basename "$0") apply --all [OPTIONS]      Show diff and apply everything.
+  $(basename "$0") re-add [OPTIONS]           Pick modified managed files and re-add.
   $(basename "$0") update [OPTIONS]           Pull updates and apply changes.
   $(basename "$0") init [OPTIONS]             Initialize chezmoi (first-time setup).
   $(basename "$0") diff                       Show pending changes.
@@ -107,9 +109,12 @@ Usage:
   $(basename "$0") verify                     Verify dotfiles are up to date.
   $(basename "$0") add <file>...              Add files to chezmoi.
   $(basename "$0") edit <file>                Edit a chezmoi-managed file.
+  $(basename "$0") cd                         Change to chezmoi source directory.
   $(basename "$0") <any chezmoi command>      Passthrough to chezmoi.
 
 Options:
+  --all                 For 'apply': apply all pending changes (bulk mode)
+                        instead of the interactive fzf picker.
   --noconfirm, --yes    Skip confirmation prompt.
   --override            Override all safety checks: enables --force, --keep-going,
                         --recursive, and skips confirmation. Use when you want to
@@ -133,9 +138,11 @@ Flag Behavior:
   --refresh-externals   Re-download external files (used in update).
 
 Examples:
-  $(basename "$0") apply                      # Interactive apply with defaults
-  $(basename "$0") apply --noconfirm          # Apply without confirmation
-  $(basename "$0") apply --override           # Force apply, skip all checks
+  $(basename "$0") apply                      # Pick files with fzf and apply
+  $(basename "$0") apply --all                # Apply everything (bulk)
+  $(basename "$0") apply --all --noconfirm    # Apply everything without confirmation
+  $(basename "$0") apply --all --override     # Force apply, skip all checks
+  $(basename "$0") re-add                      # Pick modified files and re-add to source
   $(basename "$0") update                     # Pull and apply updates
   $(basename "$0") update --override          # Force update, ignore conflicts
   $(basename "$0") update --no-force          # Pull and apply without --force
@@ -160,11 +167,15 @@ use_keep_going="$DOTFILES_KEEP_GOING"
 use_recursive="$DOTFILES_RECURSIVE"
 noconfirm="false"
 override_mode="false"
+apply_all="false"
 
 # Parse remaining arguments for apply/update commands
 parse_options() {
   while [ $# -gt 0 ]; do
     case "$1" in
+      --all)
+        apply_all="true"
+        ;;
       --noconfirm|--yes)
         noconfirm="true"
         ;;
@@ -218,6 +229,34 @@ case "$command" in
   apply)
     parse_options "$@"
 
+    common_flags=$(build_common_flags)
+
+    # Default behavior: interactive fzf picker (no --all, no explicit targets,
+    # and fzf available). Falls back to the bulk behavior otherwise.
+    if [ "$apply_all" != "true" ] && [ -z "$extra_args" ] && command -v fzf >/dev/null 2>&1; then
+      notify_start "Applying dotfiles locally (picker)"
+      notify_progress "Select files to apply (TAB to multi-select, ESC to cancel)..."
+      selection=$(chezmoi managed --include=files | fzf -m --cycle --reverse --preview 'chezmoi diff --no-pager {}') || selection=""
+
+      if [ -z "$selection" ]; then
+        notify_info "No files selected - nothing applied."
+        exit 0
+      fi
+
+      notify_progress "Applying selected files..."
+      notify_info "Flags:$common_flags"
+      # shellcheck disable=SC2086
+      if chezmoi apply $common_flags $selection; then
+        notify_success "Selected dotfiles applied successfully!"
+      else
+        notify_error "Apply failed."
+        notify_info "You can run 'dotc add <file>...' to update the source."
+        exit 1
+      fi
+      exit 0
+    fi
+
+    # Bulk apply behavior.
     if [ "$override_mode" = "true" ]; then
       notify_start "Applying dotfiles locally (OVERRIDE MODE)"
       notify_info "Forcing apply with --force --keep-going, skipping confirmation"
@@ -241,7 +280,7 @@ case "$command" in
       fi
 
       # Confirm
-      printf "\n${COLOR_YELLOW}Apply these changes? [y/N] ${COLOR_RESET}"
+      printf '\n%bApply these changes? [y/N] %b' "$COLOR_YELLOW" "$COLOR_RESET"
       read -r response
       case "$response" in
         [yY]|[yY][eE][sS])
@@ -254,7 +293,6 @@ case "$command" in
     fi
 
     # Build and run apply command
-    common_flags=$(build_common_flags)
     notify_progress "Applying changes..."
     notify_info "Flags:$common_flags"
 
@@ -263,7 +301,34 @@ case "$command" in
       notify_success "Dotfiles applied successfully!"
     else
       notify_error "Apply failed."
-      notify_info "You can run 'dotfiles add <file>...' to update the source."
+      notify_info "You can run 'dotc add <file>...' to update the source."
+      exit 1
+    fi
+    ;;
+
+  re-add)
+    parse_options "$@"
+
+    if ! command -v fzf >/dev/null 2>&1; then
+      notify_error "fzf is required for 're-add'."
+      exit 1
+    fi
+
+    notify_start "Re-adding modified managed files"
+    notify_progress "Select files to re-add (TAB to multi-select, ESC to cancel)..."
+    selection=$(chezmoi managed --include=files | fzf -m --cycle --reverse --preview 'chezmoi diff --no-pager {}') || selection=""
+
+    if [ -z "$selection" ]; then
+      notify_info "No files selected - nothing re-added."
+      exit 0
+    fi
+
+    notify_progress "Re-adding selected files..."
+    # shellcheck disable=SC2086
+    if chezmoi re-add $selection; then
+      notify_success "Selected files re-added to source."
+    else
+      notify_error "Re-add failed."
       exit 1
     fi
     ;;
@@ -294,7 +359,7 @@ case "$command" in
       notify_error "Update failed."
       notify_info "Check the error above and try again."
       notify_info "You may need to resolve conflicts manually."
-      notify_info "Try 'dotfiles update --override' to force through conflicts."
+      notify_info "Try 'dotc update --override' to force through conflicts."
       exit 1
     fi
     ;;
@@ -342,7 +407,7 @@ case "$command" in
     if chezmoi verify "$@"; then
       notify_success "Dotfiles are up to date."
     else
-      notify_info "There are pending changes. Run 'dotfiles diff' to see them."
+      notify_info "There are pending changes. Run 'dotc diff' to see them."
       exit 1
     fi
     ;;
@@ -359,7 +424,7 @@ case "$command" in
 
   # Completion helper - outputs available commands for shell completion
   --list-commands)
-    echo "apply update init diff status verify add edit"
+    echo "apply re-add update init diff status verify add edit cd"
     ;;
 
   *)

@@ -1,0 +1,6 @@
+.local/bin/dots
+.local/bin/fzbrew
+.local/bin/update-brew-packages
+.config/zsh/completions/_dotfiles
+.config/zsh/completions/_dots
+.config/zsh/completions/_fzbrew
