@@ -1,6 +1,0 @@
-# cargo: — Rust crates installed from crates.io.
-[tools]
-"cargo:hurl"         = "latest"
-"cargo:sd"           = "latest"
-"cargo:selene"       = "latest"
-"cargo:sqruff"       = "latest"

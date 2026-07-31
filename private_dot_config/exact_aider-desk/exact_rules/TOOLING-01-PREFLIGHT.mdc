@@ -39,11 +39,7 @@ these.
    `.mise.toml` / `.tool-versions`, run `mise install`. Otherwise use the language's own
    user-space installer (e.g. `rustup component add rust-analyzer`). NEVER `sudo`, never
    mutate system paths, never use privileged OS package managers.
-5. **Container guard.** Inside the shiki container (`/etc/mise/config.toml` present and no
-   project mise file), a runtime install only unblocks the current task — the durable fix
-   is adding the tool to `private_dot_config/exact_shiki/shiki-mise.toml` and rebuilding.
-   State this in the notification.
-6. **Re-probe.** Re-run the exit-code probe from step 2. If it now exits 0, proceed. If it
+5. **Re-probe.** Re-run the exit-code probe from step 2. If it now exits 0, proceed. If it
    STILL exits non-zero (auto-install failed or was unsafe), do NOT run any
    build/test/lint/format command — HALT and emit the Deterministic Failure Signal below,
    then return to Analyst. Never continue on a broken toolchain.
@@ -54,7 +50,7 @@ these.
 ### Tooling Preflight
 - Detected: <tool> <version> (or MISSING)
 - Action: none needed | auto-installed via <command> | install failed
-- Durable fix (if in shiki): add <tool> to private_dot_config/exact_shiki/shiki-mise.toml and rebuild
+- Durable fix: add <tool> to the host mise config (~/.config/mise/config.toml) or the project's mise file
 ```
 
 ## Deterministic Failure Signal

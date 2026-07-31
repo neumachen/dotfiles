@@ -40,19 +40,13 @@ missing-tooling problem resurfaces.
 
 ## Open / deferred items
 
-- [ ] **Add `rust` to `private_dot_config/exact_shiki/shiki-mise.toml`** (the durable fix for
-      the original rust-analyzer symptom). User deferred this ("Not yet"). Pin to host
-      `rustc 1.96.0` → `rust = "1.96"`. Requires shiki image rebuild.
-- [ ] **Rebuild + reload after applying**: `chezmoi apply`, restart AiderDesk (agent
-      config.json reloads), and for container fixes rebuild the shiki image (mise config is
-      COPY'd at build time).
+- [x] ~~Add `rust` to shiki-mise.toml / rebuild shiki image~~ — **Shiki container retired**;
+      container-specific durable fixes (shiki-mise.toml, image rebuild, in-container GPG
+      signing) no longer apply. Toolchains are now provisioned via the host mise config.
 - [ ] **Design B (optional, if agents ignore the sentinel in practice)**: build an AiderDesk
       extension with an `onToolFinished`-style hook that inspects `power---bash` results for
       `PREFLIGHT_FAIL:` / exit 87 and hard-fails the tool call — true runtime enforcement
-      independent of model compliance. Extension surface exists (`aider-desk-extensions.yaml`,
-      `install-aiderdesk-extensions.sh`; LSP/Checkpoints extensions prove the hook layer).
-- [ ] **GPG signing**: commits made in-container are unsigned (no GPG agent). Amend-sign on
-      host if signature is required: `git commit --amend -S --no-edit`.
+      independent of model compliance.
 - [ ] Verify per-language allowedPattern covers real project commands as new stacks appear.
 
 ## Verification checklist (next time)

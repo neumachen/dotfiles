@@ -163,10 +163,11 @@ When Analyst receives such a report it MUST:
 2. **Not silently re-dispatch** the same task to the same or another Forge agent hoping it
    resolves — the tool is genuinely absent.
 3. **Surface the blocker to the user** as the primary result, including the missing binary,
-   the `PREFLIGHT_FAIL` line, and the durable fix (e.g. add the tool to
-   `private_dot_config/exact_shiki/shiki-mise.toml` and rebuild the shiki image).
-4. **Offer next actions**: install on host, add to shiki-mise.toml + rebuild, or proceed
-   without the affected step (only if the user explicitly accepts the risk).
+   the `PREFLIGHT_FAIL` line, and the durable fix (e.g. add the tool to the host mise config
+   at `~/.config/mise/config.toml` or the project's mise file).
+4. **Offer next actions**: install on host (e.g. `mise install`), add the tool to the host or
+   project mise config, or proceed without the affected step (only if the user explicitly
+   accepts the risk).
 
 This is the contractual link that makes a missing tool bubble up from sub-agent to the
 initiating Analyst process instead of being lost in report prose.

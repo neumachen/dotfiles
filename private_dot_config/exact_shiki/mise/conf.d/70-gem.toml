@@ -1,5 +1,0 @@
-# gem: — Ruby gems installed against mise's managed ruby.
-[tools]
-"gem:bundler"  = "latest"
-"gem:rubocop"  = "latest"
-"gem:ruby-lsp" = "latest"

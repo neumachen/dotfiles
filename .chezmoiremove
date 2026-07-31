@@ -4,3 +4,6 @@
 .config/zsh/completions/_dotfiles
 .config/zsh/completions/_dots
 .config/zsh/completions/_fzbrew
+.config/shiki
+.local/bin/shiki
+.config/zsh/completions/_shiki

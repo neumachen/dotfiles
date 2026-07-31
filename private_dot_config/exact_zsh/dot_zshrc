@@ -44,7 +44,7 @@ elif [[ -d "/usr/local/share/zsh/site-functions" ]]; then
 fi
 
 # Local completions directory — chezmoi externals (_fzf, _docker) and
-# regen-zsh-completions output (_rg, _just, _shiki, _kind, _kubectl, etc.)
+# regen-zsh-completions output (_rg, _just, _kind, _kubectl, etc.)
 fpath=("${ZDOTDIR}/completions" $fpath)
 
 #############################
