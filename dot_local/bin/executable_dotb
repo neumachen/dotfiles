@@ -18,6 +18,18 @@ has() {
   command -v "$@" > /dev/null 2>&1
 }
 
+confirm() {
+  # Prompt on stderr; return 0 only on an explicit yes. Self-contained so
+  # `dotb purge` never depends on the external ~/.local/bin/confirm binary.
+  printf '\033[33m%s [y/N] \033[0m' "$1" >&2
+  local reply
+  read -r reply
+  case "$reply" in
+    [yY] | [yY][eE][sS]) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 if ! has brew; then
   fail "Can't find brew in your PATH"
 fi
