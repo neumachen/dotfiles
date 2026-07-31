@@ -1,0 +1,62 @@
+#!/bin/bash
+# vim: ft=bash
+# Link AiderDesk's runtime home (~/.aider-desk, which the app reads because
+# AIDER_DESK_DIR is unset and defaults to ".aider-desk") to the chezmoi-managed
+# config tree (~/.config/aider-desk). Only the config subdirs the app loads
+# globally are linked; app-managed state (extensions, tmp, data, runtime) is
+# left in place.
+#
+# Re-runs on any edit to this script. Idempotent and safe to run repeatedly.
+# link-map version: 1
+
+set -euo pipefail
+
+AD="${HOME}/.aider-desk"
+CFG="${HOME}/.config/aider-desk"
+
+# Config subdirs that AiderDesk loads globally and that chezmoi owns.
+LINK_DIRS=(agents rules commands prompts skills)
+
+# The chezmoi target must exist before we can point at it.
+if [ ! -d "${CFG}" ]; then
+  echo "aider-desk: ${CFG} not found; skipping link setup" >&2
+  exit 0
+fi
+
+# Ensure the app home exists. If ~/.aider-desk is absent, create a real dir.
+# If it already exists (real dir or the existing codex symlink), use it as-is.
+if [ ! -e "${AD}" ] && [ ! -L "${AD}" ]; then
+  mkdir -p "${AD}"
+fi
+
+backup=""
+for d in "${LINK_DIRS[@]}"; do
+  src="${CFG}/${d}"
+  dst="${AD}/${d}"
+
+  # Skip subdirs chezmoi does not actually provide.
+  [ -d "${src}" ] || continue
+
+  # Already the correct symlink? Leave it.
+  if [ -L "${dst}" ] && [ "$(readlink "${dst}")" = "${src}" ]; then
+    continue
+  fi
+
+  # A real dir/file in the way gets backed up once, then replaced.
+  if [ -e "${dst}" ] && [ ! -L "${dst}" ]; then
+    if [ -z "${backup}" ]; then
+      backup="${HOME}/.aider-desk-backup-$(date +%Y%m%d%H%M%S)"
+      mkdir -p "${backup}"
+    fi
+    mv "${dst}" "${backup}/${d}"
+    echo "aider-desk: backed up ${dst} -> ${backup}/${d}"
+  fi
+
+  # -n so an existing symlink is replaced, never dereferenced into.
+  ln -sfn "${src}" "${dst}"
+  echo "aider-desk: linked ${dst} -> ${src}"
+done
+
+if [ -n "${backup}" ]; then
+  echo "aider-desk: previous real directories preserved in ${backup}"
+fi
