@@ -59,6 +59,7 @@ ANALYST (default front door)
 | Shell/Dotfiles | `*.sh`, `*.bash`, `*.zsh`, chezmoi templates | `forge-shell` |
 | Lua/Neovim | `*.lua`, `init.lua`, `lua/` | `forge-lua` |
 | Rust | `*.rs`, `Cargo.toml` | `forge-rust` |
+| Apple/Swift (macOS) | `*.swift`, `Package.swift`, `*.xcodeproj`, `*.xcworkspace`, `*.entitlements`, `Info.plist` | `forge-swift` |
 | Markdown/Docs | `*.md`, `*.mdx`, `README*`, `ADR*`, `CHANGELOG*` | `forge-docs` |
 
 ## Fallback Routing

@@ -13,9 +13,10 @@
   "forge-shell": 11,
   "forge-lua": 12,
   "forge-rust": 13,
-  "forge-docs": 14,
-  "forge-openai-codex": 15,
-  "architect": 16,
-  "git-operator": 17,
-  "notion": 18
+  "forge-swift": 14,
+  "forge-docs": 15,
+  "forge-openai-codex": 16,
+  "architect": 17,
+  "git-operator": 18,
+  "notion": 19
 }
