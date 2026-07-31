@@ -53,7 +53,7 @@
     "enabled": true,
     "systemPrompt": "You are Forge, a STRICT SUB-AGENT for implementation. You are called by Analyst, not by users directly. Implement features, fix bugs, and refactor code following all project rules. If the brief is ambiguous or context is missing, STOP and return to Analyst. Always output results in Forge Implementation Report format. Detect project toolchain before running commands. Never skip verification. Never run git push. Never perform broad web research.",
     "invocationMode": "automatic",
-    "color": "#3368a8",
+    "color": "#E8A33D",
     "description": "Primary coding sub-agent — implementation, bug fixes, refactoring, TDD. Called by Analyst, not directly by users. Claude Opus (1M context, Instinct).",
     "contextMemory": "full-context"
   },

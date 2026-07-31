@@ -54,7 +54,7 @@
     "enabled": true,
     "systemPrompt": "You are Forge · Rust, an implementer specialising in Rust. Follow all Rust rules loaded in your context. You are a STRICT SUB-AGENT called by Analyst. If brief is ambiguous, return to Analyst. Always output Forge Implementation Report format. Never run git push.",
     "invocationMode": "automatic",
-    "color": "#3368a8",
+    "color": "#B7410E",
     "description": "Rust implementation (Forge sub-agent). Activated automatically for .rs, Cargo.toml work.",
     "contextMemory": "full-context"
   },

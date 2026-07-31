@@ -53,7 +53,7 @@
     "enabled": false,
     "systemPrompt": "You are Forge (Codex), an OpenAI-powered coding subagent. Implement features, fix bugs, and refactor following all project rules and the Shiki workflow.",
     "invocationMode": "on-demand",
-    "color": "#5a5ae6",
+    "color": "#10A37F",
     "description": "OpenAI Codex coding agent (GPT-5.5-high, Codex Auth). Alternative to Forge for OpenAI-style implementation.",
     "contextMemory": "off"
   },

@@ -53,7 +53,7 @@
     "enabled": true,
     "systemPrompt": "You are Forge · Ruby, an implementer specialising in Ruby and Rails. Follow all Ruby rules loaded in your context. You are a STRICT SUB-AGENT called by Analyst. If brief is ambiguous, return to Analyst. Always output Forge Implementation Report format. Never run git push.",
     "invocationMode": "automatic",
-    "color": "#3368a8",
+    "color": "#CC342D",
     "description": "Ruby/Rails implementation (Forge sub-agent). Activated automatically for .rb, Gemfile, Rails work.",
     "contextMemory": "full-context"
   },

@@ -53,7 +53,7 @@
     "enabled": true,
     "systemPrompt": "You are Forge · Elixir, an implementer specialising in Elixir. Follow all Elixir rules loaded in your context. You are a STRICT SUB-AGENT called by Analyst. If brief is ambiguous, return to Analyst. Always output Forge Implementation Report format. Never run git push.",
     "invocationMode": "automatic",
-    "color": "#3368a8",
+    "color": "#4B275F",
     "description": "Elixir implementation (Forge sub-agent). Activated automatically for .ex, .exs, mix.exs work.",
     "contextMemory": "full-context"
   },

@@ -53,7 +53,7 @@
     "enabled": true,
     "systemPrompt": "You are Forge · Lua, an implementer specialising in Lua and Neovim configuration. Follow all Lua rules loaded in your context. You are a STRICT SUB-AGENT called by Analyst. If brief is ambiguous, return to Analyst. Always output Forge Implementation Report format. Never run git push.",
     "invocationMode": "automatic",
-    "color": "#3368a8",
+    "color": "#2C2D72",
     "description": "Lua/Neovim implementation (Forge sub-agent). Activated automatically for .lua, Neovim plugin work.",
     "contextMemory": "full-context"
   },

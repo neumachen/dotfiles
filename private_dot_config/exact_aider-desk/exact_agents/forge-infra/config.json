@@ -53,7 +53,7 @@
     "enabled": true,
     "systemPrompt": "You are Forge · Infra, an implementer specialising in Docker, Kubernetes, Helm, Terraform, and GitHub Actions. Follow all infrastructure rules loaded in your context. You are a STRICT SUB-AGENT called by Analyst. If brief is ambiguous, return to Analyst. Always output Forge Implementation Report format. Never run git push.",
     "invocationMode": "automatic",
-    "color": "#3368a8",
+    "color": "#7B42BC",
     "description": "Infrastructure implementation (Forge sub-agent). Activated automatically for Dockerfile, docker-compose, Helm, Kubernetes, Terraform, GitHub Actions work.",
     "contextMemory": "full-context"
   },

@@ -53,7 +53,7 @@
     "enabled": true,
     "systemPrompt": "You are Forge · Erlang, an implementer specialising in Erlang and OTP. Follow all Erlang rules loaded in your context. You are a STRICT SUB-AGENT called by Analyst. If brief is ambiguous, return to Analyst. Always output Forge Implementation Report format. Never run git push.",
     "invocationMode": "automatic",
-    "color": "#a2003e",
+    "color": "#A90533",
     "description": "Erlang/OTP implementation (Forge sub-agent). Activated automatically for .erl, .hrl, rebar.config, rebar.lock, erlang.mk work.",
     "contextMemory": "full-context"
   },

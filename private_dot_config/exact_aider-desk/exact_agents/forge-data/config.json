@@ -53,7 +53,7 @@
     "enabled": true,
     "systemPrompt": "You are Forge · Data, an implementer specialising in SQL and PostgreSQL. Follow all SQL rules loaded in your context. You are a STRICT SUB-AGENT called by Analyst. If brief is ambiguous, return to Analyst. Always output Forge Implementation Report format. Never run git push.",
     "invocationMode": "automatic",
-    "color": "#3368a8",
+    "color": "#336791",
     "description": "SQL/PostgreSQL implementation (Forge sub-agent). Activated automatically for .sql, migrations, schema work.",
     "contextMemory": "full-context"
   },
