@@ -108,12 +108,26 @@
   colorMoved = default
   navigate = true  # use n and N to move between diff sections
   renames = copies # Detect copies as well as renames.
+  tool = codediff
+
+[difftool]
+  prompt = false
+
+[difftool "codediff"]
+  cmd = "nvim \"$LOCAL\" \"$REMOTE\" +\"CodeDiff --exit-on-close file $LOCAL $REMOTE\""
 
 [merge]
   log = true
-  command = "nvim"
-  args = ["-d", "{{ `{{ .Source }}` }}", "{{ `{{ .Destination }}` }}", "{{ `{{ .Target }}` }}"]
   conflictstyle = zdiff3
+  tool = codediff
+
+[mergetool]
+  prompt = false
+  keepBackup = false
+
+[mergetool "codediff"]
+  cmd = "nvim \"$MERGED\" -c \"CodeDiff --exit-on-close merge \\\"$MERGED\\\"\""
+  trustExitCode = true
 
 [delta]
   line-numbers-minus-style      = "#914c54"
