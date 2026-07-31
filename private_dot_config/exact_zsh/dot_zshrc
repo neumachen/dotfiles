@@ -552,6 +552,12 @@ if [[ -x "/opt/homebrew/opt/macos-trash/bin/trash" ]]; then
   alias rm='/opt/homebrew/opt/macos-trash/bin/trash'
 fi
 
+# yank-path → yp. completealiases is intentionally unset (see above), so `yp`
+# inherits yank-path's _yank-path completion automatically via alias expansion.
+if command_exists yank-path; then
+  alias yp='yank-path'
+fi
+
 #############################
 # History Configuration
 #############################
