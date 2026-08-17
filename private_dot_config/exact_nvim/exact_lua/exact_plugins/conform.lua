@@ -186,6 +186,17 @@ return {
   keys = {
     { '<leader>cn', '<cmd>ConformInfo<cr>', desc = 'Conform Info' },
     {
+      '<leader>cf',
+      function()
+        -- mode = { 'n', 'x' }: in visual mode conform.format() auto-detects the
+        -- selection and formats just that range; `lsp_format = 'fallback'` uses
+        -- the LSP formatter only when no configured CLI formatter is available.
+        require('conform').format({ async = true, lsp_format = 'fallback' })
+      end,
+      mode = { 'n', 'x' },
+      desc = 'Format Buffer / Selection',
+    },
+    {
       '<leader>cF',
       function() format_as_picker('n') end,
       mode = 'n',
@@ -200,6 +211,12 @@ return {
   },
   opts = {
     format_on_save = function(bufnr)
+      -- Honour the autoformat toggles: `<leader>uf` / `:FormatDisable` set the
+      -- global flag, `:FormatDisable!` sets the buffer-local one. Either being
+      -- true skips format-on-save for this write.
+      if vim.g.disable_autoformat or vim.b[bufnr].disable_autoformat then
+        return nil
+      end
       local conform = require('conform')
       local formatters = conform.list_formatters(bufnr)
       if #formatters > 0 then

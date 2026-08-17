@@ -13,6 +13,8 @@ return {
 
         selection_modes = {
           ['@parameter.outer'] = 'v', -- charwise
+          ['@conditional.outer'] = 'V', -- linewise
+          ['@block.outer'] = 'V', -- linewise
           ['@function.outer'] = 'V', -- linewise
         },
         include_surrounding_whitespace = false,
@@ -66,6 +68,44 @@ return {
       'al',
       function() select.select_textobject('@loop.outer', 'locals') end,
       { desc = 'Around loop' }
+    )
+    vim.keymap.set(
+      { 'x', 'o' },
+      'aa',
+      function() select.select_textobject('@parameter.outer', 'textobjects') end,
+      { desc = 'Around parameter' }
+    )
+    vim.keymap.set(
+      { 'x', 'o' },
+      'ia',
+      function() select.select_textobject('@parameter.inner', 'textobjects') end,
+      { desc = 'Inner parameter' }
+    )
+    vim.keymap.set(
+      { 'x', 'o' },
+      'ai',
+      function() select.select_textobject('@conditional.outer', 'textobjects') end,
+      { desc = 'Around conditional' }
+    )
+    vim.keymap.set(
+      { 'x', 'o' },
+      'ii',
+      function() select.select_textobject('@conditional.inner', 'textobjects') end,
+      { desc = 'Inner conditional' }
+    )
+    -- Uppercase `S` avoids clobbering the native lowercase `ib`/`ab` block
+    -- objects and the `as` scope object above.
+    vim.keymap.set(
+      { 'x', 'o' },
+      'aS',
+      function() select.select_textobject('@block.outer', 'textobjects') end,
+      { desc = 'Around block (structural)' }
+    )
+    vim.keymap.set(
+      { 'x', 'o' },
+      'iS',
+      function() select.select_textobject('@block.inner', 'textobjects') end,
+      { desc = 'Inner block (structural)' }
     )
 
     -- Swaps

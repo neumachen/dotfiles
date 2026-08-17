@@ -1,7 +1,5 @@
 local map = vim.keymap.set
 
-
-
 -- Better up/down
 map(
   { 'n', 'x' },
@@ -272,11 +270,12 @@ end, {
   desc = 'Re-enable autoformat-on-save',
 })
 
--- Define a global variable to enable/disable autoformat
-local auto_format = true
+-- Toggle autoformat-on-save globally. State is derived from
+-- `vim.g.disable_autoformat` (the same flag `:FormatDisable`/`:FormatEnable`
+-- and conform's `format_on_save` read), so the toggle never drifts out of sync
+-- with the commands.
 map('n', '<leader>uf', function()
-  auto_format = not auto_format
-  if auto_format then
+  if vim.g.disable_autoformat then
     vim.cmd('FormatEnable')
   else
     vim.cmd('FormatDisable')
