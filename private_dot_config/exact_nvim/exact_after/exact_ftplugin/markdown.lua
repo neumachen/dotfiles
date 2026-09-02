@@ -92,3 +92,55 @@ map(
   vim.tbl_extend('force', opts, { desc = 'Markdown: Remove List Marker' })
 )
 -- ------------------------------------------------------------------------- }}}
+
+-- ------------------------------------------------------------------------- {{{
+-- Markdown list continuation on open-line (buffer-local).
+--
+-- `o` / `O` continue the current list item: they preserve indentation and the
+-- exact bullet style, restart ordered lists at `1.` (repeated `1.` is valid
+-- Markdown), and always open task items with a fresh unchecked `[ ]`. On any
+-- non-list line they fall back to native `o` / `O`.
+
+-- Build the prefix for a continued list item from the current line, or return
+-- nil when the current line is not a list item.
+local function list_prefix(line)
+  local indent, marker, content = split_line(line)
+  if not marker then return nil end
+  local is_task = content:match('^%[[ xX]%]') ~= nil
+  local bullet = marker:match('^([-+*])')
+  if bullet then
+    if is_task then return indent .. bullet .. ' [ ] ' end
+    return indent .. bullet .. ' '
+  end
+  if is_task then return indent .. '1. [ ] ' end
+  return indent .. '1. '
+end
+
+-- Open a new line (`dir` is 'o' below or 'O' above) continuing the current
+-- list item, or fall back to native open-line behavior for ordinary lines.
+local function open_line(dir)
+  local prefix = list_prefix(vim.api.nvim_get_current_line())
+  if not prefix then
+    vim.api.nvim_feedkeys(dir, 'in', false)
+    return
+  end
+  local row = vim.api.nvim_win_get_cursor(0)[1]
+  local insert_row = dir == 'o' and row or row - 1
+  vim.api.nvim_buf_set_lines(0, insert_row, insert_row, false, { prefix })
+  vim.api.nvim_win_set_cursor(0, { insert_row + 1, #prefix })
+  vim.cmd('startinsert!')
+end
+
+map(
+  'n',
+  'o',
+  function() open_line('o') end,
+  vim.tbl_extend('force', opts, { desc = 'Markdown: Open list item below' })
+)
+map(
+  'n',
+  'O',
+  function() open_line('O') end,
+  vim.tbl_extend('force', opts, { desc = 'Markdown: Open list item above' })
+)
+-- ------------------------------------------------------------------------- }}}
