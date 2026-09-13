@@ -143,8 +143,8 @@ M.default_keybinds = {
     action = act.RotatePanes('Clockwise'),
   },
   {
-    key = 't',
-    mods = 'LEADER|SHIFT',
+    key = ';',
+    mods = 'LEADER',
     action = act.PromptInputLine({
       description = 'Enter new name for tab',
       ---@diagnostic disable-next-line: unused-local

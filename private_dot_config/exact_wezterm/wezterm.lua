@@ -153,9 +153,11 @@ local config = {
   -- layouts when needed.
   send_composed_key_when_left_alt_is_pressed = false,
   send_composed_key_when_right_alt_is_pressed = false,
-  -- Meh-style leader (Cmd+Shift+Alt) keeps WezTerm's native-mux prefix clear of
-  -- tmux (C-a), nested remote tmux (C-b), and tmux-which-key (C-Space).
-  leader = { key = 'Space', mods = 'CMD|SHIFT|ALT', timeout = 1000 },
+  -- Hyper-style leader: Caps Lock is remapped to Hyper (Cmd+Ctrl+Shift+Alt) by
+  -- Karabiner, so the prefix is Caps Lock + Space. Keeps WezTerm's native-mux
+  -- prefix clear of tmux (C-a), nested remote tmux (C-b), and tmux-which-key
+  -- (C-Space).
+  leader = { key = 'Space', mods = 'CMD|CTRL|SHIFT|ALT', timeout = 1000 },
   keys = keybinds.create_keybinds(),
   key_tables = keybinds.key_tables,
   mouse_bindings = keybinds.mouse_bindings,

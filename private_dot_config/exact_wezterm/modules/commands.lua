@@ -55,7 +55,7 @@ local function create_tab_title(tab, tabs, panes, config, hover, max_width)
   local title
 
   if tab.tab_title and #tab.tab_title > 0 then
-    -- Manual rename (LEADER+T) always wins.
+    -- Manual rename (LEADER+;) always wins.
     title = tab.tab_title
   elseif process == 'tmux' then
     -- Foreground process is tmux itself: show the session name, not "tmux tmux".
