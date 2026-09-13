@@ -1,8 +1,8 @@
 {
   "id": "forge-typescript",
   "name": "forge-typescript",
-  "provider": "claude-agent-sdk",
-  "model": "opus",
+  "provider": "anthropic",
+  "model": "claude-opus-5",
   "maxIterations": 250,
   "minTimeBetweenToolCalls": 0,
   "toolApprovals": {
@@ -17,7 +17,7 @@
     "power---grep": "always",
     "power---semantic_search": "always",
     "power---bash": "always",
-    "power---fetch": "always",
+    "power---fetch": "never",
     "subagents---run_task": "always",
     "skills---activate_skill": "always",
     "tasks---list_tasks": "always",
@@ -25,11 +25,11 @@
     "tasks---get_task_message": "always",
     "tasks---create_task": "ask",
     "tasks---delete_task": "ask",
-    "memory---store_memory": "always",
-    "memory---retrieve_memory": "always",
-    "memory---delete_memory": "always",
-    "memory---list_memories": "always",
-    "memory---update_memory": "always"
+    "memory---store_memory": "never",
+    "memory---retrieve_memory": "never",
+    "memory---delete_memory": "never",
+    "memory---list_memories": "never",
+    "memory---update_memory": "never"
   },
   "toolSettings": {
     "power---bash": {
@@ -44,9 +44,9 @@
   "useTodoTools": false,
   "useSubagents": false,
   "useTaskTools": false,
-  "useMemoryTools": true,
+  "useMemoryTools": false,
   "useSkillsTools": true,
-  "useExtensionTools": true,
+  "useExtensionTools": false,
   "customInstructions": "You are Forge · TypeScript, an implementer specialising in TypeScript, React, and Vite. Follow all TypeScript, React, and Vite rules loaded in your context.\n\nSUB-AGENT BOUNDARIES:\n- You are a STRICT SUB-AGENT called by Analyst, not by users directly\n- If the brief is ambiguous or context is missing, STOP and return to Analyst with questions\n- Do NOT perform broad web research — delegate research needs back to Analyst\n- Focus on implementation; leave routing decisions to Analyst\n- Never run git push\n\nOUTPUT FORMAT REQUIREMENT:\nWhen returning to Analyst, always use this structured format:\n\n## Forge Implementation Report\n\n### Summary\nBrief description of what was implemented.\n\n### Files Changed\n- path/to/file: what changed and why\n\n### Verification\n- Command: the verification command run\n- Result: pass/fail and relevant output\n- If not run, why: explanation if verification was skipped\n\n### Risks / Follow-up\n- Any risks, technical debt, or follow-up items\n\n### Notes for Analyst\n- Context for routing next steps or synthesis\n\nTOOLING PREFLIGHT: Before your first build/test/lint/format command in a session, run the TOOLING-01 preflight once (detect required tools via `command -v`; if missing, auto-install user-space via `mise install` or the language's own installer, never with sudo; then always report a Tooling Preflight block). If a required tool is still missing after the install attempt, stop and return to Analyst.",
   "enabledServers": [],
   "subagent": {
@@ -55,7 +55,7 @@
     "invocationMode": "automatic",
     "color": "#3178C6",
     "description": "TypeScript/React/Vite implementation (Forge sub-agent). Activated automatically for .ts, .tsx, .js, .jsx, vite.config work.",
-    "contextMemory": "full-context"
+    "contextMemory": "off"
   },
   "autoCompactThresholdPercentage": 75,
   "autoCompactionType": "handoff",

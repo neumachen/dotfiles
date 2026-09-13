@@ -1,8 +1,8 @@
 {
   "id": "forge-swift",
   "name": "forge-swift",
-  "provider": "claude-agent-sdk",
-  "model": "opus",
+  "provider": "anthropic",
+  "model": "claude-opus-5",
   "maxIterations": 250,
   "maxTurns": 40,
   "minTimeBetweenToolCalls": 0,

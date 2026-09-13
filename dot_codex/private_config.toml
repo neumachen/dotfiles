@@ -1,8 +1,8 @@
 # ~/.codex/config.toml (chezmoi source: dot_codex/private_config.toml)
 #:schema https://developers.openai.com/codex/config-schema.json
 
-model = "gpt-5.5"
-model_reasoning_effort = "high"
+model = "gpt-6-astra"
+model_reasoning_effort = "ultra"
 model_verbosity = "medium"
 
 approval_policy = "on-request"
@@ -70,6 +70,9 @@ exclude_tmpdir_env_var = false
 exclude_slash_tmp = false
 
 [features]
+goals = true
+plugin_hooks = true
+plugins = true
 hooks = true
 multi_agent = true
 shell_snapshot = true
@@ -77,9 +80,11 @@ shell_tool = true
 unified_exec = true
 fast_mode = true
 undo = true
-memories = false
+memories = true
 codex_git_commit = false
-apps = false
+apps = true
+js_repl = false
+chronicle = false
 
 [tui]
 notifications = true
@@ -100,3 +105,87 @@ enabled = false
 
 [history]
 max_bytes = 104857600
+
+[desktop]
+followUpQueueMode = "steer"
+conversationDetailMode = "STEPS_PROSE"
+enabled-reasoning-efforts = ["low", "medium", "high", "xhigh", "ultra", "max"]
+show-ultra-in-model-picker-slider = false
+show-context-window-usage = true
+composerEnterBehavior = "cmdAlways"
+hotkey-window-projectless-default-enabled = true
+appearanceLightCodeThemeId = "catppuccin"
+appearanceDarkCodeThemeId = "tokyo-night"
+usePointerCursors = false
+dock-icon-preference = "codex-system"
+
+[desktop.appearanceLightChromeTheme]
+accent = "#8839ef"
+contrast = 45
+ink = "#4c4f69"
+opaqueWindows = false
+surface = "#eff1f5"
+
+[desktop.appearanceLightChromeTheme.fonts]
+
+[desktop.appearanceLightChromeTheme.semanticColors]
+diffAdded = "#40a02b"
+diffRemoved = "#d20f39"
+skill = "#8839ef"
+
+[desktop.appearanceDarkChromeTheme]
+accent = "#3d59a1"
+contrast = 60
+ink = "#a9b1d6"
+opaqueWindows = false
+surface = "#1a1b26"
+
+[desktop.appearanceDarkChromeTheme.fonts]
+
+[desktop.appearanceDarkChromeTheme.semanticColors]
+diffAdded = "#449dab"
+diffRemoved = "#914c54"
+skill = "#9d7cd8"
+
+[plugins."sites@openai-bundled"]
+enabled = true
+
+[plugins."computer-use@openai-bundled"]
+enabled = true
+
+[plugins."visualize@openai-bundled"]
+enabled = true
+
+[plugins."chrome@openai-bundled"]
+enabled = true
+
+[plugins."documents@openai-primary-runtime"]
+enabled = true
+
+[plugins."pdf@openai-primary-runtime"]
+enabled = true
+
+[plugins."spreadsheets@openai-primary-runtime"]
+enabled = true
+
+[plugins."presentations@openai-primary-runtime"]
+enabled = true
+
+[plugins."template-creator@openai-primary-runtime"]
+enabled = true
+
+[plugins."browser@openai-bundled"]
+enabled = true
+
+[plugins."codex-app-tools@openai-bundled"]
+enabled = true
+
+[memories]
+generate_memories = true
+use_memories = true
+
+[features.multi_agent_v2]
+max_concurrent_threads_per_session = 16
+
+[plugins."unified-computer-use@openai-bundled"]
+enabled = true

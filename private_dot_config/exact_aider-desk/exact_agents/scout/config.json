@@ -61,5 +61,6 @@
   "autoCompactionType": "handoff",
   "temperature": 0,
   "disabledExtensionTools": [],
-  "autoCompactThresholdTokens": 2000000000
+  "autoCompactThresholdTokens": 2000000000,
+  "maxTokens": 32000
 }
