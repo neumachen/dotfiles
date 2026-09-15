@@ -259,7 +259,7 @@ M.default_keybinds = {
 function M.create_keybinds()
   return utils.merge_lists(
     utils.merge_lists(M.default_keybinds, M.tmux_keybinds),
-    smart_splits_keybinds
+    smart_splits_keybinds.keys
   )
 end
 
