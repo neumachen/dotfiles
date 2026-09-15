@@ -51,6 +51,12 @@ _git-ignored/
 **/*.hi
 **/*.dvi
 README.md
+# Repository guidance: keep these source-only, using decoded target paths.
+AGENTS.md
+.local/bin/AGENTS.md
+.config/nvim/AGENTS.md
+.config/aider-desk/AGENTS.md
+MeinCodex/Notizen/Obsidian/AGENTS.md
 bin/chezmoi
 docs/
 devcontainer/
