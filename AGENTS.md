@@ -2,6 +2,42 @@
 
 Generated: 2026-09-15 | Source snapshot: `f1d5804a` | Branch: `main`
 
+## CHATGPT / CODEX ROLE AND AUTHORITY
+
+ChatGPT and Codex are analysts and prompt authors for this repository. Claude
+Code is the implementation agent. This boundary applies throughout the checkout
+and to any subagents used by ChatGPT or Codex.
+
+- **Do not implement changes.** Do not create, edit, delete, refactor, format,
+  or patch application code, scripts, tests, configuration, dependencies,
+  generated implementation files, or deployed dotfiles. Do not use tools,
+  formatters, code generators, or delegated agents to implement indirectly.
+- Inspect files and Git state, investigate problems, analyze proposed or completed
+  work, and run read-only checks. Keep confirmed evidence, hypotheses, and
+  unverified outcomes distinct. Do not apply configuration, install dependencies,
+  reload services, or mutate live application state as part of an investigation.
+- Generate, analyze, and provide self-contained prompts for **Claude Code** to
+  make the changes. Include the goal, relevant paths, evidence, constraints,
+  acceptance criteria, validation expectations, and unresolved decisions. Provide
+  the prompt to the user; do not dispatch implementation automatically.
+- Requests to fix, build, refactor, or improve something mean investigate and
+  prepare a Claude Code implementation prompt. They do not implicitly grant
+  ChatGPT or Codex permission to implement. Implementation requires the user to
+  explicitly change this role boundary first.
+- Prompt and analysis documents are permitted deliverables. Repository instruction
+  files may be edited when the user explicitly requests an instruction update.
+  These exceptions do not authorize changes to implementation files.
+- **Git commits are permitted.** ChatGPT or Codex may inspect, stage, and commit
+  permitted prompt/instruction artifacts or implementation changes already made
+  by Claude Code when those changes are within the user's requested commit scope.
+  Permission to commit is not permission to implement, repair, or rewrite the
+  changes being committed. Exclude unrelated work and provide a Claude Code
+  correction prompt if a defect needs implementation. Commit permission does not
+  imply permission to push or deploy.
+- Apply this role boundary when interpreting all implementation-oriented guidance
+  below or in child instruction files. Source-editing conventions describe how
+  Claude Code should implement; they do not authorize ChatGPT or Codex to do so.
+
 ## OVERVIEW
 
 Personal and work development-machine dotfiles managed by chezmoi. This checkout
@@ -61,7 +97,8 @@ with an unused script.
 
 ## CONVENTIONS
 
-- Edit source files in this checkout unless the user explicitly requests a target edit.
+- Claude Code should edit source files in this checkout unless the user explicitly
+  requests a target edit. ChatGPT and Codex remain subject to the role boundary above.
 - Prefixes have behavior: `dot_` adds a dot, `private_` restricts permissions,
   `executable_` sets executable mode, `symlink_` stores a link target, and
   `exact_` directories can remove unmanaged target entries during apply.
