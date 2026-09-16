@@ -1,26 +1,5 @@
 local w = require('wezterm')
 
--- if you are *NOT* lazy-loading smart-splits.nvim (recommended)
-local function is_vim(pane)
-  -- this is set by the plugin, and unset on ExitPre in Neovim
-  return pane:get_user_vars().IS_NVIM == 'true'
-end
-
--- if you *ARE* lazy-loading smart-splits.nvim (not recommended)
--- you have to use this instead, but note that this will not work
--- in all cases (e.g. over an SSH connection). Also note that
--- `pane:get_foreground_process_name()` can have high and highly variable
--- latency, so the other implementation of `is_vim()` will be more
--- performant as well.
-local function is_vim(pane)
-  -- This gsub is equivalent to POSIX basename(3)
-  -- Given "/foo/bar" returns "bar"
-  -- Given "c:\\foo\\bar" returns "bar"
-  local process_name =
-    string.gsub(pane:get_foreground_process_name(), '(.*[/\\])(.*)', '%2')
-  return process_name == 'nvim' or process_name == 'vim'
-end
-
 local direction_keys = {
   h = 'Left',
   j = 'Down',
@@ -28,13 +7,60 @@ local direction_keys = {
   l = 'Right',
 }
 
+-- WezTerm names the domain backing panes it spawns and supervises directly
+-- 'local'; ../modules/commands.lua relies on the same name. Any other domain
+-- name -- the ssh_domains built in ../wezterm.lua, a unix/mux domain, WSL --
+-- means the pane's program runs behind a domain boundary, where the local
+-- process table cannot name the program a keystroke would reach. A domain
+-- name we cannot read is treated as non-local too: declining to trust an
+-- unverifiable process name only costs multiplexer routing in that one
+-- pane, whereas trusting one wrongly costs native pane navigation.
+local LOCAL_DOMAIN = 'local'
+
+-- Programs that implement their own split navigation on these chords, and so
+-- must receive the keystroke instead of WezTerm acting on it. tmux belongs
+-- here because its own C-h/j/k/l and M-h/j/k/l bindings (see ../../../
+-- dot_tmux.conf) are what choose between tmux panes and a Neovim running
+-- inside them. While it was missing, WezTerm consumed the chord itself and
+-- tmux never saw it.
+local NAVIGATES_ITSELF = {
+  nvim = true,
+  vim = true,
+  tmux = true,
+}
+
+-- POSIX basename(3). Given '/foo/bar' returns 'bar', given 'c:\\foo\\bar'
+-- returns 'bar'. pane:get_foreground_process_name() returns nil whenever
+-- WezTerm cannot read the pane's process table, so anything that is not a
+-- string has to fall through to '' rather than reach string.gsub.
+local function basename(path)
+  if type(path) ~= 'string' then return '' end
+  return (path:gsub('(.*[/\\])(.*)', '%2'))
+end
+
+-- Should this chord go to the program running in the pane rather than to
+-- WezTerm? One policy, in precedence order:
+--   1. IS_NVIM, set and cleared by smart-splits.nvim, is honoured wherever
+--      it is present -- including panes with no readable process name.
+--   2. The foreground process name, consulted only on the local domain,
+--      where it genuinely names the program that would receive the key.
+--      This is what routes a local tmux; from there it is tmux's own
+--      @pane-is-vim bindings that find a Neovim running inside it.
+-- Anything else keeps the chord for WezTerm's own panes.
+local function pane_handles_navigation(pane)
+  local user_vars = pane:get_user_vars() or {}
+  if user_vars.IS_NVIM == 'true' then return true end
+  if pane:get_domain_name() ~= LOCAL_DOMAIN then return false end
+  return NAVIGATES_ITSELF[basename(pane:get_foreground_process_name())] == true
+end
+
 local function split_nav(resize_or_move, key)
   return {
     key = key,
     mods = resize_or_move == 'resize' and 'META' or 'CTRL',
     action = w.action_callback(function(win, pane)
-      if is_vim(pane) then
-        -- pass the keys through to vim/nvim
+      if pane_handles_navigation(pane) then
+        -- pass the keys through to the program running in the pane
         win:perform_action({
           SendKey = {
             key = key,
