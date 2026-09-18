@@ -112,6 +112,7 @@ M.default_keybinds = {
     action = act({ CloseCurrentPane = { confirm = true } }),
   },
   { key = 'a', mods = 'CMD', action = wezterm.action.ShowLauncher },
+  { key = 'a', mods = 'CMD|SHIFT', action = wezterm.action.ShowTabNavigator },
   { key = ' ', mods = 'LEADER', action = wezterm.action.ShowTabNavigator },
   -- {
   --   key = 'r',
