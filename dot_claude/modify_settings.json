@@ -1,3 +1,24 @@
+#!/usr/bin/env bash
+# chezmoi modify_ script for ~/.claude/settings.json.
+#
+# chezmoi pipes the CURRENT target file in on stdin and writes our stdout back
+# out as the new target. So we merge the managed settings below over whatever is
+# live, which preserves runtime-generated keys (notably autoMode.environment,
+# which Claude Code regenerates and which must never be clobbered by an apply).
+#
+# Consequence to know: this only ever SETS keys. Deleting a managed key here does
+# not remove it from the live file - add its path to REMOVE_PATHS instead.
+set -euo pipefail
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "modify_settings.json: jq is not on PATH; refusing to rewrite settings" >&2
+  exit 1
+fi
+
+# jq paths to delete from the live file, e.g. [["someObsoleteKey"]]
+REMOVE_PATHS='[]'
+
+MANAGED=$(cat <<'MANAGED_JSON'
 {
   "model": "claude-opus-5[1m]",
   "effortLevel": "xhigh",
@@ -13,7 +34,15 @@
   },
   "sandbox": {
     "enabled": true,
-    "autoAllowBashIfSandboxed": true
+    "autoAllowBashIfSandboxed": true,
+    "network": {
+      "allowedDomains": [
+        "api.github.com",
+        "github.com",
+        "codeload.github.com",
+        "objects.githubusercontent.com"
+      ]
+    }
   },
   "permissions": {
     "defaultMode": "auto",
@@ -45,8 +74,6 @@
     ],
     "deny": [
       "Bash(sudo *)",
-      "Bash(git reset *)",
-      "Bash(git rebase *)",
       "Bash(rm -rf *)",
       "Bash(rm -rf /)",
       "Bash(rm -rf ~)",
@@ -126,5 +153,29 @@
   "attribution": {
     "commit": "",
     "pr": ""
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/kareemh/.claude/hooks/git-guard.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
   }
 }
+MANAGED_JSON
+)
+
+current=$(cat)
+printf '%s' "$current" | jq -e . >/dev/null 2>&1 || current='{}'
+
+printf '%s' "$current" | jq \
+  --argjson managed "$MANAGED" \
+  --argjson remove "$REMOVE_PATHS" \
+  'reduce $remove[] as $p (.; delpaths([$p])) | . * $managed'
