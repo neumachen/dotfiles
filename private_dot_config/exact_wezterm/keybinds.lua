@@ -236,6 +236,14 @@ M.default_keybinds = {
     mods = 'LEADER',
     action = wezterm.action.TogglePaneZoomState,
   },
+  -- On-demand transparency for the focused window only. The handler lives in
+  -- modules/commands.lua; it touches window_background_opacity and nothing
+  -- else, unlike 'toggle-tmux-keybinds', which also swaps the key map.
+  {
+    key = 'o',
+    mods = 'LEADER',
+    action = act({ EmitEvent = 'toggle-opacity' }),
+  },
   {
     key = 'F12',
     action = wezterm.action_callback(function(_, pane)

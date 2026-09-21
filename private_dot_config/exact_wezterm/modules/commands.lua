@@ -202,6 +202,30 @@ wezterm.on('toggle-tmux-keybinds', function(window, pane)
   window:set_config_overrides(overrides)
 end)
 
+-- Transparency level used by the LEADER+o toggle below. The opaque side of
+-- the toggle is deliberately absent rather than 1.0, so ../wezterm.lua's
+-- window_background_opacity stays the single source of truth for it.
+local TOGGLE_OPACITY = 0.85
+
+-- Per-window opacity toggle bound to LEADER+o in ../keybinds.lua. Distinct
+-- from 'toggle-tmux-keybinds' above, which couples opacity to a key-map swap.
+-- The current overrides are read back and mutated in place so unrelated
+-- overrides -- `keys` above all -- survive the toggle. Clearing the key (as
+-- opposed to writing 1.0) is what restores the configured default. Overrides
+-- are per-window and are not persisted, so other and future windows stay
+-- opaque until they are toggled themselves.
+-- selene: allow(unused_variable)
+---@diagnostic disable-next-line: unused-local
+wezterm.on('toggle-opacity', function(window, pane)
+  local overrides = window:get_config_overrides() or {}
+  if overrides.window_background_opacity == nil then
+    overrides.window_background_opacity = TOGGLE_OPACITY
+  else
+    overrides.window_background_opacity = nil
+  end
+  window:set_config_overrides(overrides)
+end)
+
 -- workspace status is now integrated into the main update-right-status handler above
 
 local io = require('io')
