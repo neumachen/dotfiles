@@ -58,7 +58,7 @@
     "contextMemory": "session"
   },
   "autoCompactThresholdPercentage": 80,
-  "autoCompactionType": "handoff",
+  "autoCompactionType": "smart",
   "temperature": 0,
   "disabledExtensionTools": [],
   "autoCompactThresholdTokens": 2000000000

@@ -58,7 +58,7 @@
     "contextMemory": "off"
   },
   "autoCompactThresholdPercentage": 75,
-  "autoCompactionType": "handoff",
+  "autoCompactionType": "smart",
   "temperature": 0,
   "disabledExtensionTools": [],
   "autoCompactThresholdTokens": 150000
