@@ -1,5 +1,10 @@
--- Ensure tabs are converted to spaces in markdown files
-vim.opt_local.expandtab = true
+-- Markdown indentation: a <Tab> is two spaces, and every indent step
+-- (>>, <<, <C-t>, <C-d>, and the <Tab>/<S-Tab> list nesting wired up in
+-- blink.cmp.lua) moves by two columns.
+vim.opt_local.expandtab = true -- insert spaces, never a literal tab
+vim.opt_local.shiftwidth = 2 -- width of one indent step (>>, <<, <C-t>)
+vim.opt_local.tabstop = 2 -- a literal <Tab> character renders as 2 columns
+vim.opt_local.softtabstop = 2 -- pressing <Tab> in insert mode feels like 2
 
 -- ------------------------------------------------------------------------- {{{
 -- Markdown list mappings (buffer-local).

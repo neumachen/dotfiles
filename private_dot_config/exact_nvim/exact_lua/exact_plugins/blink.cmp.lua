@@ -1,5 +1,29 @@
 local trigger_text = ';'
 
+-- Nest / un-nest a Markdown list item one level with <Tab> / <S-Tab>.
+--
+-- Wired into blink's <Tab>/<S-Tab> chains below (after snippet jumps, before
+-- the default fallback) so completion and snippet navigation keep priority and
+-- nothing changes outside Markdown. On a list line it shifts the whole item by
+-- one 'shiftwidth' via the built-in <C-t> / <C-d> insert-mode commands, which
+-- move the bullet itself (so `- ` becomes `  - `) rather than inserting spaces
+-- after the marker. Returns true when it handled the key, false to fall
+-- through to blink's next command.
+local function markdown_list_shift(dedent)
+  if vim.bo.filetype ~= 'markdown' then return false end
+  local line = vim.api.nvim_get_current_line()
+  local is_list = line:match('^%s*[-+*]%s') or line:match('^%s*%d+%.%s')
+  if not is_list then return false end
+  local key = vim.api.nvim_replace_termcodes(
+    dedent and '<C-d>' or '<C-t>',
+    true,
+    false,
+    true
+  )
+  vim.api.nvim_feedkeys(key, 'n', false)
+  return true
+end
+
 ---@module 'lazy'
 ---@type LazySpec
 return {
@@ -277,8 +301,16 @@ return {
     -- https://cmp.saghen.dev/configuration/keymap.html#default
     opts.keymap = {
       preset = 'default',
-      ['<Tab>'] = { 'snippet_forward', 'fallback' },
-      ['<S-Tab>'] = { 'snippet_backward', 'fallback' },
+      ['<Tab>'] = {
+        'snippet_forward',
+        function() return markdown_list_shift(false) end,
+        'fallback',
+      },
+      ['<S-Tab>'] = {
+        'snippet_backward',
+        function() return markdown_list_shift(true) end,
+        'fallback',
+      },
 
       ['<Up>'] = { 'select_prev', 'fallback' },
       ['<Down>'] = { 'select_next', 'fallback' },
