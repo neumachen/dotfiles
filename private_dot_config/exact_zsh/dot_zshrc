@@ -234,7 +234,7 @@ function clippaste() {
 #   marlonrichert/zsh-autocomplete → wfxr/forgit →
 #   Aloxaf/fzf-tab → zmodule completion
 # Init scripts (starship, zoxide, broot) handled by zmodule-custom in zimrc.zsh.
-# Syntax highlighting: zsh-patina (binary via Homebrew), via zmodule-custom --eval in zimrc.zsh.
+# Syntax highlighting: zsh-patina (binary via mise cargo backend), via zmodule-custom --eval in zimrc.zsh.
 #############################
 
 # Dynamic CLI-sourced completions are produced by ~/.local/bin/regen-zsh-completions
@@ -626,7 +626,12 @@ function y() {
   command rm -f -- "$tmp"
 }
 
+# Restart the zsh-patina daemon too: it outlives the shell (one daemon serves
+# every session) and only reads its config and theme at startup.
 function reload-shell() {
+  if (( $+functions[zsh-patina] || $+commands[zsh-patina] )); then
+    zsh-patina restart || echo-warn "zsh-patina restart failed; reloading shell anyway"
+  fi
   exec zsh -il
 }
 
@@ -672,6 +677,63 @@ function _osc7_cwd() {
 }
 add-zsh-hook -Uz chpwd _osc7_cwd
 _osc7_cwd
+
+# Keep the zsh-patina daemon alive. The highlighter queries the daemon over a
+# socket on every redraw and draws no colors when it cannot, and nothing else
+# brings the daemon back:
+#   - zimrc.zsh sources a cached copy of `zsh-patina activate`, so new shells
+#     skip the daemon start that activate performs (e.g. after a reboot);
+#   - a crashed daemon leaves its socket and PID file behind;
+#   - macOS's periodic $TMPDIR cleanup can delete the socket of a daemon that
+#     is still running, and `zsh-patina start` then reports it as running.
+# Before each prompt, check that the socket the loaded highlighter uses exists
+# and that the daemon's PID is alive; otherwise `zsh-patina restart`, the only
+# command that recovers all three. The check never connects to the socket:
+# zsh-patina 1.7.0's daemon crashes when a client connects and disconnects
+# without sending a request. Retried at most once a minute per shell.
+function _zsh_patina_daemon_alive() {
+  local sock=$1 pidfile pid
+  [[ -S $sock ]] || return 1
+  # zsh-patina >= 1.9 keeps the PID in daemon.lock, older versions in daemon.pid.
+  for pidfile in ${sock:h}/daemon.{lock,pid}; do
+    [[ -r $pidfile ]] || continue
+    read -r pid < $pidfile
+    [[ $pid == <-> ]] && { kill -0 $pid 2>/dev/null; return }
+  done
+  return 0  # no readable PID: trust the socket
+}
+
+function _zsh_patina_heal() {
+  (( $+functions[_zsh_patina] )) || return 0
+
+  # Split the `local socket_path="..."` line into shell words so quoting and
+  # zsh's reformatting of the function body do not leak into the path.
+  local -a words=(${(z)${(M)${(f)functions[_zsh_patina]}:#*local socket_path=*}})
+  local sock=${(Q)${(M)words:#socket_path=*}#socket_path=}
+  [[ -n $sock ]] || return 0
+
+  _zsh_patina_daemon_alive $sock && return 0
+
+  (( SECONDS - ${_zsh_patina_heal_at:--60} >= 60 )) || return 0
+  typeset -g _zsh_patina_heal_at=$SECONDS
+
+  # restart exits 0 even when the new daemon dies, and returns before the
+  # daemon has bound its socket: poll for up to a second (zselect -t is in
+  # hundredths of a second).
+  zsh-patina restart &>/dev/null
+  zmodload zsh/zselect
+  repeat 50; do
+    _zsh_patina_daemon_alive $sock && break
+    zselect -t 2
+  done
+
+  if _zsh_patina_daemon_alive $sock; then
+    echo-info "zsh-patina daemon was down; restarted it"
+  else
+    echo-warn "zsh-patina daemon is down and did not restart; run 'zsh-patina start --no-daemon' to see why"
+  fi
+}
+add-zsh-hook precmd _zsh_patina_heal
 
 # Profiling End
 # zprof
