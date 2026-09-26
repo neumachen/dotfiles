@@ -38,16 +38,25 @@ if [ ! -f "${BREWFILE}" ]; then
   exit 0
 fi
 
-# Brewfile lives at $XDG_CONFIG_HOME/homebrew/Brewfile (rendered by
-# chezmoi from private_dot_config/exact_homebrew/Brewfile.tmpl). We use
-# `brew bundle --global` instead of `--file=<path>` because --global
-# already walks Homebrew's documented resolution order:
-#   1. $HOMEBREW_BUNDLE_FILE_GLOBAL
-#   2. $XDG_CONFIG_HOME/homebrew/Brewfile          <- where ours lives
-#   3. ~/.homebrew/Brewfile
-#   4. ~/.Brewfile
-# Letting Homebrew do the resolution keeps us in step with any future
-# changes to that order without having to track them here.
+# Brewfile lives at $XDG_CONFIG_HOME/homebrew/Brewfile (rendered by chezmoi
+# from private_dot_config/exact_homebrew/Brewfile.tmpl).
+#
+# We pin HOMEBREW_BUNDLE_FILE_GLOBAL rather than letting Homebrew resolve the
+# path itself. Per Homebrew's Library/Homebrew/bundle/brewfile.rb, `--global`
+# resolves in this order:
+#   1. $HOMEBREW_BUNDLE_FILE_GLOBAL            <- pinned below
+#   2. $HOMEBREW_USER_CONFIG_HOME/Brewfile     <- brew derives this from
+#                                                 XDG_CONFIG_HOME at startup
+#   3. ~/.Brewfile
+# Step 2 only works when XDG_CONFIG_HOME is set in the environment. A chezmoi
+# hook, a launchd job or a restricted shell may not have it, in which case brew
+# falls through to ~/.Brewfile and reports "No Brewfile found" instead of
+# installing anything. Pinning the variable makes resolution deterministic.
+#
+# NOTE: $HOMEBREW_BREWFILE is NOT a Homebrew variable — it appears nowhere in
+# Homebrew's source and setting it has no effect on `brew bundle`.
+# HOMEBREW_BUNDLE_FILE (without _GLOBAL) must NOT be set either: brewfile.rb
+# raises "cannot be specified with '--global'" if it is.
 _log_info "Installing Homebrew packages from Brewfile (brew bundle --global)..."
 
 # Heads-up before we start: these casks install kernel/system extensions or
@@ -61,7 +70,7 @@ _log_warn "Approve them in System Settings > Privacy & Security, then re-run che
 
 # Prerequisites are present, so a failure here is genuine: exit non-zero so
 # chezmoi does NOT record this hook as done and retries on the next apply.
-if ! brew bundle --global; then
+if ! HOMEBREW_BUNDLE_FILE_GLOBAL="${BREWFILE}" brew bundle --global; then
   _log_err "brew bundle --global failed. Re-run 'chezmoi apply' after resolving the errors above."
   exit 1
 fi

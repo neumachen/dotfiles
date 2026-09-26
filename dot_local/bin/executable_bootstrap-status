@@ -409,6 +409,21 @@ _cfg_get_from() { # $1=flat  $2=dotted path
   printf '%s\n' "$flat" | sed -n "s|^${re}=||p" | head -1
 }
 
+_norm() { # D2: map the skip sentinel to empty. Trims surrounding whitespace and
+  # folds case, so "-", " none ", "None" and "NONE" all normalise while real
+  # values such as "NONE-SENSE" are preserved. bash 3.2 has no ${x,,}, hence tr.
+  local v="$1"
+  v="${v#"${v%%[![:space:]]*}"}"   # trim leading whitespace
+  v="${v%"${v##*[![:space:]]}"}"   # trim trailing whitespace
+  case "$v" in
+    ""|-) printf '' ; return 0 ;;
+  esac
+  case "$(printf '%s' "$v" | tr '[:upper:]' '[:lower:]')" in
+    none) printf '' ;;
+    *)    printf '%s' "$v" ;;
+  esac
+}
+
 _cfg_get() { # $1=dotted path — JSON (chezmoi data) wins over the config file
   _cfg_load
   local v=""
@@ -416,6 +431,17 @@ _cfg_get() { # $1=dotted path — JSON (chezmoi data) wins over the config file
   if [ -z "$v" ]; then
     v="$(_cfg_get_from "$CFG_YAML_FLAT" "$1")"
   fi
+  # D2: .chezmoi.yaml.tmpl stores the literal "-" for a deliberately skipped
+  # optional value, so that empty-means-unset does not re-prompt for it on every
+  # future `chezmoi init`. Consumers must read that as "not configured".
+  # Normalise in this one place, for every key that can carry the sentinel.
+  # onepassword.vault is included because it too stores "-" when skipped; without
+  # it ev_onepassword_vault would report vault '-' as configured-but-unreachable
+  # (red) instead of not-configured (amber).
+  case "$1" in
+    onepassword.vault|onepassword.account|onepassword.ssh_key_item|\
+    onepassword.app_path|secrets.*) v="$(_norm "$v")" ;;
+  esac
   printf '%s' "$v"
 }
 
@@ -448,6 +474,8 @@ _cfg_secret_ref() { # $1=secret name — prints the op:// reference, never a val
   if [ -z "$v" ] && [ -n "$CFG_YAML_FLAT" ]; then
     v="$(printf '%s\n' "$CFG_YAML_FLAT" | sed -n "s|^${re}=||p" | head -1)"
   fi
+  # D2: a secret whose reference was skipped is stored as "-", not "".
+  v="$(_norm "$v")"
   printf '%s' "$v"
 }
 
@@ -959,7 +987,20 @@ _origin_url() {
     if [ "$_CLT_STATE" = "green" ] && _have git; then
       out="$(_tmp_out)"
       if [ -n "$out" ]; then
-        if _run_t 15 "$out" git -C "$src" remote get-url origin; then
+        # D4: read the RAW configured value with `git config --get`, not
+        # `git remote get-url`. The latter reports the URL *after*
+        # url.<base>.insteadOf rewriting, so on a host whose gitconfig rewrites
+        # https://github.com/ -> git@github.com: it answers SSH even though
+        # .git/config still says HTTPS. Keeping this literal means the status
+        # report agrees with run_onchange_after_75-switch-to-ssh, which now
+        # reads the same raw key.
+        if _run_t 15 "$out" git -C "$src" config --get remote.origin.url; then
+          url="$(head -1 "$out" 2>/dev/null)"
+        fi
+        # Only if the raw key is genuinely absent fall back to the rewritten
+        # value — an approximate answer still beats reporting "no origin".
+        if [ -z "$url" ] &&
+          _run_t 15 "$out" git -C "$src" remote get-url origin; then
           url="$(head -1 "$out" 2>/dev/null)"
         fi
         rm -f -- "$out" 2>/dev/null
@@ -1181,25 +1222,43 @@ ev_github_ssh() {
 }
 
 ev_brewfile() {
-  local brew="" out="" hint=""
+  local brew="" out="" hint="" brewfile=""
   brew="$(_brew_cmd)"
   if [ -z "$brew" ]; then
     _ST="amber"
     _MSG="Homebrew absent — Brewfile check deferred until brew is installed"
     return 0
   fi
+  # Same path the chezmoi hook and .zprofile use.
+  brewfile="${XDG_CONFIG_HOME:-${HOME}/.config}/homebrew/Brewfile"
   out="$(_tmp_out)"
   if [ -z "$out" ]; then
     _ST="amber"
     _MSG="cannot probe the Brewfile — no temp file available"
     return 0
   fi
-  if _run_t 90 "$out" "$brew" bundle check --global; then
+  # Strictly read-only: never create the Brewfile, only report on it.
+  if [ ! -f "$brewfile" ]; then
+    _ST="amber"
+    _MSG="no Brewfile at ${brewfile} — chezmoi has not rendered it yet"
+    rm -f -- "$out" 2>/dev/null
+    return 0
+  fi
+  # Pin the Brewfile for this invocation instead of relying on brew's own XDG
+  # defaulting. Per Homebrew's Library/Homebrew/bundle/brewfile.rb, `--global`
+  # resolves $HOMEBREW_BUNDLE_FILE_GLOBAL first, then
+  # $HOMEBREW_USER_CONFIG_HOME/Brewfile (which brew derives from XDG_CONFIG_HOME
+  # at startup), then ~/.Brewfile. Without the pin, a restricted environment
+  # with XDG_CONFIG_HOME unset falls through to ~/.Brewfile and reports "No
+  # Brewfile found" — the check would silently change meaning.
+  # NOTE: $HOMEBREW_BREWFILE is not a Homebrew variable; setting it does nothing.
+  if _run_t 90 "$out" env HOMEBREW_BUNDLE_FILE_GLOBAL="$brewfile" \
+    "$brew" bundle check --global; then
     _ST="green"
-    _MSG="Brewfile satisfied ('brew bundle check --global')"
+    _MSG="Brewfile satisfied ('brew bundle check --global' on ${brewfile})"
   elif grep -qi "no brewfile" "$out" 2>/dev/null; then
     _ST="amber"
-    _MSG="no Brewfile found at the XDG/home paths — chezmoi has not rendered ~/.config/homebrew/Brewfile yet"
+    _MSG="brew could not resolve a Brewfile despite ${brewfile} existing"
   else
     # Format-agnostic: surface the first meaningful line brew printed so a
     # Brewfile syntax error is not silently reported as "missing entries".
@@ -1252,9 +1311,21 @@ ev_mise() {
 
 ev_secrets() {
   local names="" name="" ref="" env_file="$SECRETS_ENV_FILE"
-  names="$(_cfg_keys secrets)"
+  local all_names="" count=0
 
-  if [ -z "$names" ]; then
+  # Drop entries whose ref is empty or a D2 "-" / "none" skip sentinel. Those
+  # were deliberately skipped at `chezmoi init` time, so they must not be
+  # counted as configured, must not be expected in secrets.env, and must not be
+  # handed to `op read`. _cfg_secret_ref already normalises the sentinel away.
+  all_names="$(_cfg_keys secrets)"
+  for name in $all_names; do
+    ref="$(_cfg_secret_ref "$name")"
+    [ -n "$ref" ] || continue
+    names="${names:+${names} }${name}"
+    count=$((count + 1))
+  done
+
+  if [ "$count" -eq 0 ]; then
     local legacy=""
     legacy="$(_cfg_get legacy.envvars_count)"
     if [ -n "$legacy" ] && [ "$legacy" != "0" ]; then
@@ -1266,11 +1337,6 @@ ev_secrets() {
     fi
     return 0
   fi
-
-  local count=0
-  for name in $names; do
-    count=$((count + 1))
-  done
 
   local missing_names="" mode=""
   if [ ! -f "$env_file" ]; then
@@ -1466,6 +1532,11 @@ _overall() {
   fi
 }
 
+# CONTRACT (load-bearing): the check id / state / document-order layout of
+# bootstrap-status.json is what install.sh's stage4_converge stall detection
+# compares (see _status_key there). The inline fallback emitter in
+# .chezmoiscripts/run_after_99-bootstrap-status.sh.tmpl writes the SAME
+# document; do not reorder, rename or drop check ids without updating both.
 _render_json() { # $1=generated_at  $2=hostname  $3=overall
   local ts="$1"
   local host="$2"

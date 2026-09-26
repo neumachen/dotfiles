@@ -1,12 +1,45 @@
 #!/bin/bash
+{{- /*
+  D1: every key that a pre-refactor (legacy) ~/.config/chezmoi/chezmoi.yaml does
+  not carry is read through a hasKey guard. chezmoi does NOT regenerate the
+  config file when .chezmoi.yaml.tmpl changes — it only warns — so an unguarded
+  .onepassword.enabled aborts the whole apply with 'map has no entry for key
+  "enabled"'. Absent => the safe deferred value (false / "" / empty map).
+  NOTE: the last action before the first output line must NOT use a trailing
+  dash, or it eats the newline after #!/bin/bash and breaks the shebang.
+*/ -}}
+{{- $opEnabled := false -}}
+{{- if and (hasKey . "onepassword") (hasKey .onepassword "enabled") -}}
+  {{- $opEnabled = .onepassword.enabled -}}
+{{- end -}}
+{{- $opApp := "" -}}
+{{- if and (hasKey . "onepassword") (hasKey .onepassword "app_path") -}}
+  {{- $opApp = .onepassword.app_path -}}
+{{- end -}}
+{{- $opVault := "" -}}
+{{- if and (hasKey . "onepassword") (hasKey .onepassword "vault") -}}
+  {{- $opVault = .onepassword.vault -}}
+{{- end -}}
+{{- $deferCLT := false -}}
+{{- if and (hasKey . "bootstrap") (hasKey .bootstrap "defer_clt") -}}
+  {{- $deferCLT = .bootstrap.defer_clt -}}
+{{- end -}}
+{{- $deferXcode := false -}}
+{{- if and (hasKey . "bootstrap") (hasKey .bootstrap "defer_xcode") -}}
+  {{- $deferXcode = .bootstrap.defer_xcode -}}
+{{- end -}}
+{{- $secrets := dict -}}
+{{- if hasKey . "secrets" -}}
+  {{- $secrets = .secrets -}}
+{{- end }}
 # dep hash: schema=1
 # dep hash: checks=clt,xcode,xcode_license,homebrew,chezmoi,onepassword_app,onepassword_cli,onepassword_vault,ssh_signing_key,github_ssh,brewfile,mise,secrets,git_remote_ssh
-# dep hash: enabled={{ .onepassword.enabled }}
-# dep hash: app={{ .onepassword.app_path }}
-# dep hash: vault={{ .onepassword.vault }}
-# dep hash: defer_clt={{ .bootstrap.defer_clt }}
-# dep hash: defer_xcode={{ .bootstrap.defer_xcode }}
-# dep hash: secrets={{ .secrets | toJson | sha256sum }}
+# dep hash: enabled={{ $opEnabled }}
+# dep hash: app={{ $opApp }}
+# dep hash: vault={{ $opVault }}
+# dep hash: defer_clt={{ $deferCLT }}
+# dep hash: defer_xcode={{ $deferXcode }}
+# dep hash: secrets={{ $secrets | toJson | sha256sum }}
 # dep hash: reporter={{ if stat (joinPath .chezmoi.homeDir ".local/bin/bootstrap-status") }}yes{{ else }}no{{ end }}
 #
 # run_after_ => runs on EVERY apply, after all target-state updates, and sorts
@@ -57,11 +90,28 @@ REPORTER_BIN="${LOCAL_BIN}/bootstrap-status"
 
 # --- chezmoi data (rendered) -----------------------------------------------
 
-OP_ENABLED="{{ .onepassword.enabled }}"
-OP_APP="{{ .onepassword.app_path }}"
-OP_VAULT="{{ .onepassword.vault }}"
-DEFER_CLT="{{ .bootstrap.defer_clt }}"
-DEFER_XCODE="{{ .bootstrap.defer_xcode }}"
+# D2: fold the "-" / "none" skip sentinel (now stored verbatim by
+# .chezmoi.yaml.tmpl so optional prompts are not re-asked) back to empty.
+_norm() { # D2: map the skip sentinel to empty. Trims surrounding whitespace and
+  # folds case, so "-", " none ", "None" and "NONE" all normalise while real
+  # values such as "NONE-SENSE" are preserved. bash 3.2 has no ${x,,}, hence tr.
+  local v="$1"
+  v="${v#"${v%%[![:space:]]*}"}"   # trim leading whitespace
+  v="${v%"${v##*[![:space:]]}"}"   # trim trailing whitespace
+  case "$v" in
+    ""|-) printf '' ; return 0 ;;
+  esac
+  case "$(printf '%s' "$v" | tr '[:upper:]' '[:lower:]')" in
+    none) printf '' ;;
+    *)    printf '%s' "$v" ;;
+  esac
+}
+
+OP_ENABLED="{{ $opEnabled }}"
+OP_APP="$(_norm "{{ $opApp }}")"
+OP_VAULT="$(_norm "{{ $opVault }}")"
+DEFER_CLT="{{ $deferCLT }}"
+DEFER_XCODE="{{ $deferXcode }}"
 SOURCE_DIR="{{ .chezmoi.sourceDir }}"
 HOSTNAME_S="{{ .chezmoi.hostname }}"
 
@@ -73,7 +123,7 @@ OP_AGENT_SOCK="${HOME}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent
 
 # Secret NAMES configured in .secrets (references that are non-empty). Only the
 # names are used here — the references and values never reach this script.
-SECRET_NAMES=({{- range $name, $ref := .secrets }}{{ if $ref }}
+SECRET_NAMES=({{- range $name, $ref := $secrets }}{{ if and $ref (ne $ref "-") (ne $ref "none") }}
   "{{ $name }}"
 {{- end }}{{ end }}
 )
@@ -150,6 +200,12 @@ _overall() {
   if [ "${saw_amber}" -eq 1 ]; then printf 'amber'; else printf 'green'; fi
 }
 
+# CONTRACT (load-bearing): the check id / state / document-order layout of
+# bootstrap-status.json is what install.sh's stage4_converge stall detection
+# compares (see _status_key there). The authoritative emitter is
+# dot_local/bin/executable_bootstrap-status; this inline fallback must keep
+# producing the same document. Do not reorder, rename or drop check ids
+# without updating both emitters.
 _render_json() { # <generated_at> <hostname> <overall>
   local generated_at="$1" host="$2" overall="$3"
   local i=0 first=1
@@ -361,9 +417,21 @@ else
 fi
 
 # --- 14. git_remote_ssh ----------------------------------------------------
+# D4: read the RAW configured value with `git config --get remote.origin.url`,
+# not `git remote get-url origin`. The latter reports the URL *after*
+# url.<base>.insteadOf rewriting, and private_config.tmpl sets
+# `insteadOf = "https://github.com/"` -> `git@github.com:`. With that rewrite
+# active `remote get-url` always answered SSH, so this check reported green
+# while .git/config still said HTTPS and 75-switch-to-ssh had nothing to do.
+# Reading the literal key keeps this report in agreement with that script and
+# with bootstrap-status, which parses .git/config directly.
 origin_url=""
 if [ -n "${SOURCE_DIR}" ] && git -C "${SOURCE_DIR}" rev-parse --git-dir >/dev/null 2>&1; then
-  origin_url="$(git -C "${SOURCE_DIR}" remote get-url origin 2>/dev/null || true)"
+  origin_url="$(git -C "${SOURCE_DIR}" config --get remote.origin.url 2>/dev/null || true)"
+  # Only if the raw key is genuinely absent fall back to the rewritten value.
+  if [ -z "${origin_url}" ]; then
+    origin_url="$(git -C "${SOURCE_DIR}" remote get-url origin 2>/dev/null || true)"
+  fi
 fi
 case "${origin_url}" in
   git@github.com:*)

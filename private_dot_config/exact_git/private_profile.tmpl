@@ -18,12 +18,38 @@
   Ordering constraint: signingKey must be emitted before the [gpg] header so it
   lands inside the [user] section opened by .git.profile.
 */ -}}
+{{- /* D1: guard the LEGACY .git.profile as well as the new-schema keys. A
+       pre-refactor ~/.config/chezmoi/chezmoi.yaml may have no git block at all,
+       and chezmoi only regenerates that file on `chezmoi init`, so an unguarded
+       read would abort every render with "map has no entry for key".
+       D2: normalise the "-" / "none" skip sentinel to empty (case-insensitive,
+       trimmed) so a deliberately-skipped value can never be emitted literally.
+       These assignments are placed before the literal text on purpose: every one
+       is {{- ... -}} so it emits nothing, and putting them after
+       "# vim:ft=gitconfig" would let {{- eat the blank line that follows it. */ -}}
+{{- $gitProfile := "" -}}
+{{- if and (hasKey . "git") (hasKey .git "profile") -}}
+  {{- $gitProfile = .git.profile -}}
+{{- end -}}
+{{- if or (eq (trim $gitProfile) "-") (eq (lower (trim $gitProfile)) "none") -}}
+  {{- $gitProfile = "" -}}
+{{- end -}}
+{{- $opApp := "" -}}
+{{- $opEnabled := false -}}
+{{- if and (hasKey . "onepassword") (hasKey .onepassword "app_path") -}}
+  {{- $opApp = .onepassword.app_path -}}
+{{- end -}}
+{{- if or (eq (trim $opApp) "-") (eq (lower (trim $opApp)) "none") -}}
+  {{- $opApp = "" -}}
+{{- end -}}
+{{- if and (hasKey . "onepassword") (hasKey .onepassword "enabled") -}}
+  {{- $opEnabled = .onepassword.enabled -}}
+{{- end -}}
 # vim:ft=gitconfig
 
-{{ .git.profile | trimSuffix "\n" -}}
+{{ $gitProfile | trimSuffix "\n" -}}
 {{- $keyFile := joinPath .chezmoi.homeDir ".config/git/ssh-signing-key" -}}
-{{- $opApp := .onepassword.app_path -}}
-{{- if and .onepassword.enabled (ne $opApp "") (stat $keyFile) }}
+{{- if and $opEnabled (ne $opApp "") (stat $keyFile) }}
   signingKey = {{ output "cat" $keyFile | trim }}
 [gpg]
   format = ssh

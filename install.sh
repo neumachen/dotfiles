@@ -342,7 +342,7 @@ _status() {
 # bootstrap-status. Records are flushed when the next "id" is seen, which keeps
 # the three arrays aligned by construction.
 _load_status_doc() {
-  local json="" line="" id="" st="" msg=""
+  local json="" line="" id="" st="" msg="" flat="" objs=""
   S_IDS=()
   S_STATES=()
   S_MSGS=()
@@ -353,6 +353,22 @@ _load_status_doc() {
     json="$(_status --json 2>/dev/null)"
   fi
   [ -n "$json" ] || return 1
+
+  # Normalise the layout before the line-based walk below.
+  #
+  # A valid JSON document never contains a RAW newline inside a string (it would
+  # be escaped as \n), so collapsing the document to a single line is lossless.
+  # Re-splitting on check-object boundaries then yields exactly one line per
+  # check for EVERY emitter layout: minified, one-object-per-line, or one-field-
+  # per-line. Without this a minified document parses as a single check (the
+  # greedy `.*"id":` in _json_field matches only the last one), which would
+  # silently defeat the stall detection in stage4_converge.
+  #
+  # `[^{}]*` keeps the match inside a single check object — the outer document
+  # object contains nested braces and so can never match.
+  flat="$(printf '%s' "$json" | tr -d '\n\r')"
+  objs="$(printf '%s' "$flat" | grep -o '{[^{}]*"id"[^{}]*}' 2>/dev/null)"
+  [ -n "$objs" ] && json="$objs"
 
   while IFS= read -r line; do
     case "$line" in
@@ -382,6 +398,33 @@ EOF
   [ "${#S_IDS[@]}" -gt 0 ]
 }
 
+# _status_key — semantic comparison key for stall detection: one "id=state"
+# line per check, in document order.
+#
+# D7: there are two independent writers of bootstrap-status.json —
+# dot_local/bin/executable_bootstrap-status (authoritative) and the inline
+# fallback in .chezmoiscripts/run_after_99-bootstrap-status.sh.tmpl. They agree
+# today, but comparing the raw document textually would report spurious
+# "progress" the moment either layout drifts (indentation, key order, message
+# wording, generated_at, hostname), burning every MAX_PASSES on a machine that
+# has actually stalled. Deriving the key from id+state only makes the comparison
+# immune to all of that.
+#
+# Returns non-zero (and prints nothing) when no document could be read, so the
+# caller treats it as "no comparison possible" rather than as progress.
+# bash 3.2 safe: indexed arrays only, no associative arrays, no ${x,,}.
+_status_key() {
+  _load_status_doc || return 1
+  local i=0 out=""
+  while [ "$i" -lt "${#S_IDS[@]}" ]; do
+    out="${out}${S_IDS[$i]}=${S_STATES[$i]}
+"
+    i=$((i + 1))
+  done
+  [ -n "$out" ] || return 1
+  printf '%s' "$out"
+}
+
 # _json_field LINE KEY — extract a string field from a JSON line. Returns ""
 # when the key is not on that line. Values never contain a raw quote (the
 # writer escapes them), so cutting at the next quote is exact.
@@ -390,8 +433,10 @@ _json_field() {
     *"\"$2\""*) ;;
     *) return 0 ;;
   esac
+  # Whitespace is allowed on BOTH sides of the colon: `"id":"x"`, `"id": "x"`
+  # and `"id" : "x"` are all legal JSON, and the two emitters are free to drift.
   printf '%s' "$1" |
-    sed -e "s|.*\"$2\":[[:space:]]*\"||" -e 's|".*||'
+    sed -e "s|.*\"$2\"[[:space:]]*:[[:space:]]*\"||" -e 's|".*||'
 }
 
 _status_word() {
@@ -993,7 +1038,7 @@ stage4_converge() {
         "$([ "$VERBOSE" -eq 1 ] && printf ' -v')"
       p=$((p + 1))
     done
-    printf '  [dry-run] would stop on: green, or two identical status documents, or %s passes\n' "$MAX_PASSES"
+    printf '  [dry-run] would stop on: green, or two identical id=state snapshots, or %s passes\n' "$MAX_PASSES"
     _log_ok "stage 4 summary: dry run, nothing applied"
     return 0
   fi
@@ -1031,14 +1076,14 @@ stage4_converge() {
       return 0
     fi
 
+    # D7: snapshot a SEMANTIC key — "id=state" per check in document order —
+    # rather than the document text. Two identical keys mean no further progress
+    # is possible without human action. An empty key means no document could be
+    # read, which is treated as "no comparison possible", never as progress.
     doc=""
-    if [ -f "$STATUS_JSON" ]; then
-      # Compare with generated_at stripped: two identical documents mean no
-      # further progress is possible without human action.
-      doc="$(grep -v '"generated_at"' "$STATUS_JSON" 2>/dev/null)"
-    fi
+    doc="$(_status_key)" || doc=""
     if [ -n "$prev_doc" ] && [ -n "$doc" ] && [ "$prev_doc" = "$doc" ]; then
-      _log_warn "no further progress: two consecutive passes produced an identical status document"
+      _log_warn "no further progress: two consecutive passes produced an identical id=state snapshot"
       _log_warn "the remaining checks need human action — see the manual-actions list below"
       CONVERGED="stalled"
       break

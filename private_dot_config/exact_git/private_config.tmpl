@@ -175,7 +175,15 @@
   insteadOf = "gh:"
   pushInsteadOf = "github:"
   pushInsteadOf = "git://github.com/"
-{{- if and .onepassword.enabled (stat (joinPath .chezmoi.homeDir ".config/git/ssh-signing-key")) }}
+{{- /* D1: guard the new-schema keys. chezmoi does NOT regenerate this config
+       when .chezmoi.yaml.tmpl changes, so a legacy ~/.config/chezmoi/chezmoi.yaml
+       has no onepassword.enabled. Absent => false => the rewrite stays off, which
+       is the safe deferred state (it only turns on once the SSH key resolves). */ -}}
+{{- $opEnabled := false -}}
+{{- if and (hasKey . "onepassword") (hasKey .onepassword "enabled") -}}
+  {{- $opEnabled = .onepassword.enabled -}}
+{{- end -}}
+{{- if and $opEnabled (stat (joinPath .chezmoi.homeDir ".config/git/ssh-signing-key")) }}
   insteadOf = "https://github.com/"
 {{- end }}
 
@@ -208,8 +216,14 @@
 [include]
   path = {{ expandenv "${HOME}/.config/git/profile" }}
 
-{{- if .git.profiles }}
-{{ range .git.profiles -}}
+{{- /* D1: guard the legacy .git.profiles read. A pre-refactor config may have no
+       git block at all, and chezmoi only regenerates that file on `chezmoi init`,
+       so an unguarded read aborts the render with "map has no entry for key".
+       Absent => empty list => no includeIf sections, which is the inert default. */ -}}
+{{- $gitProfiles := list -}}
+{{- if and (hasKey . "git") (hasKey .git "profiles") -}}{{- $gitProfiles = .git.profiles -}}{{- end -}}
+{{- if $gitProfiles }}
+{{ range $gitProfiles -}}
 [includeIf "gitdir:{{ .gitdir }}"]
   path = {{ expandenv "${HOME}/.config/git/profiles/{{ .name }}" }}
 

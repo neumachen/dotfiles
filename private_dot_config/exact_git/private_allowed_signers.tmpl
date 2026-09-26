@@ -12,18 +12,30 @@
 {{- $keyFile := joinPath .chezmoi.homeDir ".config/git/ssh-signing-key" -}}
 {{- $key := "" -}}
 {{- if stat $keyFile -}}{{- $key = output "cat" $keyFile | trim -}}{{- end -}}
-{{- if and (eq $key "") .onepassword.ssh_signing_key -}}{{- $key = .onepassword.ssh_signing_key -}}{{- end -}}
+{{- /* D1: guard even though ssh_signing_key exists in the legacy schema — a
+       config with no onepassword block at all must not abort the render. */ -}}
+{{- if and (eq $key "") (hasKey . "onepassword") (hasKey .onepassword "ssh_signing_key") .onepassword.ssh_signing_key -}}{{- $key = .onepassword.ssh_signing_key -}}{{- end -}}
+{{- /* D2: a legacy ssh_signing_key holding the skip sentinel means "no key",
+       not a key literally named "-". */ -}}
+{{- if or (eq (trim $key) "-") (eq (lower (trim $key)) "none") -}}{{- $key = "" -}}{{- end -}}
+{{- /* D1: guard the legacy .git.email / .git.profiles reads too, so a config
+       with no git block cannot abort the render. */ -}}
+{{- $gitEmail := "" -}}
+{{- if and (hasKey . "git") (hasKey .git "email") -}}{{- $gitEmail = .git.email -}}{{- end -}}
+{{- if or (eq (trim $gitEmail) "-") (eq (lower (trim $gitEmail)) "none") -}}{{- $gitEmail = "" -}}{{- end -}}
+{{- $gitProfiles := list -}}
+{{- if and (hasKey . "git") (hasKey .git "profiles") -}}{{- $gitProfiles = .git.profiles -}}{{- end -}}
 # Allowed SSH signing keys for Git signature verification
 # Format: <email> <key-type> <public-key>
 
 # Default signing key
 {{ if $key -}}
-{{ .git.email }} {{ $key }}
+{{ $gitEmail }} {{ $key }}
 {{- end }}
 
 # Profile-specific signing keys
-{{- if .git.profiles }}
-{{ range .git.profiles -}}
+{{- if $gitProfiles }}
+{{ range $gitProfiles -}}
 {{ if .signingKey -}}
 {{ .email }} {{ .signingKey }}
 {{ end -}}

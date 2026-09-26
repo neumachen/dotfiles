@@ -1,8 +1,37 @@
 #!/bin/bash
-{{ $originCmd := "git -C \"$1\" remote get-url origin 2>/dev/null || echo none" -}}
-# dep hash: enabled={{ .onepassword.enabled }}
-# dep hash: app={{ .onepassword.app_path }}
-# dep hash: vault={{ .onepassword.vault }}
+{{- /*
+  D1: every key that a pre-refactor (legacy) ~/.config/chezmoi/chezmoi.yaml does
+  not carry is read through a hasKey guard, because chezmoi does NOT regenerate
+  the config file when .chezmoi.yaml.tmpl changes — it only warns. An unguarded
+  .onepassword.enabled would abort the whole apply with
+  'map has no entry for key "enabled"'. Absent => the safe deferred value.
+*/ -}}
+{{- $opEnabled := false -}}
+{{- if and (hasKey . "onepassword") (hasKey .onepassword "enabled") -}}
+  {{- $opEnabled = .onepassword.enabled -}}
+{{- end -}}
+{{- $opApp := "" -}}
+{{- if and (hasKey . "onepassword") (hasKey .onepassword "app_path") -}}
+  {{- $opApp = .onepassword.app_path -}}
+{{- end -}}
+{{- $opVault := "" -}}
+{{- if and (hasKey . "onepassword") (hasKey .onepassword "vault") -}}
+  {{- $opVault = .onepassword.vault -}}
+{{- end -}}
+{{- /*
+  D4: read the RAW configured URL, not `git remote get-url origin`. The latter
+  reports the value *after* url.<base>.insteadOf rewriting, and
+  private_config.tmpl installs `insteadOf = "https://github.com/"` ->
+  `git@github.com:`. With the rewrite active, `remote get-url` always answered
+  `git@github.com:...` even while .git/config literally said `https://...`, so
+  this hook logged "Already using SSH" and never rewrote anything — a permanent
+  no-op on every host where signing worked. `git config --get remote.origin.url`
+  returns the literal stored value and is unaffected by insteadOf.
+*/ -}}
+{{ $originCmd := "git -C \"$1\" config --get remote.origin.url 2>/dev/null || echo none" }}
+# dep hash: enabled={{ $opEnabled }}
+# dep hash: app={{ $opApp }}
+# dep hash: vault={{ $opVault }}
 # dep hash: op={{ if lookPath "op" }}yes{{ else }}no{{ end }}
 # dep hash: keyfile={{ if stat (joinPath .chezmoi.homeDir ".config/git/ssh-signing-key") }}yes{{ else }}no{{ end }}
 # dep hash: origin={{ output "sh" "-c" $originCmd "_" .chezmoi.sourceDir | trim }}
@@ -15,6 +44,26 @@
 # Convergence rule: prerequisite absent/deferred => warn + exit 0 (the dep hash
 # guarantees a later re-run); prerequisites present but the switch itself failed
 # => exit non-zero so chezmoi does NOT record the hook as done.
+#
+# Convergence sequence (verified against chezmoi v2.72.2 docs, "Application
+# order" + the `after` source-state attribute):
+#
+#   pass 1  ~/.config/git/ssh-signing-key absent => private_config.tmpl does NOT
+#           render `insteadOf`, and this hook defers (exit 0).
+#   pass 1  70-resolve-1password writes the key file (also an `after` script; it
+#           sorts before 75, so it runs first within phase 6).
+#   pass 2  the key file now exists => `.config/git/config` gains `insteadOf`,
+#           AND this hook's dep hash changed (keyfile=no->yes) so it re-runs and
+#           rewrites the raw remote.origin.url from https:// to git@.
+#   pass 3  dep hash stable (origin is now git@...) => nothing re-runs.
+#
+# Ordering guarantee: chezmoi applies target-state entries (files, dirs,
+# externals, symlinks) in phase 5 and runs `run_after_` scripts in phase 6, and
+# the `after` attribute is documented as "run the script after all other scripts
+# and target state updates". So `.config/git/config` is ALWAYS written before
+# this hook reads it. That guarantee comes from the `after` attribute, not from
+# the alphabetical `.` (0x2E) < `7` (0x37) ordering, which would only decide
+# relative order among phase-5 entries.
 {{- if eq .chezmoi.os "darwin" }}
 
 set -e # -e: exit on error
@@ -36,9 +85,27 @@ _log_ok()    { if command -v echo-ok    &>/dev/null; then echo-ok    "$@"; else 
 _log_warn()  { if command -v echo-warn  &>/dev/null; then echo-warn  "$@"; else echo "[WARN] --- $*" >&2; fi; }
 _log_err()   { if command -v echo-err   &>/dev/null; then echo-err   "$@"; else echo "[ERROR] --- $*" >&2; fi; }
 
-OP_ENABLED="{{ .onepassword.enabled }}"
-OP_APP="{{ .onepassword.app_path }}"
-OP_VAULT="{{ .onepassword.vault }}"
+# D2: `.chezmoi.yaml.tmpl` stores the literal "-" for an optional prompt the user
+# chose to skip permanently (so empty-means-unset does not re-ask forever). Every
+# consumer normalises that sentinel back to empty. bash 3.2 compatible.
+_norm() { # D2: map the skip sentinel to empty. Trims surrounding whitespace and
+  # folds case, so "-", " none ", "None" and "NONE" all normalise while real
+  # values such as "NONE-SENSE" are preserved. bash 3.2 has no ${x,,}, hence tr.
+  local v="$1"
+  v="${v#"${v%%[![:space:]]*}"}"   # trim leading whitespace
+  v="${v%"${v##*[![:space:]]}"}"   # trim trailing whitespace
+  case "$v" in
+    ""|-) printf '' ; return 0 ;;
+  esac
+  case "$(printf '%s' "$v" | tr '[:upper:]' '[:lower:]')" in
+    none) printf '' ;;
+    *)    printf '%s' "$v" ;;
+  esac
+}
+
+OP_ENABLED="{{ $opEnabled }}"
+OP_APP="$(_norm "{{ $opApp }}")"
+OP_VAULT="{{ $opVault }}"
 SOURCE_DIR="{{ .chezmoi.sourceDir }}"
 KEY_FILE="${XDG_CONFIG_HOME:-${HOME}/.config}/git/ssh-signing-key"
 
@@ -86,7 +153,17 @@ if ! git -C "${SOURCE_DIR}" rev-parse --git-dir >/dev/null 2>&1; then
   exit 0
 fi
 
-CURRENT_URL="$(git -C "${SOURCE_DIR}" remote get-url origin 2>/dev/null || true)"
+# D4: read the RAW configured value, not `git remote get-url origin`. The latter
+# applies url.<base>.insteadOf, and private_config.tmpl rewrites
+# https://github.com/ -> git@github.com:, so `get-url` reported SSH while
+# .git/config still literally said https:// and this hook was a permanent no-op.
+CURRENT_URL="$(git -C "${SOURCE_DIR}" config --get remote.origin.url 2>/dev/null || true)"
+# Only if the raw key is genuinely absent (e.g. the remote is defined in a
+# config file `git config --get` does not surface here) fall back to the
+# rewritten value: an approximate answer still beats reporting "no origin".
+if [ -z "${CURRENT_URL}" ]; then
+  CURRENT_URL="$(git -C "${SOURCE_DIR}" remote get-url origin 2>/dev/null || true)"
+fi
 case "${CURRENT_URL}" in
   git@github.com:*)
     _log_ok "Already using SSH remote: ${CURRENT_URL}"

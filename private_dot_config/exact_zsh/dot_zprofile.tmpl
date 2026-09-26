@@ -20,6 +20,28 @@ manual_pathmunge "${BREW_PREFIX}/share/man"
 info_pathmunge "${BREW_PREFIX}/share/info"
 manual_pathmunge "${BREW_PREFIX}/opt/coreutils/libexec/gnuman"
 manual_pathmunge "${BREW_PREFIX}/opt/make/libexec/gnuman"
+
+# Pin the Brewfile that `brew bundle --global` reads.
+#
+# Homebrew resolves --global from $HOMEBREW_BUNDLE_FILE_GLOBAL first, then
+# $HOMEBREW_USER_CONFIG_HOME/Brewfile (which brew derives from XDG_CONFIG_HOME),
+# then ~/.Brewfile. Relying on that second step means the Brewfile silently
+# stops resolving in any environment where XDG_CONFIG_HOME is unset — a chezmoi
+# hook, a launchd job, a restricted shell — and `brew bundle` then reports
+# "No Brewfile found" instead of installing anything. Setting the variable
+# explicitly makes resolution deterministic.
+#
+# NOTE: $HOMEBREW_BREWFILE is NOT a Homebrew variable (it appears nowhere in
+# Homebrew's source); do not use it for this.
+#
+# Guarded on the directory existing so a machine that has not yet had chezmoi
+# render the Brewfile keeps Homebrew's own defaults rather than being pointed
+# at a path that does not exist. An already-set value is respected.
+_brewfile_dir="${XDG_CONFIG_HOME:-$HOME/.config}/homebrew"
+if [[ -z "${HOMEBREW_BUNDLE_FILE_GLOBAL:-}" && -d "${_brewfile_dir}" ]]; then
+  export HOMEBREW_BUNDLE_FILE_GLOBAL="${_brewfile_dir}/Brewfile"
+fi
+unset _brewfile_dir
 {{ end -}}
 
 # Local bin directories - create silently if missing.

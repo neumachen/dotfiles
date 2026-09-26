@@ -16,7 +16,22 @@
   still persists, because the rendered output of this template *is* the config
   file and the value is emitted into data:.
 
-  The sentinel "-" (or "none") means "skip" and is stored as "".
+  The skip sentinel means "do not configure this". It is matched after trimming
+  surrounding whitespace and folding case, so "-", "None", "NONE" and " none "
+  all count. It is handled two ways:
+    * MANDATORY values (git.email, git.name) store "", so empty-means-unset asks
+      again on the next `chezmoi init`.
+    * OPTIONAL values (onepassword.account, onepassword.ssh_key_item,
+      secrets.TSTRUCT_TOKEN) -- and onepassword.vault, which has a real default
+      of "Private" but may still be answered with the sentinel -- store the
+      literal "-" verbatim. Storing "" there made a deliberate skip
+      indistinguishable from "never asked", so the value was re-prompted on
+      every future `chezmoi init` -- defeating the one-shot goal. Every consumer
+      normalises "-" back to empty at read time; see `_norm` in
+      run_onchange_after_70-resolve-1password.sh.tmpl,
+      run_onchange_after_75-switch-to-ssh.sh.tmpl,
+      run_after_99-bootstrap-status.sh.tmpl and
+      dot_local/bin/executable_bootstrap-status.
 */ -}}
 {{- $onePasswordApp := "" -}}
 {{- if stat "/Applications/1Password.app" -}}
@@ -55,28 +70,49 @@
   {{- if eq $vault "" -}}
     {{- $vault = promptString "1Password vault name (e.g. Private)" "Private" -}}
   {{- end -}}
-  {{- if or (eq $vault "-") (eq $vault "none") -}}{{- $vault = "" -}}{{- end -}}
+  {{- /* Trimmed and case-insensitive. The vault is mandatory, but a "-" answer
+        is still stored verbatim rather than as "": storing "" would make
+        empty-means-unset re-ask it on every future `chezmoi init`, which is the
+        exact loop D2 exists to break. Consumers normalise "-" to "not
+        configured"; `install.sh --reprompt` is how it gets changed later. */ -}}
+  {{- $vault = trim $vault -}}
+  {{- if or (eq $vault "-") (eq (lower $vault) "none") -}}{{- $vault = "-" -}}{{- end -}}
   {{- if and (hasKey . "onepassword") (hasKey .onepassword "ssh_key_item") -}}
     {{- $sshKeyItem = .onepassword.ssh_key_item -}}
   {{- end -}}
   {{- if eq $sshKeyItem "" -}}
-    {{- $sshKeyItem = promptString "1Password item NAME or UUID holding your SSH key (enter - to skip)" -}}
+    {{- $sshKeyItem = promptString "1Password item NAME or UUID holding your SSH key (optional; enter - to skip permanently)" -}}
   {{- end -}}
-  {{- if or (eq $sshKeyItem "-") (eq $sshKeyItem "none") -}}{{- $sshKeyItem = "" -}}{{- end -}}
+  {{- /* OPTIONAL: keep the sentinel verbatim (trimmed, case-insensitive) so a
+        deliberate skip is not re-asked on every future `chezmoi init`.
+        Consumers normalise it. */ -}}
+  {{- $sshKeyItem = trim $sshKeyItem -}}
+  {{- if or (eq $sshKeyItem "-") (eq (lower $sshKeyItem) "none") -}}{{- $sshKeyItem = "-" -}}{{- end -}}
   {{- if and (hasKey . "onepassword") (hasKey .onepassword "account") -}}
     {{- $opAccount = .onepassword.account -}}
   {{- end -}}
   {{- if eq $opAccount "" -}}
-    {{- $opAccount = promptString "1Password account shorthand (optional, enter - to skip)" -}}
+    {{- $opAccount = promptString "1Password account shorthand (optional; enter - to skip permanently)" -}}
   {{- end -}}
-  {{- if or (eq $opAccount "-") (eq $opAccount "none") -}}{{- $opAccount = "" -}}{{- end -}}
+  {{- /* OPTIONAL: keep the sentinel verbatim (trimmed, case-insensitive). */ -}}
+  {{- $opAccount = trim $opAccount -}}
+  {{- if or (eq $opAccount "-") (eq (lower $opAccount) "none") -}}{{- $opAccount = "-" -}}{{- end -}}
   {{- if and (hasKey . "secrets") (hasKey .secrets "TSTRUCT_TOKEN") -}}
     {{- $tstructTokenRef = .secrets.TSTRUCT_TOKEN -}}
   {{- end -}}
   {{- if eq $tstructTokenRef "" -}}
-    {{- $tstructTokenRef = promptString "1Password reference for TSTRUCT_TOKEN (op://vault/item/field, enter - to skip)" (printf "op://%s/Tstruct/token" $vault) -}}
+    {{- /* Only offer a derived default when the vault is a real name. With an
+           empty OR skipped ("-") vault the derived form would be the malformed
+           "op:///Tstruct/token" or the meaningless "op://-/Tstruct/token". */ -}}
+    {{- if and (ne $vault "") (ne $vault "-") -}}
+      {{- $tstructTokenRef = promptString "1Password reference for TSTRUCT_TOKEN (op://vault/item/field; enter - to skip permanently)" (printf "op://%s/Tstruct/token" $vault) -}}
+    {{- else -}}
+      {{- $tstructTokenRef = promptString "1Password reference for TSTRUCT_TOKEN (op://vault/item/field; enter - to skip permanently)" -}}
+    {{- end -}}
   {{- end -}}
-  {{- if or (eq $tstructTokenRef "-") (eq $tstructTokenRef "none") -}}{{- $tstructTokenRef = "" -}}{{- end -}}
+  {{- /* OPTIONAL: keep the sentinel verbatim (trimmed, case-insensitive). */ -}}
+  {{- $tstructTokenRef = trim $tstructTokenRef -}}
+  {{- if or (eq $tstructTokenRef "-") (eq (lower $tstructTokenRef) "none") -}}{{- $tstructTokenRef = "-" -}}{{- end -}}
 {{- end -}}
 {{- /* LEGACY: kept so hosts configured before the resolve-1password hook keep
      rendering. New machines leave it empty; the key now lives in a 1Password
@@ -84,6 +120,16 @@
 {{- $sshSigningKey := "" -}}
 {{- if and (hasKey . "onepassword") (hasKey .onepassword "ssh_signing_key") -}}
   {{- $sshSigningKey = .onepassword.ssh_signing_key -}}
+{{- end -}}
+{{- /* LEGACY, DEPRECATED: a hand-maintained list of "NAME=value" strings.
+     The supported path is `secrets` above, resolved by the resolve-1password
+     hook into ~/.config/sh/secrets.env (mode 0600) and sourced by .zprofile.
+     An existing non-empty list is carried forward verbatim on re-init so a
+     re-render never silently drops a live entry; dot_zprofile.tmpl renders this
+     list AFTER the secrets.env source line, so migrated values win. */ -}}
+{{- $envvars := list -}}
+{{- if and (hasKey . "envvars") .envvars -}}
+  {{- $envvars = .envvars -}}
 {{- end -}}
 {{- $deferCLT := false -}}
 {{- if and (hasKey . "bootstrap") (hasKey .bootstrap "defer_clt") -}}
@@ -139,10 +185,26 @@ data:
     profiles: []
   secrets:
     # Map of ENV_VAR_NAME -> 1Password reference (op://vault/item/field).
-    # "" means skip. Resolved by the resolve-1password hook into
-    # ~/.config/sh/secrets.env (mode 0600); never rendered inline.
+    # "-" (or "") means skip; "-" is stored verbatim so a deliberate skip is
+    # not re-asked on every future `chezmoi init`. Resolved by the
+    # resolve-1password hook into ~/.config/sh/secrets.env (mode 0600);
+    # never rendered inline.
     TSTRUCT_TOKEN: {{ $tstructTokenRef | quote }}
+{{- if $envvars }}
+  # LEGACY/DEPRECATED: carried forward verbatim from the previous config so a
+  # re-init never drops a live entry. Migrate these to `secrets` above; the
+  # supported runtime path is ~/.config/sh/secrets.env (see dot_zprofile.tmpl).
+  envvars:
+{{- range $envvars }}
+{{- if regexMatch `^[A-Za-z_][A-Za-z0-9_]*=[^:#"']*$` . }}
+    - {{ . }}
+{{- else }}
+    - {{ . | quote }}
+{{- end }}
+{{- end }}
+{{- else }}
   envvars: []
+{{- end }}
   bootstrap:
     defer_clt: {{ $deferCLT }}
     defer_xcode: {{ $deferXcode }}
