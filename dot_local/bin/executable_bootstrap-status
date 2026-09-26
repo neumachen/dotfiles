@@ -1,0 +1,1698 @@
+#!/usr/bin/env bash
+#
+# bootstrap-status — read-only reporter for the neumachen/dotfiles bootstrap.
+#
+# chezmoi source: dot_local/bin/executable_bootstrap-status
+# deploys to:     ~/.local/bin/bootstrap-status   (mode 0755)
+#
+# Emits the canonical bootstrap status document (schema version 1):
+#   ~/.cache/chezmoi/bootstrap-status.json
+#   ~/.cache/chezmoi/bootstrap-status.txt   (exactly one word: green|amber|red)
+#
+# Design rules
+# ------------
+# * Strictly read-only. It never mutates dotfiles, system state or config. The
+#   only writes are the two cache documents above (atomic: temp file in the same
+#   directory, then mv) plus short-lived temp files under $TMPDIR that are used
+#   to bound the runtime of network/vault commands and are removed on exit.
+# * Never aborts halfway: `set -uo pipefail` WITHOUT `-e`, so a failing probe
+#   degrades to amber/red instead of truncating the document.
+# * Runs on a bare macOS with no Homebrew, no chezmoi, no jq and no Command Line
+#   Tools. Only /bin, /usr/bin and /usr/sbin utilities are assumed, and every
+#   optional tool is guarded with `command -v`.
+# * Never prints a secret value. For `secrets` only variable NAMES and whether
+#   each one resolved are reported.
+# * Always exits 0 for a valid invocation — this is a reporter, not a gate.
+#   Usage errors exit 2.
+# * bash 3.2 compatible (macOS /bin/bash): no associative arrays, no ${x,,},
+#   no mapfile/readarray, no [[ -v ]].
+#
+# Override the cache destination with BOOTSTRAP_STATUS_DIR (used by the test
+# harness so the real ~/.cache/chezmoi is never touched).
+
+set -uo pipefail
+
+STATUS_VERSION=1
+
+# Contract C3: required check ids, in this exact order.
+CHECK_ORDER="clt xcode xcode_license homebrew chezmoi onepassword_app onepassword_cli onepassword_vault ssh_signing_key github_ssh brewfile mise secrets git_remote_ssh"
+
+# Contract C2: resolved-state files.
+SIGNING_KEY_FILE="${HOME}/.config/git/ssh-signing-key"
+SECRETS_ENV_FILE="${HOME}/.config/sh/secrets.env"
+OP_AGENT_SOCK="${HOME}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
+
+STATUS_DIR="${BOOTSTRAP_STATUS_DIR:-${XDG_CACHE_HOME:-${HOME}/.cache}/chezmoi}"
+
+MODE="table"        # table | json | quiet | check
+WRITE_CACHE=1
+SINGLE_CHECK=""
+
+# Result document (parallel indexed arrays; bash 3.2 has no associative ones).
+IDS=()
+STATES=()
+MSGS=()
+
+# ---------------------------------------------------------------------------
+# tiny utilities
+# ---------------------------------------------------------------------------
+
+_have() { command -v "$1" >/dev/null 2>&1; }
+
+_os_name() { uname -s 2>/dev/null; }
+
+_is_darwin() { [ "$(_os_name)" = "Darwin" ]; }
+
+_expand_home() {
+  local p="$1"
+  # SC2088: the '~' here is a case *pattern* matching a literal tilde character
+  # in the input string, not an expansion site. Quoting it is required so the
+  # pattern stays literal; $HOME is used for the replacement, as SC2088 advises.
+  # shellcheck disable=SC2088
+  case "$p" in
+    '~') printf '%s' "$HOME" ;;
+    '~/'*) printf '%s%s' "$HOME" "${p#'~/'}" ;;
+    *) printf '%s' "$p" ;;
+  esac
+}
+
+_upper() { printf '%s' "$1" | tr '[:lower:]' '[:upper:]'; }
+
+# JSON string escaping in pure bash (no jq). Escapes backslash, double quote,
+# tab, newline and carriage return, then strips any remaining C0 controls.
+_json_escape() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  s="${s//$'\t'/\\t}"
+  s="${s//$'\n'/\\n}"
+  s="${s//$'\r'/\\r}"
+  s="$(printf '%s' "$s" | tr -d '\000-\010\013\014\016-\037')"
+  printf '%s' "$s"
+}
+
+# Octal permission bits of a file, BSD stat first then GNU stat.
+_file_mode() {
+  local f="$1"
+  local m=""
+  if m="$(stat -f '%Lp' "$f" 2>/dev/null)"; then
+    printf '%s' "$m"
+    return 0
+  fi
+  if m="$(stat -c '%a' "$f" 2>/dev/null)"; then
+    printf '%s' "$m"
+    return 0
+  fi
+  return 1
+}
+
+# ---------------------------------------------------------------------------
+# bounded command execution
+#
+# A status reporter must not hang on a network call, a locked vault or a
+# half-installed toolchain. macOS has no `timeout(1)` in the base system, so
+# commands that can block are run in the background with a watchdog that
+# SIGTERMs (then SIGKILLs) them. Output goes to a temp file so nothing secret
+# has to be held in a shell variable.
+# ---------------------------------------------------------------------------
+
+_TMPROOT=""
+
+# SC2329: invoked indirectly — registered as the EXIT trap two lines below.
+# shellcheck disable=SC2329
+_cleanup_tmp() {
+  if [ -n "$_TMPROOT" ] && [ -d "$_TMPROOT" ]; then
+    rm -rf -- "$_TMPROOT" 2>/dev/null
+  fi
+}
+
+trap _cleanup_tmp EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+_tmp_out() {
+  if [ -z "$_TMPROOT" ]; then
+    _TMPROOT="$(mktemp -d "${TMPDIR:-/tmp}/bootstrap-status.XXXXXX" 2>/dev/null)" || _TMPROOT=""
+  fi
+  if [ -n "$_TMPROOT" ]; then
+    mktemp "${_TMPROOT}/out.XXXXXX" 2>/dev/null
+  else
+    mktemp "${TMPDIR:-/tmp}/bootstrap-status-out.XXXXXX" 2>/dev/null
+  fi
+}
+
+# _run_t SECONDS OUTFILE CMD [ARGS...]
+# Returns the command's exit status, or 124 if it had to be killed.
+_run_t() {
+  local secs="$1"
+  shift
+  local out="$1"
+  shift
+  "$@" </dev/null >"$out" 2>&1 &
+  local pid=$!
+  (
+    sleep "$secs" 2>/dev/null
+    kill -TERM "$pid" 2>/dev/null
+    sleep 2 2>/dev/null
+    kill -KILL "$pid" 2>/dev/null
+  ) </dev/null >/dev/null 2>&1 &
+  local wpid=$!
+  local rc=0
+  wait "$pid" 2>/dev/null || rc=$?
+  kill "$wpid" 2>/dev/null
+  wait "$wpid" 2>/dev/null
+  case "$rc" in
+    137 | 143) return 124 ;;
+  esac
+  return "$rc"
+}
+
+# ---------------------------------------------------------------------------
+# chezmoi data access (contract C1)
+#
+# Preferred source is `chezmoi data --format=json`. That command stats the whole
+# source tree and can fail (for example on a dangling symlink under
+# .aider-desk/extensions/*/node_modules/.bin), so the rendered config file is
+# used as a fallback. Both are parsed WITHOUT jq: JSON via tr+sed+grep, YAML via
+# a small indent-tracking read loop. Neither path can block the reporter.
+# ---------------------------------------------------------------------------
+
+CFG_JSON_FLAT=""
+CFG_YAML_FLAT=""
+CFG_LOADED=0
+CFG_ORIGIN="none"
+
+# Collapse JSON to one line (valid JSON never contains a raw newline inside a
+# string — it is always escaped as \n) and pull out the scalar members of a
+# flat object.
+_json_object_pairs() { # $1=one-line json  $2=object key
+  local json="$1"
+  local obj="$2"
+  local inner=""
+  local pair="" k="" v=""
+  inner="$(printf '%s' "$json" |
+    sed -n 's|.*"'"$obj"'"[[:space:]]*:[[:space:]]*{\([^{}]*\)[}].*|\1|p' |
+    head -1)"
+  [ -n "$inner" ] || return 0
+  printf '%s' "$inner" |
+    grep -oE '"[^"]*"[[:space:]]*:[[:space:]]*(true|false|null|"[^"]*"|-?[0-9.]+)' |
+    while IFS= read -r pair; do
+      [ -n "$pair" ] || continue
+      k="$(printf '%s' "$pair" | sed 's|^"\([^"]*\)".*|\1|')"
+      v="$(printf '%s' "$pair" | sed 's|^"[^"]*"[[:space:]]*:[[:space:]]*||')"
+      # Strip the JSON string delimiters. The pattern is a literal double quote
+      # (written '"') — '\"' would match a backslash followed by a quote.
+      case "$v" in
+        '"'*'"')
+          v="${v#'"'}"
+          v="${v%'"'}"
+          v="${v//\\\"/\"}"
+          v="${v//\\\\/\\}"
+          ;;
+      esac
+      [ -n "$k" ] || continue
+      printf '%s.%s=%s\n' "$obj" "$k" "$v"
+    done
+}
+
+# `chezmoi` is not a flat object on Linux (.chezmoi.osRelease nests), so its two
+# interesting keys are pulled out by targeted match instead.
+_json_unique_key() { # $1=one-line json  $2=key  $3=prefix
+  local json="$1"
+  local key="$2"
+  local prefix="$3"
+  local v=""
+  v="$(printf '%s' "$json" |
+    grep -oE "\"${key}\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" |
+    head -1 |
+    sed 's|^"[^"]*"[[:space:]]*:[[:space:]]*"||; s|"$||')"
+  [ -n "$v" ] || return 0
+  printf '%s.%s=%s\n' "$prefix" "$key" "$v"
+}
+
+_json_to_flat() { # $1=raw json
+  local json=""
+  local obj=""
+  json="$(printf '%s' "$1" | tr -d '\n\r')"
+  for obj in onepassword bootstrap secrets git; do
+    _json_object_pairs "$json" "$obj"
+  done
+  _json_unique_key "$json" "sourceDir" "chezmoi"
+  _json_unique_key "$json" "configFile" "chezmoi"
+}
+
+# Minimal indent-tracking YAML reader. Understands exactly the shape chezmoi
+# renders into ~/.config/chezmoi/chezmoi.yaml: nested maps, `key: value`
+# scalars, `key: |` block scalars and `- item` list entries.
+_yaml_to_flat() { # $1=file
+  local file="$1"
+  local line="" lead="" content="" key="" val=""
+  local indent=0
+  local in_data=0
+  local sec=""
+  local block_indent=-1
+  local envvars_count=0
+
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%$'\r'}"
+    [ -n "$line" ] || continue
+
+    lead="${line%%[![:space:]]*}"
+    if [ "$lead" = "$line" ]; then
+      continue # whitespace-only
+    fi
+    content="${line#"$lead"}"
+    indent=${#lead}
+
+    case "$content" in
+      '#'*) continue ;;
+    esac
+
+    # Inside a `key: |` block scalar: swallow everything more indented.
+    if [ "$block_indent" -ge 0 ]; then
+      if [ "$indent" -gt "$block_indent" ]; then
+        continue
+      fi
+      block_indent=-1
+    fi
+
+    if [ "$indent" -eq 0 ]; then
+      in_data=0
+      sec=""
+      case "$content" in
+        data:*)
+          in_data=1
+          continue
+          ;;
+        sourceDir:*)
+          val="${content#sourceDir:}"
+          val="${val#"${val%%[![:space:]]*}"}"
+          val="${val%\"}"
+          val="${val#\"}"
+          printf 'chezmoi.sourceDir=%s\n' "$val"
+          continue
+          ;;
+      esac
+      continue
+    fi
+
+    [ "$in_data" -eq 1 ] || continue
+
+    if [ "$indent" -eq 2 ]; then
+      case "$content" in
+        *:*)
+          key="${content%%:*}"
+          val="${content#*:}"
+          val="${val#"${val%%[![:space:]]*}"}"
+          key="${key%"${key##*[![:space:]]}"}"
+          if [ -z "$val" ]; then
+            sec="$key"
+          else
+            sec=""
+            case "$val" in
+              '|'*|'>'*) block_indent="$indent" ;;
+              *)
+                val="${val%\"}"
+                val="${val#\"}"
+                printf '%s=%s\n' "$key" "$val"
+                ;;
+            esac
+          fi
+          ;;
+      esac
+      continue
+    fi
+
+    if [ "$indent" -eq 4 ] && [ -n "$sec" ]; then
+      case "$content" in
+        '- '*)
+          if [ "$sec" = "envvars" ]; then
+            envvars_count=$((envvars_count + 1))
+          fi
+          continue
+          ;;
+        *:*)
+          key="${content%%:*}"
+          val="${content#*:}"
+          val="${val#"${val%%[![:space:]]*}"}"
+          key="${key%"${key##*[![:space:]]}"}"
+          case "$val" in
+            '|'*|'>'*)
+              block_indent="$indent"
+              continue
+              ;;
+          esac
+          val="${val%\"}"
+          val="${val#\"}"
+          printf '%s.%s=%s\n' "$sec" "$key" "$val"
+          ;;
+      esac
+      continue
+    fi
+
+    if [ "$indent" -gt 4 ] && [ -n "$sec" ] && [ "$sec" = "envvars" ]; then
+      case "$content" in
+        '- '*) envvars_count=$((envvars_count + 1)) ;;
+      esac
+    fi
+  done <"$file"
+
+  if [ "$envvars_count" -gt 0 ]; then
+    printf 'legacy.envvars_count=%s\n' "$envvars_count"
+  fi
+}
+
+_cfg_load() {
+  [ "$CFG_LOADED" -eq 1 ] && return 0
+  CFG_LOADED=1
+
+  local cm="" cfg="" json="" out=""
+
+  cm="$(_chezmoi_cmd)"
+  if [ -n "$cm" ]; then
+    out="$(_tmp_out)"
+    if [ -n "$out" ]; then
+      if _run_t 30 "$out" "$cm" data --format=json; then
+        json="$(cat "$out" 2>/dev/null)"
+        case "$json" in
+          '{'*)
+            CFG_JSON_FLAT="$(_json_to_flat "$json")"
+            CFG_ORIGIN="chezmoi data --format=json"
+            ;;
+        esac
+      fi
+      rm -f -- "$out" 2>/dev/null
+    fi
+  fi
+
+  cfg="${BOOTSTRAP_CHEZMOI_CONFIG:-${XDG_CONFIG_HOME:-${HOME}/.config}/chezmoi/chezmoi.yaml}"
+  if [ -f "$cfg" ]; then
+    CFG_YAML_FLAT="$(_yaml_to_flat "$cfg")"
+    if [ "$CFG_ORIGIN" = "none" ]; then
+      CFG_ORIGIN="config file ${cfg}"
+    else
+      CFG_ORIGIN="${CFG_ORIGIN} + config file fallback"
+    fi
+  fi
+
+  if [ "$CFG_ORIGIN" = "none" ]; then
+    CFG_ORIGIN="unavailable"
+  fi
+  return 0
+}
+
+_cfg_get_from() { # $1=flat  $2=dotted path
+  local flat="$1"
+  local path="$2"
+  local re="${path//./\\.}"
+  [ -n "$flat" ] || return 0
+  printf '%s\n' "$flat" | sed -n "s|^${re}=||p" | head -1
+}
+
+_cfg_get() { # $1=dotted path — JSON (chezmoi data) wins over the config file
+  _cfg_load
+  local v=""
+  v="$(_cfg_get_from "$CFG_JSON_FLAT" "$1")"
+  if [ -z "$v" ]; then
+    v="$(_cfg_get_from "$CFG_YAML_FLAT" "$1")"
+  fi
+  printf '%s' "$v"
+}
+
+# Member key names of a section, JSON (chezmoi data) first, config file second.
+_cfg_keys() { # $1=section prefix
+  _cfg_load
+  local prefix="$1"
+  local re="${prefix//./\\.}"
+  local keys=""
+  if [ -n "$CFG_JSON_FLAT" ]; then
+    keys="$(printf '%s\n' "$CFG_JSON_FLAT" | sed -n "s|^${re}\.\([^=]*\)=.*$|\1|p")"
+  fi
+  if [ -n "$keys" ]; then
+    printf '%s\n' "$keys"
+    return 0
+  fi
+  if [ -n "$CFG_YAML_FLAT" ]; then
+    printf '%s\n' "$CFG_YAML_FLAT" | sed -n "s|^${re}\.\([^=]*\)=.*$|\1|p"
+  fi
+  return 0
+}
+
+_cfg_secret_ref() { # $1=secret name — prints the op:// reference, never a value
+  local name="$1"
+  local re="secrets\.${name}"
+  local v=""
+  if [ -n "$CFG_JSON_FLAT" ]; then
+    v="$(printf '%s\n' "$CFG_JSON_FLAT" | sed -n "s|^${re}=||p" | head -1)"
+  fi
+  if [ -z "$v" ] && [ -n "$CFG_YAML_FLAT" ]; then
+    v="$(printf '%s\n' "$CFG_YAML_FLAT" | sed -n "s|^${re}=||p" | head -1)"
+  fi
+  printf '%s' "$v"
+}
+
+# ---------------------------------------------------------------------------
+# memoised low-level probes
+# ---------------------------------------------------------------------------
+
+_CHEZMOI_DONE=0
+_CHEZMOI_CMD=""
+_chezmoi_cmd() {
+  if [ "$_CHEZMOI_DONE" -eq 1 ]; then
+    printf '%s' "$_CHEZMOI_CMD"
+    return 0
+  fi
+  _CHEZMOI_DONE=1
+  if _have chezmoi; then
+    _CHEZMOI_CMD="$(command -v chezmoi)"
+  elif [ -x "${HOME}/.local/bin/chezmoi" ]; then
+    _CHEZMOI_CMD="${HOME}/.local/bin/chezmoi"
+  else
+    _CHEZMOI_CMD=""
+  fi
+  printf '%s' "$_CHEZMOI_CMD"
+}
+
+_CLT_DONE=0
+_CLT_STATE="red"
+_CLT_MSG=""
+_probe_clt() {
+  if [ "$_CLT_DONE" -eq 1 ]; then
+    return 0
+  fi
+  _CLT_DONE=1
+
+  if ! _is_darwin; then
+    _CLT_STATE="green"
+    _CLT_MSG="n/a — not macOS ($(_os_name))"
+    return 0
+  fi
+
+  local pkg="" ver="" sel="" sdk=""
+  if _have pkgutil; then
+    pkg="$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables 2>/dev/null)" || pkg=""
+  fi
+  if [ -n "$pkg" ]; then
+    ver="$(printf '%s\n' "$pkg" | sed -n 's|^version:[[:space:]]*||p' | head -1)"
+  fi
+
+  if _have xcode-select; then
+    sel="$(xcode-select -p 2>/dev/null)" || sel=""
+  fi
+  if _have xcrun; then
+    sdk="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null)" || sdk=""
+  fi
+
+  if [ -z "$pkg" ]; then
+    _CLT_STATE="red"
+    _CLT_MSG="Command Line Tools not installed — run: xcode-select --install"
+    return 0
+  fi
+
+  if [ -n "$sel" ] && [ -n "$sdk" ]; then
+    _CLT_STATE="green"
+    _CLT_MSG="Command Line Tools ${ver:-unknown} installed; SDK $(basename "$sdk" 2>/dev/null)"
+    return 0
+  fi
+
+  _CLT_STATE="amber"
+  if [ -z "$sel" ]; then
+    _CLT_MSG="CLT ${ver:-unknown} package present but no active developer dir — run: sudo xcode-select --reset"
+  else
+    _CLT_MSG="CLT ${ver:-unknown} package present but xcrun fails — run: sudo xcode-select --reset (accept the Xcode license if installed)"
+  fi
+  return 0
+}
+
+_XCODE_DONE=0
+_XCODE_PATH=""
+_xcode_path() {
+  if [ "$_XCODE_DONE" -eq 1 ]; then
+    printf '%s' "$_XCODE_PATH"
+    return 0
+  fi
+  _XCODE_DONE=1
+  local p="" sel=""
+  for p in /Applications/Xcode.app "${HOME}/Applications/Xcode.app"; do
+    if [ -d "$p" ]; then
+      _XCODE_PATH="$p"
+      printf '%s' "$_XCODE_PATH"
+      return 0
+    fi
+  done
+  if _have xcode-select; then
+    sel="$(xcode-select -p 2>/dev/null)" || sel=""
+    case "$sel" in
+      */Xcode.app/*)
+        _XCODE_PATH="${sel%%/Contents/Developer*}"
+        printf '%s' "$_XCODE_PATH"
+        return 0
+        ;;
+    esac
+  fi
+  _XCODE_PATH=""
+  printf '%s' "$_XCODE_PATH"
+}
+
+_XCODE_VER_DONE=0
+_XCODE_VER=""
+_xcode_version() {
+  if [ "$_XCODE_VER_DONE" -eq 1 ]; then
+    printf '%s' "$_XCODE_VER"
+    return 0
+  fi
+  _XCODE_VER_DONE=1
+  local xp="" plist="" v=""
+  xp="$(_xcode_path)"
+  if [ -n "$xp" ]; then
+    plist="${xp}/Contents/Info.plist"
+    if [ -f "$plist" ] && _have plutil; then
+      v="$(plutil -extract CFBundleShortVersionString raw -o - "$plist" 2>/dev/null)" || v=""
+    fi
+  fi
+  _XCODE_VER="$v"
+  printf '%s' "$_XCODE_VER"
+}
+
+_FL_DONE=0
+_FL_RC=1
+_xcode_first_launch_rc() {
+  if [ "$_FL_DONE" -eq 1 ]; then
+    printf '%s' "$_FL_RC"
+    return 0
+  fi
+  _FL_DONE=1
+  local out=""
+  _FL_RC=127
+  if _have xcodebuild; then
+    out="$(_tmp_out)"
+    if [ -n "$out" ]; then
+      _run_t 25 "$out" xcodebuild -checkFirstLaunchStatus
+      _FL_RC=$?
+      rm -f -- "$out" 2>/dev/null
+    fi
+  fi
+  printf '%s' "$_FL_RC"
+}
+
+_CLANG_DONE=0
+_CLANG_OK=0
+_clang_ok() {
+  if [ "$_CLANG_DONE" -eq 1 ]; then
+    printf '%s' "$_CLANG_OK"
+    return 0
+  fi
+  _CLANG_DONE=1
+  _CLANG_OK=0
+  local out=""
+  if _have xcrun; then
+    out="$(_tmp_out)"
+    if [ -n "$out" ]; then
+      if _run_t 20 "$out" xcrun clang --version; then
+        _CLANG_OK=1
+      fi
+      rm -f -- "$out" 2>/dev/null
+    fi
+  fi
+  printf '%s' "$_CLANG_OK"
+}
+
+_BREW_DONE=0
+_BREW_CMD=""
+_brew_cmd() {
+  if [ "$_BREW_DONE" -eq 1 ]; then
+    printf '%s' "$_BREW_CMD"
+    return 0
+  fi
+  _BREW_DONE=1
+  local arch="" primary="" secondary="" p=""
+  arch="$(uname -m 2>/dev/null)"
+  if [ "$arch" = "arm64" ]; then
+    primary="/opt/homebrew"
+    secondary="/usr/local"
+  else
+    primary="/usr/local"
+    secondary="/opt/homebrew"
+  fi
+  for p in "${primary}/bin/brew" "${secondary}/bin/brew"; do
+    if [ -x "$p" ]; then
+      _BREW_CMD="$p"
+      printf '%s' "$_BREW_CMD"
+      return 0
+    fi
+  done
+  if _have brew; then
+    _BREW_CMD="$(command -v brew)"
+  else
+    _BREW_CMD=""
+  fi
+  printf '%s' "$_BREW_CMD"
+}
+
+_OP_DONE=0
+_OP_CMD=""
+_op_cmd() {
+  if [ "$_OP_DONE" -eq 1 ]; then
+    printf '%s' "$_OP_CMD"
+    return 0
+  fi
+  _OP_DONE=1
+  if _have op; then
+    _OP_CMD="$(command -v op)"
+  elif [ -x /usr/local/bin/op ]; then
+    _OP_CMD="/usr/local/bin/op"
+  else
+    _OP_CMD=""
+  fi
+  printf '%s' "$_OP_CMD"
+}
+
+# onepassword.enabled from chezmoi data; "" means unknown.
+_op_enabled() {
+  local v=""
+  v="$(_cfg_get onepassword.enabled)"
+  case "$v" in
+    true | True | TRUE) printf 'true' ;;
+    false | False | FALSE) printf 'false' ;;
+    *)
+      # Legacy configs predate onepassword.enabled. A non-empty vault or
+      # app_path is the same signal.
+      if [ -n "$(_cfg_get onepassword.vault)" ] || [ -n "$(_cfg_get onepassword.app_path)" ]; then
+        printf 'true'
+      else
+        printf '%s' "$v"
+      fi
+      ;;
+  esac
+}
+
+_OPAPP_DONE=0
+_OPAPP_PATH=""
+_op_app_path() {
+  if [ "$_OPAPP_DONE" -eq 1 ]; then
+    printf '%s' "$_OPAPP_PATH"
+    return 0
+  fi
+  _OPAPP_DONE=1
+  local p="" cfgp=""
+  cfgp="$(_cfg_get onepassword.app_path)"
+  if [ -n "$cfgp" ]; then
+    cfgp="$(_expand_home "$cfgp")"
+    if [ -d "$cfgp" ]; then
+      _OPAPP_PATH="$cfgp"
+      printf '%s' "$_OPAPP_PATH"
+      return 0
+    fi
+  fi
+  for p in /Applications/1Password.app "${HOME}/Applications/1Password.app"; do
+    if [ -d "$p" ]; then
+      _OPAPP_PATH="$p"
+      printf '%s' "$_OPAPP_PATH"
+      return 0
+    fi
+  done
+  _OPAPP_PATH=""
+  printf '%s' "$_OPAPP_PATH"
+}
+
+_OPCLI_DONE=0
+_OPCLI_STATE="amber"
+_OPCLI_MSG=""
+_OPCLI_SIGNED_IN=0
+_probe_op_cli() {
+  if [ "$_OPCLI_DONE" -eq 1 ]; then
+    return 0
+  fi
+  _OPCLI_DONE=1
+
+  local op="" enabled="" out="" accounts=""
+  op="$(_op_cmd)"
+  enabled="$(_op_enabled)"
+
+  if [ -z "$op" ]; then
+    _OPCLI_SIGNED_IN=0
+    if [ "$enabled" = "true" ]; then
+      _OPCLI_STATE="red"
+      _OPCLI_MSG="op CLI not installed but onepassword.enabled=true — install it (Brewfile cask 1password-cli) then re-run"
+    else
+      _OPCLI_STATE="amber"
+      _OPCLI_MSG="op CLI not installed (1Password not enabled${enabled:+=$enabled})"
+    fi
+    return 0
+  fi
+
+  out="$(_tmp_out)"
+  if [ -n "$out" ] && _run_t 15 "$out" "$op" account list; then
+    accounts="$(grep -c '.' "$out" 2>/dev/null | tr -d '[:space:]')"
+    _OPCLI_STATE="green"
+    _OPCLI_SIGNED_IN=1
+    _OPCLI_MSG="op CLI at ${op}; account list reachable (${accounts:-0} line(s))"
+  else
+    _OPCLI_STATE="amber"
+    _OPCLI_SIGNED_IN=0
+    _OPCLI_MSG="op present but not signed in — enable 1Password > Settings > Developer > Integrate with 1Password CLI"
+  fi
+  [ -n "$out" ] && rm -f -- "$out" 2>/dev/null
+  return 0
+}
+
+_SIGN_DONE=0
+_SIGN_STATE="amber"
+_SIGN_MSG=""
+_probe_signing_key() {
+  if [ "$_SIGN_DONE" -eq 1 ]; then
+    return 0
+  fi
+  _SIGN_DONE=1
+
+  local f="$SIGNING_KEY_FILE"
+  local ktype="" rest="" enabled=""
+
+  if [ -s "$f" ]; then
+    read -r ktype rest <"$f" || ktype=""
+    case "$ktype" in
+      ssh-ed25519 | ssh-rsa | sk-ssh-ed25519 | ecdsa-sha2-* | sk-ecdsa-sha2-*)
+        _SIGN_STATE="green"
+        _SIGN_MSG="${f##*/} present (${ktype}) — 1Password commit signing resolved"
+        return 0
+        ;;
+      *)
+        _SIGN_STATE="amber"
+        _SIGN_MSG="${f##*/} exists but does not start with a recognised key type — re-run chezmoi apply"
+        return 0
+        ;;
+    esac
+  fi
+
+  if [ -f "$f" ]; then
+    _SIGN_STATE="amber"
+    _SIGN_MSG="${f##*/} exists but is empty — re-run chezmoi apply to rewrite it"
+    return 0
+  fi
+
+  enabled="$(_op_enabled)"
+  if [ "$enabled" = "true" ] && [ -n "$(_op_cmd)" ]; then
+    _SIGN_STATE="red"
+    _SIGN_MSG="${f##*/} absent but onepassword.enabled=true and op is reachable — re-run chezmoi apply"
+  else
+    _SIGN_STATE="amber"
+    _SIGN_MSG="${f##*/} absent — 1Password SSH signing not resolved yet (enabled=${enabled:-unknown})"
+  fi
+  return 0
+}
+
+_GH_DONE=0
+_GH_STATE="amber"
+_GH_MSG=""
+_probe_github_ssh() {
+  if [ "$_GH_DONE" -eq 1 ]; then
+    return 0
+  fi
+  _GH_DONE=1
+
+  local out="" user="" rc=0
+  local sock="${SSH_AUTH_SOCK:-}"
+  out="$(_tmp_out)"
+  if [ -z "$out" ]; then
+    _GH_STATE="amber"
+    _GH_MSG="cannot probe GitHub SSH — no temp file available"
+    return 0
+  fi
+
+  # Bounded: the 1Password SSH agent can block indefinitely waiting for an
+  # interactive approval that a headless reporter will never receive.
+  rc=0
+  _run_t 20 "$out" ssh \
+    -o BatchMode=yes \
+    -o StrictHostKeyChecking=accept-new \
+    -o ConnectTimeout=8 \
+    -T git@github.com || rc=$?
+
+  if grep -q "successfully authenticated" "$out" 2>/dev/null; then
+    user="$(sed -n 's|^Hi \([^! ]*\)!.*|\1|p' "$out" 2>/dev/null | head -1)"
+    _GH_STATE="green"
+    _GH_MSG="GitHub SSH authentication succeeded${user:+ for ${user}}"
+    rm -f -- "$out" 2>/dev/null
+    return 0
+  fi
+
+  if [ "$rc" -eq 124 ]; then
+    # Timed out with no verdict. This is NOT a rejection: the agent socket is
+    # reachable but 1Password is waiting on an approval prompt. Reporting it as
+    # red/"rejected" would send the user after the wrong fix, so it is amber
+    # (deferred, needs a human at the GUI) with an accurate message.
+    _GH_STATE="amber"
+    _GH_MSG="GitHub SSH probe timed out after 20s with no verdict — the 1Password agent is waiting for interactive approval; unlock/approve in the 1Password app, then re-run"
+    rm -f -- "$out" 2>/dev/null
+    return 0
+  fi
+
+  if [ -z "$sock" ]; then
+    if [ -S "$OP_AGENT_SOCK" ]; then
+      _GH_STATE="amber"
+      _GH_MSG="SSH_AUTH_SOCK unset but the 1Password agent socket exists — re-run from a login shell so dot_zshenv exports it"
+    else
+      _GH_STATE="amber"
+      _GH_MSG="SSH_AUTH_SOCK unset and no 1Password agent socket — enable 1Password > Settings > Developer > SSH agent"
+    fi
+  elif [ ! -S "$OP_AGENT_SOCK" ]; then
+    _GH_STATE="amber"
+    _GH_MSG="1Password agent socket absent (${OP_AGENT_SOCK##*/}) — enable 1Password > Settings > Developer > SSH agent"
+  else
+    _GH_STATE="red"
+    _GH_MSG="agent reachable but authentication rejected — add the SSH key to 1Password and to GitHub"
+  fi
+  rm -f -- "$out" 2>/dev/null
+  return 0
+}
+
+_MISE_DONE=0
+_MISE_CMD=""
+_mise_cmd() {
+  if [ "$_MISE_DONE" -eq 1 ]; then
+    printf '%s' "$_MISE_CMD"
+    return 0
+  fi
+  _MISE_DONE=1
+  if _have mise; then
+    _MISE_CMD="$(command -v mise)"
+  elif [ -x "${HOME}/.local/share/mise/bin/mise" ]; then
+    _MISE_CMD="${HOME}/.local/share/mise/bin/mise"
+  else
+    _MISE_CMD=""
+  fi
+  printf '%s' "$_MISE_CMD"
+}
+
+# chezmoi source directory, from chezmoi data or the rendered config file.
+_SRC_DONE=0
+_SRC_DIR=""
+_source_dir() {
+  if [ "$_SRC_DONE" -eq 1 ]; then
+    printf '%s' "$_SRC_DIR"
+    return 0
+  fi
+  _SRC_DONE=1
+  local d=""
+  d="$(_cfg_get chezmoi.sourceDir)"
+  if [ -n "$d" ]; then
+    d="$(_expand_home "$d")"
+  fi
+  if [ -z "$d" ] || [ ! -d "$d" ]; then
+    d="${HOME}/MeinCodex/Codebasis/github.com/neumachen/dotfiles"
+  fi
+  _SRC_DIR="$d"
+  printf '%s' "$_SRC_DIR"
+}
+
+# origin URL of the chezmoi source repo, read straight out of .git/config so
+# that the /usr/bin/git CLT shim is never invoked (on a bare Mac that shim pops
+# a GUI dialog). Falls back to git only when the CLT probe is green.
+_ORIGIN_DONE=0
+_ORIGIN_URL=""
+_origin_url() {
+  if [ "$_ORIGIN_DONE" -eq 1 ]; then
+    printf '%s' "$_ORIGIN_URL"
+    return 0
+  fi
+  _ORIGIN_DONE=1
+
+  local src="" gd="" cand="" url="" up="" out=""
+  src="$(_source_dir)"
+  _ORIGIN_URL=""
+
+  if [ -d "$src" ]; then
+    for cand in "${src}/.git/config" "${src}/.git"; do
+      if [ -f "$cand" ]; then
+        case "$cand" in
+          */.git)
+            # .git is a file: a linked worktree or a submodule pointer.
+            gd="$(sed -n 's|^gitdir:[[:space:]]*||p' "$cand" 2>/dev/null | head -1)"
+            [ -n "$gd" ] || continue
+            case "$gd" in
+              /*) ;;
+              *) gd="${src}/.git/${gd}" ;;
+            esac
+            gd="${gd%/}"
+            if [ -f "${gd}/config" ]; then
+              url="$(_origin_from_config "${gd}/config")"
+            fi
+            # <main>/.git/worktrees/<name> -> <main>/.git/config
+            if [ -z "$url" ]; then
+              up="$(dirname "$(dirname "$gd")" 2>/dev/null)"
+              if [ -n "$up" ] && [ -f "${up}/config" ]; then
+                url="$(_origin_from_config "${up}/config")"
+              fi
+            fi
+            ;;
+          *)
+            url="$(_origin_from_config "$cand")"
+            ;;
+        esac
+      fi
+      [ -n "$url" ] && break
+    done
+  fi
+
+  if [ -z "$url" ] && [ -d "$src" ]; then
+    _probe_clt
+    if [ "$_CLT_STATE" = "green" ] && _have git; then
+      out="$(_tmp_out)"
+      if [ -n "$out" ]; then
+        if _run_t 15 "$out" git -C "$src" remote get-url origin; then
+          url="$(head -1 "$out" 2>/dev/null)"
+        fi
+        rm -f -- "$out" 2>/dev/null
+      fi
+    fi
+  fi
+
+  _ORIGIN_URL="$url"
+  printf '%s' "$_ORIGIN_URL"
+}
+
+_origin_from_config() { # $1=path to a git config file
+  local f="$1"
+  sed -n '/^\[remote "origin"\]/,/^\[/p' "$f" 2>/dev/null |
+    sed -n 's|^[[:space:]]*url[[:space:]]*=[[:space:]]*\(.*\)$|\1|p' |
+    head -1
+}
+
+# ---------------------------------------------------------------------------
+# the 14 checks (contract C3 order)
+#
+# Each ev_<id> sets _ST and _MSG.
+# ---------------------------------------------------------------------------
+
+_ST="green"
+_MSG=""
+
+ev_clt() {
+  _probe_clt
+  _ST="$_CLT_STATE"
+  _MSG="$_CLT_MSG"
+}
+
+ev_xcode() {
+  local xp="" defer="" v=""
+  xp="$(_xcode_path)"
+  if [ -n "$xp" ]; then
+    v="$(_xcode_version)"
+    _ST="green"
+    _MSG="Xcode${v:+ ${v}} installed at ${xp}"
+    return 0
+  fi
+  defer="$(_cfg_get bootstrap.defer_xcode)"
+  _probe_clt
+  if [ "$defer" = "true" ]; then
+    _ST="amber"
+    _MSG="Xcode not installed — deferred by bootstrap.defer_xcode (CLT is sufficient for this repo)"
+  elif [ "$_CLT_STATE" = "green" ]; then
+    _ST="amber"
+    _MSG="Xcode not installed — optional, Command Line Tools are present and sufficient"
+  else
+    _ST="red"
+    _MSG="Xcode not installed and Command Line Tools are also unavailable — run: xcode-select --install"
+  fi
+  return 0
+}
+
+ev_xcode_license() {
+  if ! _is_darwin; then
+    _ST="green"
+    _MSG="n/a — not macOS ($(_os_name))"
+    return 0
+  fi
+  local xp="" fl="" v=""
+  xp="$(_xcode_path)"
+  if [ -z "$xp" ]; then
+    _ST="green"
+    _MSG="n/a — Xcode not installed"
+    return 0
+  fi
+  v="$(_xcode_version)"
+  if [ "$(_clang_ok)" != "1" ]; then
+    _ST="red"
+    _MSG="Xcode${v:+ ${v}} present but 'xcrun clang --version' fails — run: sudo xcodebuild -license accept"
+    return 0
+  fi
+  fl="$(_xcode_first_launch_rc)"
+  if [ "$fl" = "0" ]; then
+    _ST="green"
+    _MSG="Xcode${v:+ ${v}} license accepted and first-launch components installed"
+  else
+    _ST="amber"
+    _MSG="Xcode${v:+ ${v}} present but first-launch/license incomplete (rc=${fl}) — run: sudo xcodebuild -license accept && sudo xcodebuild -runFirstLaunch"
+  fi
+  return 0
+}
+
+ev_homebrew() {
+  local brew="" prefix="" out="" arch=""
+  brew="$(_brew_cmd)"
+  if [ -n "$brew" ]; then
+    out="$(_tmp_out)"
+    if [ -n "$out" ] && _run_t 20 "$out" "$brew" --prefix; then
+      prefix="$(head -1 "$out" 2>/dev/null)"
+      _ST="green"
+      _MSG="Homebrew at ${prefix:-$brew} ('brew --prefix' ok)"
+    else
+      _ST="amber"
+      _MSG="brew found at ${brew} but 'brew --prefix' failed — Homebrew installation is incomplete"
+    fi
+    [ -n "$out" ] && rm -f -- "$out" 2>/dev/null
+    return 0
+  fi
+
+  arch="$(uname -m 2>/dev/null)"
+  local d=""
+  for d in /opt/homebrew /usr/local/Homebrew "${HOME}/.linuxbrew"; do
+    if [ -d "$d" ]; then
+      _ST="amber"
+      _MSG="Homebrew directory ${d} exists but ${d}/bin/brew is not executable — reinstall Homebrew"
+      return 0
+    fi
+  done
+
+  if _is_darwin; then
+    _ST="red"
+    _MSG="Homebrew not installed (expected /opt/homebrew/bin/brew on ${arch:-unknown}) — the bootstrap installs it from the Brewfile"
+  else
+    _ST="amber"
+    _MSG="Homebrew not installed — optional on Linux"
+  fi
+  return 0
+}
+
+ev_chezmoi() {
+  local cm="" out="" ver=""
+  cm="$(_chezmoi_cmd)"
+  if [ -z "$cm" ]; then
+    _ST="amber"
+    _MSG="chezmoi not installed — install.sh installs it into ~/.local/bin"
+    return 0
+  fi
+  out="$(_tmp_out)"
+  if [ -n "$out" ] && _run_t 15 "$out" "$cm" --version; then
+    # "chezmoi version v2.72.2, commit ..." -> "chezmoi version v2.72.2"
+    ver="$(head -1 "$out" 2>/dev/null | cut -d' ' -f1-3)"
+    ver="${ver%,}"
+  fi
+  [ -n "$out" ] && rm -f -- "$out" 2>/dev/null
+  _ST="green"
+  _MSG="chezmoi at ${cm}${ver:+ (${ver})}"
+  return 0
+}
+
+ev_onepassword_app() {
+  local p="" enabled=""
+  p="$(_op_app_path)"
+  if [ -n "$p" ]; then
+    _ST="green"
+    _MSG="1Password.app found at ${p}"
+    return 0
+  fi
+  enabled="$(_op_enabled)"
+  case "$enabled" in
+    true)
+      _ST="red"
+      _MSG="1Password.app not installed but onepassword.enabled=true — install the 1Password 8 desktop app"
+      ;;
+    false)
+      _ST="amber"
+      _MSG="1Password.app not installed (onepassword.enabled=false)"
+      ;;
+    *)
+      _ST="amber"
+      _MSG="1Password.app not installed — onepassword.enabled unknown (${CFG_ORIGIN})"
+      ;;
+  esac
+  return 0
+}
+
+ev_onepassword_cli() {
+  _probe_op_cli
+  _ST="$_OPCLI_STATE"
+  _MSG="$_OPCLI_MSG"
+}
+
+ev_onepassword_vault() {
+  local vault="" op="" out=""
+  vault="$(_cfg_get onepassword.vault)"
+  if [ -z "$vault" ]; then
+    _ST="amber"
+    _MSG="no vault configured — onepassword.vault is empty in the chezmoi data (${CFG_ORIGIN})"
+    return 0
+  fi
+  op="$(_op_cmd)"
+  if [ -z "$op" ]; then
+    _ST="amber"
+    _MSG="cannot verify vault '${vault}' — op CLI unavailable"
+    return 0
+  fi
+  _probe_op_cli
+  if [ "$_OPCLI_SIGNED_IN" != "1" ]; then
+    _ST="amber"
+    _MSG="cannot verify vault '${vault}' — op is not signed in"
+    return 0
+  fi
+  out="$(_tmp_out)"
+  if [ -n "$out" ] && _run_t 20 "$out" "$op" vault get "$vault"; then
+    _ST="green"
+    _MSG="vault '${vault}' is accessible"
+  else
+    _ST="red"
+    _MSG="vault '${vault}' is configured but not accessible — check the vault name and your 1Password permissions"
+  fi
+  [ -n "$out" ] && rm -f -- "$out" 2>/dev/null
+  return 0
+}
+
+ev_ssh_signing_key() {
+  _probe_signing_key
+  _ST="$_SIGN_STATE"
+  _MSG="$_SIGN_MSG"
+}
+
+ev_github_ssh() {
+  _probe_github_ssh
+  _ST="$_GH_STATE"
+  _MSG="$_GH_MSG"
+}
+
+ev_brewfile() {
+  local brew="" out="" hint=""
+  brew="$(_brew_cmd)"
+  if [ -z "$brew" ]; then
+    _ST="amber"
+    _MSG="Homebrew absent — Brewfile check deferred until brew is installed"
+    return 0
+  fi
+  out="$(_tmp_out)"
+  if [ -z "$out" ]; then
+    _ST="amber"
+    _MSG="cannot probe the Brewfile — no temp file available"
+    return 0
+  fi
+  if _run_t 90 "$out" "$brew" bundle check --global; then
+    _ST="green"
+    _MSG="Brewfile satisfied ('brew bundle check --global')"
+  elif grep -qi "no brewfile" "$out" 2>/dev/null; then
+    _ST="amber"
+    _MSG="no Brewfile found at the XDG/home paths — chezmoi has not rendered ~/.config/homebrew/Brewfile yet"
+  else
+    # Format-agnostic: surface the first meaningful line brew printed so a
+    # Brewfile syntax error is not silently reported as "missing entries".
+    # Third-party taps emit deprecation warnings and brew emits download
+    # progress glyphs on stderr (merged into $out), so only lines that start
+    # with a letter and are not warnings/errors are considered.
+    hint="$(grep -vE '^[[:space:]]*$' "$out" 2>/dev/null |
+      grep -E '^[A-Za-z]' |
+      grep -vE '^(Warning|Please report|Error)' |
+      head -1 | cut -c1-70)"
+    _ST="red"
+    _MSG="Brewfile has missing entries — re-run chezmoi apply (installs via 'brew bundle --global')${hint:+; ${hint}}"
+  fi
+  rm -f -- "$out" 2>/dev/null
+  return 0
+}
+
+ev_mise() {
+  local mise="" out="" missing="" total=""
+  mise="$(_mise_cmd)"
+  if [ -z "$mise" ]; then
+    _ST="amber"
+    _MSG="mise not installed — tool versions deferred until the bootstrap installs it"
+    return 0
+  fi
+  out="$(_tmp_out)"
+  if [ -z "$out" ]; then
+    _ST="amber"
+    _MSG="cannot probe mise — no temp file available"
+    return 0
+  fi
+  if ! _run_t 60 "$out" "$mise" ls --json; then
+    _ST="amber"
+    _MSG="mise present at ${mise} but 'mise ls --json' failed"
+    rm -f -- "$out" 2>/dev/null
+    return 0
+  fi
+  missing="$(grep -oE '"installed"[[:space:]]*:[[:space:]]*false' "$out" 2>/dev/null | wc -l | tr -d '[:space:]')"
+  total="$(grep -oE '"installed"[[:space:]]*:[[:space:]]*(true|false)' "$out" 2>/dev/null | wc -l | tr -d '[:space:]')"
+  rm -f -- "$out" 2>/dev/null
+  if [ "${missing:-0}" -eq 0 ]; then
+    _ST="green"
+    _MSG="mise: all ${total:-0} declared tool version(s) installed"
+  else
+    _ST="red"
+    _MSG="mise: ${missing} of ${total:-0} declared tool version(s) not installed — run: mise install"
+  fi
+  return 0
+}
+
+ev_secrets() {
+  local names="" name="" ref="" env_file="$SECRETS_ENV_FILE"
+  names="$(_cfg_keys secrets)"
+
+  if [ -z "$names" ]; then
+    local legacy=""
+    legacy="$(_cfg_get legacy.envvars_count)"
+    if [ -n "$legacy" ] && [ "$legacy" != "0" ]; then
+      _ST="amber"
+      _MSG="no .secrets configured — legacy .envvars still holds ${legacy} entry; run 'install.sh --reprompt' to migrate it"
+    else
+      _ST="amber"
+      _MSG="no secrets configured (.secrets is empty)"
+    fi
+    return 0
+  fi
+
+  local count=0
+  for name in $names; do
+    count=$((count + 1))
+  done
+
+  local missing_names="" mode=""
+  if [ ! -f "$env_file" ]; then
+    _ST="red"
+    _MSG="${count} secret ref(s) configured but ${env_file} does not exist — re-run chezmoi apply"
+    return 0
+  fi
+  mode="$(_file_mode "$env_file")"
+  if [ -n "$mode" ] && [ "$mode" != "600" ]; then
+    _ST="red"
+    _MSG="${env_file} exists but mode is ${mode}, expected 600 — re-run chezmoi apply"
+    return 0
+  fi
+  for name in $names; do
+    if ! grep -q "^export ${name}=" "$env_file" 2>/dev/null; then
+      missing_names="${missing_names} ${name}"
+    fi
+  done
+  if [ -n "$missing_names" ]; then
+    _ST="red"
+    _MSG="${env_file} is stale — missing export(s):${missing_names}"
+    return 0
+  fi
+
+  # File is present, 0600 and complete. Now verify each ref actually resolves.
+  local op="" unresolved=0 checked=0 out=""
+  op="$(_op_cmd)"
+  if [ -z "$op" ]; then
+    _ST="amber"
+    _MSG="${env_file} present (0600) with all ${count} name(s); cannot verify resolution — op CLI unavailable"
+    return 0
+  fi
+  _probe_op_cli
+  if [ "$_OPCLI_SIGNED_IN" != "1" ]; then
+    _ST="amber"
+    _MSG="${env_file} present (0600) with all ${count} name(s); cannot verify resolution — op is not signed in"
+    return 0
+  fi
+  out="$(_tmp_out)"
+  for name in $names; do
+    ref="$(_cfg_secret_ref "$name")"
+    [ -n "$ref" ] || continue
+    checked=$((checked + 1))
+    if [ -n "$out" ]; then
+      # The value is written to a temp file and only its length is inspected;
+      # it is never stored in a variable and never printed.
+      if _run_t 20 "$out" "$op" read "$ref"; then
+        local nbytes=""
+        nbytes="$(tr -d '\n\r' <"$out" 2>/dev/null | wc -c | tr -d '[:space:]')"
+        if [ "${nbytes:-0}" -eq 0 ]; then
+          unresolved=$((unresolved + 1))
+        fi
+      else
+        unresolved=$((unresolved + 1))
+      fi
+      : >"$out" 2>/dev/null
+    fi
+  done
+  [ -n "$out" ] && rm -f -- "$out" 2>/dev/null
+
+  if [ "$checked" -eq 0 ]; then
+    _ST="amber"
+    _MSG="${count} secret name(s) configured but every ref is empty — nothing to resolve"
+    return 0
+  fi
+  if [ "$unresolved" -eq 0 ]; then
+    _ST="green"
+    _MSG="${env_file##*/} present (0600); all ${checked} secret ref(s) resolve to a non-empty value"
+  else
+    _ST="amber"
+    _MSG="${env_file##*/} present (0600) but ${unresolved} of ${checked} ref(s) did not resolve — unlock 1Password and re-run chezmoi apply"
+  fi
+  return 0
+}
+
+ev_git_remote_ssh() {
+  local src="" url=""
+  src="$(_source_dir)"
+  url="$(_origin_url)"
+
+  if [ -z "$url" ]; then
+    if [ ! -d "$src" ]; then
+      _ST="amber"
+      _MSG="chezmoi source directory ${src} does not exist yet — run install.sh"
+    else
+      _ST="amber"
+      _MSG="cannot read the origin URL of ${src} (no .git/config and git is unavailable)"
+    fi
+    return 0
+  fi
+
+  case "$url" in
+    git@* | ssh://*)
+      _ST="green"
+      _MSG="chezmoi source origin uses SSH (${url%%:*})"
+      return 0
+      ;;
+    http://* | https://*)
+      _probe_github_ssh
+      if [ "$_GH_STATE" = "green" ]; then
+        _ST="red"
+        _MSG="GitHub SSH works but the origin is still ${url} — re-run chezmoi apply so the switch-to-ssh hook fires"
+      else
+        _ST="amber"
+        _MSG="origin is ${url} (HTTPS) and GitHub SSH is not green yet — deferred until the SSH agent works"
+      fi
+      return 0
+      ;;
+    *)
+      _ST="amber"
+      _MSG="origin URL scheme not recognised: ${url}"
+      return 0
+      ;;
+  esac
+}
+
+_run_check() { # $1=id — appends to IDS/STATES/MSGS
+  case "$1" in
+    clt)
+      ev_clt
+      ;;
+    xcode)
+      ev_xcode
+      ;;
+    xcode_license)
+      ev_xcode_license
+      ;;
+    homebrew)
+      ev_homebrew
+      ;;
+    chezmoi)
+      ev_chezmoi
+      ;;
+    onepassword_app)
+      ev_onepassword_app
+      ;;
+    onepassword_cli)
+      ev_onepassword_cli
+      ;;
+    onepassword_vault)
+      ev_onepassword_vault
+      ;;
+    ssh_signing_key)
+      ev_ssh_signing_key
+      ;;
+    github_ssh)
+      ev_github_ssh
+      ;;
+    brewfile)
+      ev_brewfile
+      ;;
+    mise)
+      ev_mise
+      ;;
+    secrets)
+      ev_secrets
+      ;;
+    git_remote_ssh)
+      ev_git_remote_ssh
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+  IDS+=("$1")
+  STATES+=("$_ST")
+  MSGS+=("$_MSG")
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# document rendering
+# ---------------------------------------------------------------------------
+
+_overall() {
+  local i=0
+  local saw_amber=0
+  local n=${#IDS[@]}
+  while [ "$i" -lt "$n" ]; do
+    case "${STATES[$i]}" in
+      red)
+        printf 'red'
+        return 0
+        ;;
+      amber) saw_amber=1 ;;
+    esac
+    i=$((i + 1))
+  done
+  if [ "$saw_amber" -eq 1 ]; then
+    printf 'amber'
+  else
+    printf 'green'
+  fi
+}
+
+_render_json() { # $1=generated_at  $2=hostname  $3=overall
+  local ts="$1"
+  local host="$2"
+  local overall="$3"
+  local i=0
+  local n=${#IDS[@]}
+  local first=1
+  printf '{\n'
+  printf '  "version": %d,\n' "$STATUS_VERSION"
+  printf '  "generated_at": "%s",\n' "$(_json_escape "$ts")"
+  printf '  "hostname": "%s",\n' "$(_json_escape "$host")"
+  printf '  "overall": "%s",\n' "$(_json_escape "$overall")"
+  # One check per line, compact. This is deliberately byte-identical to the
+  # layout emitted by the inline fallback reporter in
+  # .chezmoiscripts/run_after_99-bootstrap-status.sh.tmpl, so that whichever
+  # writer produced a document, two documents with the same states compare
+  # equal. install.sh's converge loop relies on that to detect a stall.
+  printf '  "checks": [\n'
+  while [ "$i" -lt "$n" ]; do
+    if [ "$first" -eq 1 ]; then
+      first=0
+    else
+      printf ',\n'
+    fi
+    printf '    { "id": "%s", "state": "%s", "message": "%s" }' \
+      "$(_json_escape "${IDS[$i]}")" \
+      "$(_json_escape "${STATES[$i]}")" \
+      "$(_json_escape "${MSGS[$i]}")"
+    i=$((i + 1))
+  done
+  if [ "$first" -eq 0 ]; then
+    printf '\n'
+  fi
+  printf '  ]\n'
+  printf '}\n'
+}
+
+_render_table() { # $1=hostname  $2=timestamp  $3=overall
+  local host="$1"
+  local ts="$2"
+  local overall="$3"
+  local i=0
+  local n=${#IDS[@]}
+
+  printf 'BOOTSTRAP STATUS  %s  %s  overall: %s\n\n' "$host" "$ts" "$(_upper "$overall")"
+  printf '  %-5s  %-17s  %s\n' "STATE" "CHECK" "MESSAGE"
+  while [ "$i" -lt "$n" ]; do
+    printf '  %-5s  %-17s  %s\n' "${STATES[$i]}" "${IDS[$i]}" "${MSGS[$i]}"
+    i=$((i + 1))
+  done
+
+  local deferred=""
+  i=0
+  while [ "$i" -lt "$n" ]; do
+    if [ "${STATES[$i]}" = "amber" ]; then
+      deferred="${deferred}${IDS[$i]}
+"
+    fi
+    i=$((i + 1))
+  done
+  if [ -n "$deferred" ]; then
+    printf '\nDEFERRED (will be configured on a later pass):\n'
+    printf '%s' "$deferred" | while IFS= read -r id; do
+      [ -n "$id" ] || continue
+      printf '  - %s\n' "$id"
+    done
+  fi
+  return 0
+}
+
+# Atomic write: temp file in the same directory, mode 0600, then mv.
+_write_atomic() { # $1=dest  $2=content
+  local dest="$1"
+  local content="$2"
+  local dir=""
+  dir="$(dirname "$dest")"
+  if [ ! -d "$dir" ]; then
+    mkdir -p "$dir" 2>/dev/null || return 1
+    chmod 700 "$dir" 2>/dev/null
+  fi
+  local tmp=""
+  tmp="$(mktemp "${dir}/.bootstrap-status.XXXXXX" 2>/dev/null)" || return 1
+  printf '%s' "$content" >"$tmp" 2>/dev/null || {
+    rm -f -- "$tmp" 2>/dev/null
+    return 1
+  }
+  chmod 0600 "$tmp" 2>/dev/null
+  mv -f -- "$tmp" "$dest" 2>/dev/null || {
+    rm -f -- "$tmp" 2>/dev/null
+    return 1
+  }
+  return 0
+}
+
+_write_cache() { # $1=json document  $2=overall word
+  local json_doc="$1"
+  local overall="$2"
+  _write_atomic "${STATUS_DIR}/bootstrap-status.json" "${json_doc}" || return 1
+  _write_atomic "${STATUS_DIR}/bootstrap-status.txt" "${overall}
+" || return 1
+  return 0
+}
+
+usage() {
+  cat <<'USAGE'
+bootstrap-status — read-only reporter for the dotfiles bootstrap state.
+
+Usage:
+  bootstrap-status                  human-readable table + write both cache files
+  bootstrap-status --json           emit the JSON document (also writes the cache)
+  bootstrap-status --quiet          emit only the overall word: green|amber|red
+  bootstrap-status --check <id>     evaluate and print a single check
+  bootstrap-status --no-write       do not write the cache files, stdout only
+  bootstrap-status --help           this help
+
+Check ids (evaluated in this order):
+  clt xcode xcode_license homebrew chezmoi onepassword_app onepassword_cli
+  onepassword_vault ssh_signing_key github_ssh brewfile mise secrets
+  git_remote_ssh
+
+Cache files (mode 0600, written atomically):
+  ~/.cache/chezmoi/bootstrap-status.json
+  ~/.cache/chezmoi/bootstrap-status.txt
+
+Environment:
+  BOOTSTRAP_STATUS_DIR      override the cache directory
+  BOOTSTRAP_CHEZMOI_CONFIG  override the chezmoi config file used as fallback
+
+Exit status is always 0 for a valid invocation (this is a reporter, not a
+gate); usage errors exit 2. Never mutates anything, never prompts, never
+requires a TTY, and never prints a secret value.
+USAGE
+}
+
+# ---------------------------------------------------------------------------
+# argument parsing
+# ---------------------------------------------------------------------------
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --json)
+      MODE="json"
+      ;;
+    --quiet)
+      MODE="quiet"
+      ;;
+    --check)
+      if [ "$#" -lt 2 ] || [ -z "${2:-}" ]; then
+        printf 'bootstrap-status: --check requires a check id\n' >&2
+        exit 2
+      fi
+      MODE="check"
+      SINGLE_CHECK="$2"
+      shift
+      ;;
+    --no-write)
+      WRITE_CACHE=0
+      ;;
+    -h | --help)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'bootstrap-status: unknown argument: %s\n' "$1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
+
+if [ "$MODE" = "check" ]; then
+  # A single-check document must never overwrite the cache: it is partial.
+  WRITE_CACHE=0
+  case " ${CHECK_ORDER} " in
+    *" ${SINGLE_CHECK} "*) ;;
+    *)
+      printf 'bootstrap-status: unknown check id: %s\n' "$SINGLE_CHECK" >&2
+      printf 'valid ids: %s\n' "$CHECK_ORDER" >&2
+      exit 2
+      ;;
+  esac
+fi
+
+# ---------------------------------------------------------------------------
+# main
+# ---------------------------------------------------------------------------
+
+HOSTNAME_S="$(hostname 2>/dev/null)"
+HOSTNAME_S="${HOSTNAME_S%%.*}"
+[ -n "$HOSTNAME_S" ] || HOSTNAME_S="unknown"
+GENERATED_AT="$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null)"
+[ -n "$GENERATED_AT" ] || GENERATED_AT="1970-01-01T00:00:00Z"
+
+_cfg_load
+
+if [ "$MODE" = "check" ]; then
+  _run_check "$SINGLE_CHECK"
+  printf '  %-5s  %-17s  %s\n' "${STATES[0]}" "${IDS[0]}" "${MSGS[0]}"
+  exit 0
+fi
+
+for check_id in $CHECK_ORDER; do
+  _run_check "$check_id"
+done
+
+OVERALL="$(_overall)"
+JSON_DOC="$(_render_json "$GENERATED_AT" "$HOSTNAME_S" "$OVERALL")"
+
+case "$MODE" in
+  json)
+    # $JSON_DOC lost its trailing newline to command substitution, so add exactly
+    # one back for stdout. The cache file is written from the same variable
+    # without it, which keeps it byte-identical to the document produced by the
+    # inline fallback reporter in run_after_99-bootstrap-status.sh.tmpl.
+    printf '%s\n' "$JSON_DOC"
+    ;;
+  quiet)
+    printf '%s\n' "$OVERALL"
+    ;;
+  *)
+    _render_table "$HOSTNAME_S" "$GENERATED_AT" "$OVERALL"
+    ;;
+esac
+
+if [ "$WRITE_CACHE" -eq 1 ]; then
+  _write_cache "$JSON_DOC" "$OVERALL"
+fi
+
+exit 0
