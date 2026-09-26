@@ -9,7 +9,8 @@
     "templates/add-tag.md",
     "templates/neuer-akten.md",
     "templates/neuer-zakki.md",
-    "templates/shinki-kadai.md"
+    "templates/shinki-kadai.md",
+    "templates/toggle-pin.md"
   ],
   "startup_templates": [],
   "enable_system_commands": false,

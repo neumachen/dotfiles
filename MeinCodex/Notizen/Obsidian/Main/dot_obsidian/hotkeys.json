@@ -103,5 +103,14 @@
       ],
       "key": "T"
     }
+  ],
+  "templater-obsidian:templates/toggle-pin.md": [
+    {
+      "modifiers": [
+        "Mod",
+        "Alt"
+      ],
+      "key": "P"
+    }
   ]
 }

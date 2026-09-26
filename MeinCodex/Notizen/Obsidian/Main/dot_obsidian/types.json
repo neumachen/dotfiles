@@ -5,6 +5,7 @@
     "created": "date",
     "cssclasses": "multitext",
     "description": "text",
+    "pinned": "checkbox",
     "published": "date",
     "source": "text",
     "tags": "tags",
