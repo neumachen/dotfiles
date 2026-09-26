@@ -10,12 +10,20 @@
 # * NEVER hard-exit because a prerequisite is missing. Missing prerequisites are
 #   recorded as *deferred* and the installer keeps going, then reports them at
 #   the end. The only non-zero exits are:
-#     - not macOS and not Linux
-#     - chezmoi is absent and there is no curl, no wget and no brew to fetch it
-#     - bash is absent (this script is bash, not POSIX sh)
-#     - interrupted (130)
-# * NEVER kill or replace the calling shell. The only `exec` below re-execs this
-#   same script under bash when it was started as `sh install.sh`; chezmoi is
+#     - not macOS and not Linux                                    (exit 1)
+#     - chezmoi is absent and there is no curl, no wget and no brew
+#       to fetch it                                                (exit 1)
+#     - bash is absent (this script is bash, not POSIX sh)         (exit 2)
+#     - the script was piped into a non-bash shell and could not be
+#       re-fetched, or what was fetched failed the sanity check    (exit 2)
+#     - interrupted                                                (exit 130)
+#   The exit-2 cases are *invocation/transport* failures, not missing
+#   prerequisites: there is no script body left to run, so continuing is
+#   impossible. Every genuine prerequisite (CLT, Xcode, Homebrew, 1Password,
+#   mise, ...) is still only ever deferred.
+# * NEVER kill or replace the calling shell. The `exec` calls below replace only
+#   *this script's own* process image so that it runs under bash; the caller's
+#   shell is untouched and regains control when the script exits. chezmoi is
 #   deliberately NOT exec'd, so its exit status is captured and the later stages
 #   still run.
 # * Idempotent and resumable. Re-running on a half-configured machine picks up
@@ -24,20 +32,149 @@
 # * bash 3.2 compatible (macOS /bin/bash): indexed arrays only, no associative
 #   arrays, no ${x,,}, no mapfile.
 
-# Re-exec under bash when invoked as `sh install.sh`. This replaces this
-# script's own process image only — the calling shell is untouched and regains
-# control when the script exits.
+# Pinned contract — the README documents these exact values and forms.
+# DOTFILES_INSTALL_URL overrides where the piped/`sh -c` form re-fetches from, so
+# a fork or a feature branch can be tested without editing this file.
+INSTALL_URL="${DOTFILES_INSTALL_URL:-https://raw.githubusercontent.com/neumachen/dotfiles/main/install.sh}"
+# A string unique to this script, used to confirm that a candidate file really is
+# install.sh rather than something that happens to share its name — a CDN 404
+# page, a captive-portal interstitial, or a different script entirely.
+# `stage5_postflight` is a function *defined near the end of this file*, so
+# requiring it also proves the download was not truncated. (A prose marker taken
+# from the header comment would pass on a partial download, and could be silently
+# broken by an unrelated wording edit.)
+SCRIPT_MARKER="stage5_postflight"
+
+# Re-exec under bash when this file was not started by bash. Three invocation
+# forms have to work:
+#
+#   ./install.sh | bash install.sh   BASH_VERSION is already set; guard skipped.
+#   sh install.sh                    $0 is this script -> exec bash on it (A).
+#   sh -c "$(curl -fsSL URL)"        $0 is "sh", and the body arrived either via
+#   curl -fsSL URL | sh              command substitution or an already-exhausted
+#                                    stdin pipe, so there is no file to exec (B).
+#
+# These `exec` calls replace this script's own process image only — the calling
+# shell is untouched and regains control when the script exits.
 if [ -z "${BASH_VERSION:-}" ]; then
-  if command -v bash >/dev/null 2>&1; then
+  if ! command -v bash >/dev/null 2>&1; then
+    echo "[ERROR] --- install.sh requires bash; this script is bash, not POSIX sh." >&2
+    echo "[ERROR] --- Install bash, then download the installer and run it with bash:" >&2
+    echo "[ERROR] ---   curl -fsSL ${INSTALL_URL} -o /tmp/dotfiles-install.sh && bash /tmp/dotfiles-install.sh" >&2
+    # exit 2, not 1: this is an invocation/transport failure (there is no
+    # interpreter able to run the script body), not a missing prerequisite.
+    exit 2
+  fi
+
+  # Case A: invoked as `sh /path/to/install.sh`, so $0 is this script. Verify it
+  # by CONTENT, not merely by existence: $0 is whatever the caller passed, so a
+  # stray file named `sh` (or anything else $0 happens to name) in the current
+  # directory must never be exec'd in place of the installer.
+  if [ -n "${0:-}" ] && [ -f "$0" ] && [ -r "$0" ] &&
+    grep -qF "$SCRIPT_MARKER" "$0" 2>/dev/null; then
     exec bash "$0" "$@"
   fi
-  echo "[ERROR] --- install.sh requires bash. Install bash, then run ./install.sh" >&2
-  exit 1
+
+  # Case B: piped / `sh -c` invocation. $0 is not this script and stdin is
+  # already consumed, so re-fetch to a temp file and exec bash on that.
+  # NOTE: the X's must be at the END of the template. BSD/macOS mktemp does not
+  # substitute a run of X's that is followed by a suffix: `...XXXXXX.sh` silently
+  # creates a file with that literal, predictable name (rc=0) and every later run
+  # then fails with "File exists" — so a piped install would work once per machine
+  # and never again, besides putting a fixed name in a world-writable directory.
+  # Verified: `dotfiles-install.sh.XXXXXX` yields a unique file on dash, bash 3.2
+  # and GNU mktemp alike.
+  tmp="$(mktemp "${TMPDIR:-/tmp}/dotfiles-install.sh.XXXXXX" 2>/dev/null)" || tmp=""
+  if [ -z "$tmp" ]; then
+    echo "[ERROR] --- could not create a temp file in ${TMPDIR:-/tmp} to re-fetch install.sh." >&2
+    exit 2
+  fi
+
+  fetched=0
+  if command -v curl >/dev/null 2>&1 && curl -fsSL "$INSTALL_URL" -o "$tmp"; then
+    fetched=1
+  elif command -v wget >/dev/null 2>&1 && wget -qO "$tmp" "$INSTALL_URL"; then
+    fetched=1
+  fi
+  if [ "$fetched" -ne 1 ]; then
+    rm -f "$tmp"
+    echo "[ERROR] --- install.sh was piped into a non-bash shell and could not be" >&2
+    echo "[ERROR] --- re-fetched from ${INSTALL_URL}." >&2
+    echo "[ERROR] --- Download it manually, then run it with bash instead:" >&2
+    echo "[ERROR] ---   curl -fsSL ${INSTALL_URL} -o /tmp/dotfiles-install.sh && bash /tmp/dotfiles-install.sh" >&2
+    exit 2
+  fi
+
+  # Validate BEFORE exec'ing. Three conditions must all hold: the file is
+  # non-empty, its first line is a shebang, and it contains a marker unique to
+  # this script. A proxy captive portal, a CDN 404 page, a different script or a
+  # truncated download must never be executed as shell code.
+  first_line=""
+  # `read` returns non-zero at EOF-without-a-trailing-newline while still
+  # assigning the text it read, so its status is deliberately not treated as a
+  # failure; the case statement below is what validates the content.
+  IFS= read -r first_line < "$tmp" 2>/dev/null
+  case "$first_line" in
+    '#!'*) : ;;               # a real shebang — accept
+    *)     first_line="" ;;   # anything else fails the check below
+  esac
+  if [ ! -s "$tmp" ] || [ -z "$first_line" ] || ! grep -qF "$SCRIPT_MARKER" "$tmp" 2>/dev/null; then
+    rm -f "$tmp"
+    echo "[ERROR] --- what was fetched from ${INSTALL_URL} is not install.sh" >&2
+    echo "[ERROR] --- (empty, no shebang on line 1, or missing the content marker);" >&2
+    echo "[ERROR] --- refusing to run it." >&2
+    echo "[ERROR] --- Download it manually, inspect it, then run it with bash:" >&2
+    echo "[ERROR] ---   curl -fsSL ${INSTALL_URL} -o /tmp/dotfiles-install.sh && bash /tmp/dotfiles-install.sh" >&2
+    exit 2
+  fi
+
+  chmod +x "$tmp"
+
+  # There is no re-fetch loop: the interpreter below is explicitly `bash`, so
+  # BASH_VERSION is set on the second pass and this whole guard is skipped.
+  #
+  # Restore stdin from the controlling terminal when there is one. A piped
+  # install leaves stdin as an exhausted pipe, which would make _is_tty false
+  # and cause every _ask to silently take its default — exactly when the user
+  # most needs to answer (CLT skip, Xcode license, converge-loop Enter/q).
+  #
+  # Hand the temp path to the re-exec'd child so IT can unlink the file on exit.
+  # This process cannot clean up after itself: exec replaces its image, so any
+  # trap registered here would never run. Without this hand-off every piped
+  # install would leave a dotfiles-install.XXXXXX.sh behind in $TMPDIR.
+  DOTFILES_INSTALL_TMPFILE="$tmp"
+  export DOTFILES_INSTALL_TMPFILE
+
+  # Detect the controlling terminal by actually trying to OPEN it, not by
+  # stat'ing the device node. `[ -r /dev/tty ]` only inspects permission bits and
+  # succeeds even when there is no controlling terminal (cron, CI, launchd, a
+  # pipe with no tty); the redirect then fails with "cannot open /dev/tty:
+  # Device not configured" and the whole install dies. The subshell probe below
+  # is the portable way to ask "can I really open it?".
+  if (: </dev/tty) 2>/dev/null; then
+    exec bash "$tmp" "$@" </dev/tty
+  fi
+  exec bash "$tmp" "$@"
 fi
 
 # Deliberately NOT `set -e`: a converging installer must survive a failing
 # prerequisite and still reach the postflight report.
 set -uo pipefail
+
+# If this process is the re-exec'd child of a piped / `sh -c` install, the script
+# body lives in a temp file created by the parent, which could not clean it up
+# (exec replaced the parent's image, so no parent-side trap ever ran). Unlink it
+# on exit so a piped install leaves nothing behind in $TMPDIR.
+#
+# Unlinking a script bash is running is safe: unlink only removes the directory
+# entry, the inode survives until the last open descriptor closes, and by the
+# time EXIT fires bash has finished reading the file anyway.
+#
+# The variable is set and exported by the guard above immediately before exec, so
+# it is present only in the re-fetched child — never in a clone-based run.
+if [ -n "${DOTFILES_INSTALL_TMPFILE:-}" ] && [ -f "${DOTFILES_INSTALL_TMPFILE:-}" ]; then
+  trap 'rm -f "${DOTFILES_INSTALL_TMPFILE:-}"' EXIT
+fi
 
 REPO="https://github.com/neumachen/dotfiles.git"
 
@@ -200,7 +337,22 @@ usage() {
 install.sh — resumable, converging bootstrap for the neumachen/dotfiles repo.
 
 Usage:
-  sh install.sh [flags]        (or ./install.sh; re-execs under bash if needed)
+  1. from a clone:      ./install.sh          (or: bash install.sh, sh install.sh)
+USAGE
+  # Forms 2 and 3 interpolate $INSTALL_URL, so they cannot live inside the quoted
+  # heredoc above. printf keeps every other character literal, so the
+  # `$(curl ...)` command substitution and the surrounding quotes are printed
+  # verbatim for the user to copy instead of being expanded here. With no
+  # DOTFILES_INSTALL_URL override set, the three lines are byte-identical to the
+  # invocation block in README.md — keep the two in sync.
+  # shellcheck disable=SC2016 # intentional: printing a literal command, not expanding it
+  printf '  2. one-liner, piped:  sh -c "$(curl -fsSL %s)"\n' "$INSTALL_URL"
+  printf '  3. one-liner, saved:  curl -fsSL %s \\\n' "$INSTALL_URL"
+  printf '                          -o /tmp/dotfiles-install.sh && bash /tmp/dotfiles-install.sh\n'
+  cat <<'USAGE'
+
+Form 3 is the most robust: it survives a flaky network mid-run and is re-runnable.
+The URL serves the `main` branch.
 
 Flags:
   --yes             never prompt; take the default and defer anything ambiguous
