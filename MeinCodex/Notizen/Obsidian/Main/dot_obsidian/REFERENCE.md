@@ -18,6 +18,7 @@
 | `Cmd+S` | Lint and save (formats + saves current note) |
 | `Cmd+Shift+I` | Insert template into current note |
 | `Cmd+Alt+T` | **Add tag** to current note (prompts for tag name) |
+| `Cmd+Alt+P` | **Pin / unpin** current note (toggles the `pinned` property; pinned Zakki sit at the top of the Home dashboard) |
 | `Alt+↓` | Move current line down |
 | `Alt+↑` | Move current line up |
 
@@ -121,3 +122,4 @@ tags include task
 - `updated` frontmatter is auto-maintained by Linter on every `Cmd+S`
 - Snippet IDs match filenames exactly (e.g. `editor-frontmatter` = `editor-frontmatter.css`)
 - All Templater paths are vault-relative — no hardcoded filesystem paths
+- Pinned Zakki: `pinned: true` (checkbox) lists a Zakki in the Home dashboard's first section without changing its type. Toggle with `Cmd+Alt+P`, the Properties panel, or the checkbox in the dashboard table

@@ -188,6 +188,7 @@ Located at `<vault-root>/templates/`. All templates use Templater syntax.
 | `neuer-akten.md` | — | `Akten: Neue Akte` | Project folder — prompts for title, creates `akten/YYYY/MM/<uuid6>-<slug>/index.md` with tags `[akten]`. Folder name uses the first 6 hex chars of the UUID; the full 32-char UUID lives in frontmatter `id`. |
 | `shinki-kadai.md` | `Cmd+Shift+T` | `Kadai: Shinki Kadai (新規課題)` | Task note — runs in **insert mode** by default (the hotkey is bound to `templater-obsidian:templates/shinki-kadai.md`), so the active document stays open and a wikilink to the new task is dropped into it. Two creation modes: `Title only` (just title prompt) and `Full document` (also prompts an optional description, then opens the new task after the link is inserted — priority and due date can be edited later in the task file or via the Tasks plugin). Where the link goes depends on Vim mode: in **insert mode**, the link is inserted at the cursor; in **normal mode**, the link is appended under a `## Inserted Tasks` section at the end of the active document (created on first use, reused on subsequent inserts). The task file itself always lives at `kadai/YYYY/MM/DD/<uuid6>-<slug>.md` (slug rules match `neuer-akten.md`). The task body's `## Status` section embeds two `meta-bind` widgets: an `INPUT[inlineSelect(...):task.status]` dropdown constrained to the 6 canonical options (`incipient`, `in-progress`, `completed`, `discarded`, `blocked`, `abandoned`) and a derived `VIEW` field rendering `☑ Done` / `☐ Not done` based on whether `task.status` is `completed` or `discarded`. Status defaults to `incipient` at creation; change it via the dropdown. **Context-aware label and references:** the mode picker's placeholder reflects the active document context — `Add to new Akten` (active = Akte index), `Add to new Zakki` (active = Zakki), or `Task creation` (no context). Reference fields follow the label: Akten → `reference.akten.id`; Zakki → `reference.zakki.id`, plus `reference.akten.id` if the Zakki itself is linked to an Akte; no context → no reference fields. **Standalone fallback:** invoking `Templater: Create new note from template → templates/shinki-kadai.md` (or any create-mode wrapper) skips the insert path entirely and creates the task as a standalone open file — same prompts, no reference fields, no link insertion. |
 | `add-tag.md` | `Cmd+Alt+T` | — | Adds a tag to the current note's frontmatter. First shows a suggester populated from `app.metadataCache.getTags()` so existing tags fuzzy-autocomplete as you type; press `Esc` on the suggester to fall through to a free-form prompt for a brand-new tag. Guarded against a missing QuickAdd dependency: if the QuickAdd plugin is disabled, the template surfaces a `Notice` and returns instead of throwing. |
+| `toggle-pin.md` | `Cmd+Alt+P` | — | Toggles the `pinned` frontmatter property on the active note (`true` ⇄ `false`, declared as `checkbox` in `types.json`). Pinned Zakki appear in the first section of the Home dashboard while remaining ordinary Zakki — see [Home Dashboard](#home-dashboard). Shows a `Notice` with the result; warns when the note is not a Zakki, because only Zakki are listed there. |
 
 The vault-wide rename + title-driven file-rename listeners that previously lived
 in a `sync-system-frontmatter.md` Templater startup template now ship as the
@@ -286,6 +287,45 @@ Examples:
 
 ---
 
+## Home Dashboard
+
+`Home.md` at the vault root is the landing page the `homepage` plugin opens
+on startup. It is **vault content, not configuration**: the vault's own git
+repository tracks it, and this repository's `.gitignore` and `.chezmoiignore`
+both exclude it, so there is deliberately no copy in the dotfiles source.
+Edit it in the vault.
+
+The page embeds four Bases code blocks, top to bottom:
+
+| Section | Filter | Sort / limit |
+|---|---|---|
+| 📌 Pinned Zakki | `zakki` tag and `pinned == true` | last modified; no limit |
+| 📋 Open Kadai | `task` tag, `type == kadai`, status not `completed` / `discarded` / `abandoned` | due date (undated last), then modified; 10 |
+| 📁 Recent Akten | `akten` tag | last modified; 6 |
+| 🗒️ Recent Zakki | `zakki` tag | last modified; 12 |
+
+Pinning is a note property, not a type change: `pinned: true` (declared as
+`checkbox` in `types.json`) surfaces a Zakki in the first section while it
+stays a Zakki in place, with its links and Kadai/Akte references untouched.
+Toggle it with `Cmd+Alt+P` (`templates/toggle-pin.md`), by editing the
+property, or by unchecking the box in the Pinned table. Only Zakki are
+listed; pinning other types has no visible effect.
+
+Bases rules verified against Obsidian 1.13 (the earlier dashboard broke all
+three):
+
+- Per-view filters use the key `filters:` with the same shape as the
+  top-level block. A singular `filter:` key is stored as inert view data and
+  never applied — the old dashboard silently listed every Kadai because of it.
+- There is no `??` operator; use `if(condition, a, b)`. Documented logical
+  operators are `&&`, `||`, and `!`.
+- Embedded base blocks grow to fit every row (`height: auto`), so set
+  `limit:` on any view that can grow.
+- `file.mtime` is the filesystem timestamp and updates on every save;
+  `modified_at.utc` only refreshes when Linter runs on `Cmd+S`.
+
+---
+
 ## Core Plugins
 
 | Plugin | Enabled |
@@ -300,7 +340,7 @@ Examples:
 | Templates | ✅ (core) |
 | Command Palette | ✅ |
 | Editor Status | ✅ |
-| Bookmarks | ✅ |
+| Bookmarks | ❌ (disabled; pinning uses the `pinned` property + Home dashboard — see [Home Dashboard](#home-dashboard)) |
 | Outline | ✅ |
 | Word Count | ✅ |
 | File Recovery | ✅ |
@@ -329,7 +369,7 @@ Examples:
 | `obsidian-plugin-update-tracker` | Checks for plugin updates every 30 minutes |
 | `settings-search` | Search bar inside Obsidian Settings |
 | `tag-wrangler` | Rename, merge, search tags from tag pane |
-| `homepage` | Opens `Welcome.md` on startup |
+| `homepage` | Opens `Home.md` (the vault dashboard) on startup — see [Home Dashboard](#home-dashboard) |
 | `calendar` | Calendar widget in right sidebar |
 | `templater-obsidian` | Template engine — powers all note creation flows |
 | `obsidian-tasks-plugin` | Cross-vault task tracking — global filter: `#task` |

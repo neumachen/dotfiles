@@ -25,7 +25,7 @@ Main/
 | Appearance ownership | `Main/dot_obsidian/THEME.md` | Theme, snippet, and Shiki precedence; read before visual changes |
 | App and key settings | `Main/dot_obsidian/{app,hotkeys,types}.json` | General settings, key bindings, and property types |
 | Plugin configuration | `Main/dot_obsidian/community-plugins.json`, `Main/dot_obsidian/plugins/*/data.json` | Enabled plugin IDs and individual settings |
-| Creation and tagging | `Main/exact_templates/` | `neuer-akten.md`, `neuer-zakki.md`, `shinki-kadai.md`, `add-tag.md` |
+| Creation and tagging | `Main/exact_templates/` | `neuer-akten.md`, `neuer-zakki.md`, `shinki-kadai.md`, `add-tag.md`, `toggle-pin.md` |
 | Shared helper API | `Main/scripts/obsidian_utils.js` | Called as `tp.user.obsidian_utils()` |
 | Rename synchronization | `Main/dot_obsidian/plugins/mein-codex-sync/main.js` | Plugin lifecycle owns rename and metadata listeners |
 | Persistent views | `Main/{akten,zakki,kadai}/_bases/*.base` | Filters, formulas, and table columns |
@@ -50,6 +50,13 @@ Main/
 - Task statuses are `incipient`, `in-progress`, `completed`, `discarded`,
   `blocked`, `abandoned`. The template's done widget counts completed and
   discarded; the open-task Base additionally excludes abandoned.
+- The vault's `Home.md` dashboard is vault-git content, ignored by this repo
+  and by chezmoi; there is no source copy. Edit the live file in the vault.
+- Bases (Obsidian 1.13): view-level filters use `filters:`; a `filter:` key
+  is silently ignored. There is no `??` operator (use `if()`), and embedded
+  blocks render every row unless the view sets `limit:`.
+- `pinned` (checkbox, declared in `types.json`) marks a Zakki for the
+  dashboard's Pinned section; `toggle-pin.md` (`Cmd+Alt+P`) flips it.
 
 ## CROSS-FILE CHECKS
 
