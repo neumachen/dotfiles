@@ -27,18 +27,49 @@ still outstanding at any time.
 
 ## Quick start
 
-Three invocation forms are supported, all against the same installer URL
-(`https://raw.githubusercontent.com/neumachen/dotfiles/main/install.sh`),
-written out in full so every command is copy-pasteable:
+Three invocation forms are supported. The installer is resumable, and a
+missing prerequisite never aborts it — it is recorded as *deferred* and a
+later pass picks it up. These are the three forms exactly as
+`install.sh --help` prints them:
 
-| Form | Command | Notes |
-| --- | --- | --- |
-| From a clone | `./install.sh [flags]` | `bash install.sh` and `sh install.sh` also work; `sh` re-execs under bash automatically |
-| Download then run | `curl -fsSL https://raw.githubusercontent.com/neumachen/dotfiles/main/install.sh -o /tmp/dotfiles-install.sh && bash /tmp/dotfiles-install.sh` | **most robust** — the script is on disk, so it survives a dropped connection and can be inspected before running |
-| Piped one-liner | `sh -c "$(curl -fsSL https://raw.githubusercontent.com/neumachen/dotfiles/main/install.sh)"` | works, and interactivity is restored from `/dev/tty`; the script re-fetches itself to a temp file because a piped `$0` is not a file path |
+```
+  1. from a clone:      ./install.sh          (or: bash install.sh, sh install.sh)
+  2. one-liner, piped:  sh -c "$(curl -fsSL https://raw.githubusercontent.com/neumachen/dotfiles/main/install.sh)"
+  3. one-liner, saved:  curl -fsSL https://raw.githubusercontent.com/neumachen/dotfiles/main/install.sh \
+                          -o /tmp/dotfiles-install.sh && bash /tmp/dotfiles-install.sh
+```
 
-Use **download then run** on a brand-new machine, and the **clone** form when
-iterating on the repo itself:
+The same two remote commands without the `N. label:` prefixes, ready to paste:
+
+```sh
+# form 2 — piped
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/neumachen/dotfiles/main/install.sh)"
+
+# form 3 — saved (most robust)
+curl -fsSL https://raw.githubusercontent.com/neumachen/dotfiles/main/install.sh \
+  -o /tmp/dotfiles-install.sh && bash /tmp/dotfiles-install.sh
+```
+
+**Form 3 is the most robust.** The script is already on disk, so it survives a
+flaky network partway through the run, and the saved file is re-runnable —
+which matters because the installer is designed to be resumed.
+
+**Form 2 works because `install.sh` self-heals.** When it detects that `$0` is
+not a readable file (the piped / `-c` case) it re-fetches the script to a
+`0700` temp file and sanity-checks the payload — non-empty, starts with a
+shebang, contains a known marker — so a truncated download or an HTML error
+page is never executed. It then re-execs `bash` on that file with stdin
+restored from `/dev/tty`. That `/dev/tty` restoration is what makes the
+interactive prompts work in the piped form: without it stdin is an exhausted
+pipe, the script's TTY test is false, and every prompt silently takes its
+default — which on a fresh machine would mean the 1Password vault, SSH key
+item and CLT-deferral questions are never actually asked.
+
+Set `DOTFILES_INSTALL_URL` to override the fetch URL used by the self-heal
+re-fetch (for testing a fork or a branch).
+
+Use form 3 on a brand-new machine, and form 1 when iterating on the repo
+itself:
 
 ```sh
 git clone https://github.com/neumachen/dotfiles.git \
@@ -50,12 +81,12 @@ cd ~/MeinCodex/Codebasis/github.com/neumachen/dotfiles
 That clone path is the canonical one: it matches the `sourceDir` baked into
 `.chezmoi.yaml.tmpl`.
 
-> **The two remote forms only serve this installer after the branch is
-> merged.** That URL points at `main`, and `main` currently still serves the
-> old pre-refactor `install.sh` — a 67-line `#!/bin/sh` script with none of the
-> stages, flags or convergence documented here. Until the merge, use the clone
-> form: a clone lets you check out the branch carrying this installer and run
-> it straight from the working tree.
+> **Forms 2 and 3 only serve this installer after the branch is merged.**
+> That URL points at `main`, and `main` currently still serves the old
+> pre-refactor `install.sh` — a 67-line `#!/bin/sh` script with none of the
+> stages, flags or convergence documented here. Until the merge, use form 1: a
+> clone lets you check out the branch carrying this installer and run it
+> straight from the working tree.
 
 Run from a clone, `install.sh` detects `.chezmoi.yaml.tmpl` next to it and
 passes `--source=<clone>` to chezmoi. Run from a temp file or a pipe, it has
@@ -86,9 +117,17 @@ Verbatim from `install.sh --help`:
 | `--dry-run` | walk every stage printing what it would do; execute nothing (no `mkdir`, no downloads, no chezmoi, no brew, no sudo) |
 | `-h`, `--help` | help |
 
-Environment overrides: `BOOTSTRAP_STATUS_DIR` (cache directory, default
-`~/.cache/chezmoi`) and `CLT_TIMEOUT` (Command Line Tools poll timeout in
-seconds, default `900`).
+Environment overrides read by `install.sh`:
+
+| Variable | Effect |
+| --- | --- |
+| `DOTFILES_INSTALL_URL` | overrides the URL used by the form-2 self-heal re-fetch (for testing a fork or a branch) |
+| `BOOTSTRAP_STATUS_DIR` | cache directory, default `~/.cache/chezmoi` |
+| `CLT_TIMEOUT` | Command Line Tools poll timeout in seconds, default `900` |
+
+These are `install.sh`'s own. `bootstrap-status` has a separate set — see
+[Cache files](#cache-files) — and `DOTFILES_INSTALL_URL` and `CLT_TIMEOUT` have
+no effect on it.
 
 ### Guarantees
 
@@ -107,13 +146,14 @@ Exit codes:
 | --- | --- |
 | `0` | finished — possibly with deferred items still listed in the postflight report |
 | `1` | unsupported OS, `bash` absent, or chezmoi could not be fetched (no `curl`, `wget` or `brew`) |
-| `2` | usage error, **or** the script was piped into a non-bash shell and could not be re-fetched / the fetched copy failed validation |
+| `2` | usage/flag error, **or** a failed form-2 self-heal: `bash` missing, the re-fetch failed, or the fetched payload failed its sanity check |
 | `130` | interrupted (Ctrl-C or SIGTERM) — re-run to resume; nothing is broken |
 
 Exit 2 is an invocation or transport failure, not a missing prerequisite — the
-guarantee above still holds. Typing `q` at the converge-loop or Xcode prompt is
-not an error exit either: it breaks out and falls through to the postflight
-report, exiting 0.
+guarantee above still holds. When the form-2 self-heal fails, `install.sh`
+prints an actionable error naming form 3 (download then run) before exiting 2.
+Typing `q` at the converge-loop or Xcode prompt is not an error exit either: it
+breaks out and falls through to the postflight report, exiting 0.
 
 ## What it asks you
 
@@ -469,9 +509,8 @@ amber  secrets  no .secrets configured — legacy .envvars still holds 1 entry;
 | `git_remote_ssh` amber | the origin is HTTPS and GitHub SSH is not green yet | deferred until the SSH agent works |
 | `mise` red | declared tool versions are not installed | `mise install` |
 | `secrets` red | `~/.config/sh/secrets.env` is missing, not `0600`, or stale | unlock 1Password, re-run `chezmoi apply` |
-| An `exec bash sh`-style failure, or `No such file or directory`, when using a one-liner | the pre-fix re-exec guard treated a piped `$0` as a script path — or the branch is not merged yet, so `main` served the old installer | use the download-and-run form against the correct branch |
-| The installer ran but never prompted for anything | it was piped without a controlling terminal, so every prompt silently took its default | re-run from a real terminal, or use the download-and-run form |
-| The fetched copy was rejected as invalid (empty, or missing the content marker) | a proxy or CDN returned an error page instead of the script | retry, or download it manually and inspect it before running |
+| `exec bash sh` / `cannot open sh` when running the one-liner, or prompts are skipped without asking | an older `install.sh` whose re-exec guard assumed `$0` is a file; or stdin is a pipe with no `/dev/tty` | use form 3 (download then run), or re-run `install.sh --reprompt` |
+| The fetched copy was rejected as invalid (empty, or missing the content marker) | a proxy or CDN returned an error page instead of the script | retry, or use form 3 to download it and inspect it before running |
 | What is outstanding right now? | — | `bootstrap-status` (read-only) |
 
 **Re-running a single script.** `chezmoi state delete-bucket` takes only
