@@ -27,31 +27,40 @@ still outstanding at any time.
 
 ## Quick start
 
-From a fresh Mac, download the installer and run it (this keeps the TTY, so
-the prompts work):
+Three invocation forms are supported, all against the same installer URL
+(`https://raw.githubusercontent.com/neumachen/dotfiles/main/install.sh`),
+written out in full so every command is copy-pasteable:
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/neumachen/dotfiles/main/install.sh \
-  -o /tmp/dotfiles-install.sh
-sh /tmp/dotfiles-install.sh
-```
+| Form | Command | Notes |
+| --- | --- | --- |
+| From a clone | `./install.sh [flags]` | `bash install.sh` and `sh install.sh` also work; `sh` re-execs under bash automatically |
+| Download then run | `curl -fsSL https://raw.githubusercontent.com/neumachen/dotfiles/main/install.sh -o /tmp/dotfiles-install.sh && bash /tmp/dotfiles-install.sh` | **most robust** — the script is on disk, so it survives a dropped connection and can be inspected before running |
+| Piped one-liner | `sh -c "$(curl -fsSL https://raw.githubusercontent.com/neumachen/dotfiles/main/install.sh)"` | works, and interactivity is restored from `/dev/tty`; the script re-fetches itself to a temp file because a piped `$0` is not a file path |
 
-`install.sh` re-execs itself under `bash` when started with `sh`, detects that
-it is *not* running from a clone, and has `chezmoi init --apply` clone
-`https://github.com/neumachen/dotfiles.git` over HTTPS (no SSH key needed).
-
-Or from an existing clone — `install.sh` detects `.chezmoi.yaml.tmpl` next to
-it and passes `--source=<clone>` to chezmoi instead of cloning:
+Use **download then run** on a brand-new machine, and the **clone** form when
+iterating on the repo itself:
 
 ```sh
 git clone https://github.com/neumachen/dotfiles.git \
   ~/MeinCodex/Codebasis/github.com/neumachen/dotfiles
 cd ~/MeinCodex/Codebasis/github.com/neumachen/dotfiles
-sh install.sh
+./install.sh
 ```
 
 That clone path is the canonical one: it matches the `sourceDir` baked into
 `.chezmoi.yaml.tmpl`.
+
+> **The two remote forms only serve this installer after the branch is
+> merged.** That URL points at `main`, and `main` currently still serves the
+> old pre-refactor `install.sh` — a 67-line `#!/bin/sh` script with none of the
+> stages, flags or convergence documented here. Until the merge, use the clone
+> form: a clone lets you check out the branch carrying this installer and run
+> it straight from the working tree.
+
+Run from a clone, `install.sh` detects `.chezmoi.yaml.tmpl` next to it and
+passes `--source=<clone>` to chezmoi. Run from a temp file or a pipe, it has
+`chezmoi init --apply` clone `https://github.com/neumachen/dotfiles.git` over
+HTTPS instead (no SSH key needed).
 
 Afterwards:
 
@@ -61,10 +70,6 @@ bootstrap-status              # what is still outstanding (read-only)
 sh install.sh --reprompt      # re-answer every chezmoi prompt
 sh install.sh --dry-run       # walk every stage, execute nothing
 ```
-
-`curl … | bash` also works, but stdin is then a pipe, so `install.sh`'s own
-`[y/N]` prompts silently take their defaults and the Command Line Tools gate
-cannot be skipped interactively. Prefer downloading the file.
 
 ### Flags
 
@@ -89,17 +94,25 @@ seconds, default `900`).
 
 - It never exits non-zero *because a prerequisite is missing*.
 - It never kills or replaces your shell. The only `exec` re-execs this same
-  script under `bash` when it was started as `sh install.sh`; chezmoi is
-  deliberately **not** `exec`'d, so its exit status is captured and the later
-  stages still run.
+  script under `bash` — from the file on disk, or from a re-fetched temp copy
+  when it was piped into a non-bash shell; chezmoi is deliberately **not**
+  `exec`'d, so its exit status is captured and the later stages still run.
 - It is idempotent and resumable.
 - `Ctrl-C` prints `interrupted — re-run install.sh to resume; nothing is
   broken` and exits 130.
 
-The only non-zero exits are: an unsupported OS (not macOS and not Linux),
-`bash` missing when invoked via `sh`, a usage error (exit 2), chezmoi absent
-with no `curl`/`wget`/`brew` to fetch it, and interruption (130). Typing `q`
-at a prompt is **not** an error exit — it stops the loop and still runs the
+Exit codes:
+
+| Code | Meaning |
+| --- | --- |
+| `0` | finished — possibly with deferred items still listed in the postflight report |
+| `1` | unsupported OS, `bash` absent, or chezmoi could not be fetched (no `curl`, `wget` or `brew`) |
+| `2` | usage error, **or** the script was piped into a non-bash shell and could not be re-fetched / the fetched copy failed validation |
+| `130` | interrupted (Ctrl-C or SIGTERM) — re-run to resume; nothing is broken |
+
+Exit 2 is an invocation or transport failure, not a missing prerequisite — the
+guarantee above still holds. Typing `q` at the converge-loop or Xcode prompt is
+not an error exit either: it breaks out and falls through to the postflight
 report, exiting 0.
 
 ## What it asks you
@@ -456,6 +469,9 @@ amber  secrets  no .secrets configured — legacy .envvars still holds 1 entry;
 | `git_remote_ssh` amber | the origin is HTTPS and GitHub SSH is not green yet | deferred until the SSH agent works |
 | `mise` red | declared tool versions are not installed | `mise install` |
 | `secrets` red | `~/.config/sh/secrets.env` is missing, not `0600`, or stale | unlock 1Password, re-run `chezmoi apply` |
+| An `exec bash sh`-style failure, or `No such file or directory`, when using a one-liner | the pre-fix re-exec guard treated a piped `$0` as a script path — or the branch is not merged yet, so `main` served the old installer | use the download-and-run form against the correct branch |
+| The installer ran but never prompted for anything | it was piped without a controlling terminal, so every prompt silently took its default | re-run from a real terminal, or use the download-and-run form |
+| The fetched copy was rejected as invalid (empty, or missing the content marker) | a proxy or CDN returned an error page instead of the script | retry, or download it manually and inspect it before running |
 | What is outstanding right now? | — | `bootstrap-status` (read-only) |
 
 **Re-running a single script.** `chezmoi state delete-bucket` takes only
