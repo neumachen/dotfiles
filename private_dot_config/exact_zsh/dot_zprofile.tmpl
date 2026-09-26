@@ -187,6 +187,21 @@ fi
 # GPG TTY for signing (required when gpg installed via brew)
 [[ -z "${GPG_TTY}" ]] && export GPG_TTY=$(command tty 2>/dev/null)
 
+# 1Password-backed secrets, resolved by chezmoi's resolve-1password hook into
+# a 0600 file. Sourced rather than rendered so a locked or absent 1Password
+# never blocks login.
+_secrets_env="${XDG_CONFIG_HOME:-$HOME/.config}/sh/secrets.env"
+[[ -r "${_secrets_env}" ]] && source "${_secrets_env}"
+unset _secrets_env
+
+{{- /*
+  DEPRECATED: legacy inline envvars rendered straight out of chezmoi data.
+  These lived in plaintext in ~/.config/chezmoi/chezmoi.yaml — outside
+  1Password — and were not reproducible on a new machine. Migrate each entry to
+  data.secrets as an op:// reference; run_onchange_after_70-resolve-1password
+  writes it to ~/.config/sh/secrets.env, which is sourced above. Kept (guarded
+  by hasKey) only so hosts that have not re-run `chezmoi init` keep working.
+*/ -}}
 {{- if (hasKey . "envvars") }}
 {{ range .envvars }}
 export {{ . }}

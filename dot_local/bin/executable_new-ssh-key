@@ -3,12 +3,6 @@
 DEFAULT_FILENAME=id_ed25519
 DEFAULT_EMAIL=kareem@hepburn.info
 
-if [ -r "${HOME}/.ssh/${FILENAME}.pub" ]; then
-  echo "Backing up old keys to ~/.ssh/id_rsa.bak and ~/.ssh/id_rsa.pub.bak"
-  echo-run mv ~/.ssh/id_rsa ~/.ssh/id_rsa.bak
-  echo-run mv ~/.ssh/id_rsa.pub ~/.ssh/id_rsa.pub.bak
-fi
-
 printf "Email: "
 read -r EMAIL
 
@@ -23,7 +17,22 @@ if [ -z "$FILENAME" ]; then
   FILENAME="$DEFAULT_FILENAME"
 fi
 
-echo-run ssh-keygen -C "$EMAIL" -N "" -b 4096 -t ed25519 -f "${HOME}/.ssh/${FILENAME}" || exit 1
+# Both prompts are answered before any path is derived. The backup check used to
+# sit at the top of this script and read "${HOME}/.ssh/${FILENAME}.pub" before
+# FILENAME was assigned, so it always tested "${HOME}/.ssh/.pub" (and was an
+# unbound-variable error under `set -u`). Its messages and mv targets also
+# hardcoded id_rsa/id_rsa.pub even though this script generates an ed25519 key,
+# so it checked one file and backed up two unrelated ones.
+KEYFILE="${HOME}/.ssh/${FILENAME}"
+PUBKEY="${KEYFILE}.pub"
+
+if [ -r "${PUBKEY}" ]; then
+  echo "Backing up old keys to ${KEYFILE}.bak and ${PUBKEY}.bak"
+  echo-run mv "${KEYFILE}" "${KEYFILE}.bak"
+  echo-run mv "${PUBKEY}" "${PUBKEY}.bak"
+fi
+
+echo-run ssh-keygen -C "$EMAIL" -N "" -b 4096 -t ed25519 -f "${KEYFILE}" || exit 1
 
 echo
 
@@ -42,5 +51,5 @@ if [ -x "$(command -v pbcopy)" ]; then
   echo "Copying public key to clipboard."
   echo "Add key to GitHub here: https://github.com/settings/keys"
 
-  pbcopy <"${HOME}/.ssh/${FILENAME}.pub"
+  pbcopy <"${PUBKEY}"
 fi

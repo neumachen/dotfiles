@@ -1,0 +1,70 @@
+#!/bin/bash
+# dep hash: brewfile={{ include "private_dot_config/exact_homebrew/Brewfile.tmpl" | sha256sum }}
+# dep hash: brew={{ if lookPath "brew" }}yes{{ else }}no{{ end }}
+# dep hash: brew-bin={{ if or (stat "/opt/homebrew/bin/brew") (stat "/usr/local/bin/brew") }}yes{{ else }}no{{ end }}
+{{- if eq .chezmoi.os "darwin" }}
+
+set -e # -e: exit on error
+
+# Ensure Homebrew is in PATH
+if [ -f /opt/homebrew/bin/brew ]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+elif [ -f /usr/local/bin/brew ]; then
+  eval "$(/usr/local/bin/brew shellenv)"
+fi
+
+LOCAL_BIN="${HOME}/.local/bin"
+if [ -d "${LOCAL_BIN}" ]; then
+  export PATH="${LOCAL_BIN}:${PATH}"
+fi
+
+_log_info()  { if command -v echo-info  &>/dev/null; then echo-info  "$@"; else echo "[INFO] --- $*"; fi; }
+_log_ok()    { if command -v echo-ok    &>/dev/null; then echo-ok    "$@"; else echo "[SUCCESS] --- $*"; fi; }
+_log_warn()  { if command -v echo-warn  &>/dev/null; then echo-warn  "$@"; else echo "[WARN] --- $*" >&2; fi; }
+_log_err()   { if command -v echo-err   &>/dev/null; then echo-err   "$@"; else echo "[ERROR] --- $*" >&2; fi; }
+
+# Prerequisite absent -> defer, exit 0. run_20-install-homebrew may have
+# deferred itself (no Command Line Tools yet), so brew can legitimately be
+# missing here. The dep hash above flips to brew=yes once it appears, which
+# re-runs this hook automatically.
+if ! command -v brew &>/dev/null; then
+  _log_warn "deferred: Homebrew not installed yet; will retry on a later apply"
+  exit 0
+fi
+
+BREWFILE="${XDG_CONFIG_HOME:-${HOME}/.config}/homebrew/Brewfile"
+if [ ! -f "${BREWFILE}" ]; then
+  _log_warn "deferred: Brewfile not found at ${BREWFILE}; chezmoi has not applied it yet"
+  exit 0
+fi
+
+# Brewfile lives at $XDG_CONFIG_HOME/homebrew/Brewfile (rendered by
+# chezmoi from private_dot_config/exact_homebrew/Brewfile.tmpl). We use
+# `brew bundle --global` instead of `--file=<path>` because --global
+# already walks Homebrew's documented resolution order:
+#   1. $HOMEBREW_BUNDLE_FILE_GLOBAL
+#   2. $XDG_CONFIG_HOME/homebrew/Brewfile          <- where ours lives
+#   3. ~/.homebrew/Brewfile
+#   4. ~/.Brewfile
+# Letting Homebrew do the resolution keeps us in step with any future
+# changes to that order without having to track them here.
+_log_info "Installing Homebrew packages from Brewfile (brew bundle --global)..."
+
+# Heads-up before we start: these casks install kernel/system extensions or
+# privileged helpers, so macOS stops the install with a GUI approval prompt
+# (or a `systemextensionsctl` / Privacy & Security round-trip) that a
+# non-interactive `brew bundle` cannot answer. A failure naming one of them is
+# expected on a fresh machine and is not a dotfiles bug.
+_log_warn "These casks commonly need manual GUI approval and can fail the bundle:"
+_log_warn "  karabiner-elements, little-snitch, micro-snitch, orbstack"
+_log_warn "Approve them in System Settings > Privacy & Security, then re-run chezmoi apply."
+
+# Prerequisites are present, so a failure here is genuine: exit non-zero so
+# chezmoi does NOT record this hook as done and retries on the next apply.
+if ! brew bundle --global; then
+  _log_err "brew bundle --global failed. Re-run 'chezmoi apply' after resolving the errors above."
+  exit 1
+fi
+
+_log_ok "Homebrew packages installed successfully."
+{{- end }}

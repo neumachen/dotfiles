@@ -111,6 +111,34 @@ MeinCodex/Notizen/Obsidian/Main/dot_obsidian/bookmarks.json
 MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/omnisearch/*.db
 MeinCodex/Notizen/Obsidian/Main/dot_obsidian/plugins/omnisearch/*-cache.*
 
+# Bootstrap resolved state — written by .chezmoiscripts hooks at apply time.
+# These are NOT authored config and are NOT tracked; chezmoi must leave them
+# alone. This is load-bearing, not cosmetic: ~/.config/git is an `exact_`
+# directory (source: private_dot_config/exact_git), so chezmoi deletes any file
+# in it that is not in the source state — without the entry below it would wipe
+# the resolved SSH signing key on every single apply.
+# Patterns are target paths (relative to $HOME).
+#
+#   .config/git/ssh-signing-key   one line: the SSH *public* key resolved from a
+#                                 1Password item by
+#                                 run_onchange_after_70-resolve-1password.sh.tmpl.
+#                                 Read by private_profile.tmpl,
+#                                 private_allowed_signers.tmpl and
+#                                 private_config.tmpl via stat + output "cat".
+#   .config/sh/secrets.env        0600 `export NAME='<value>'` lines resolved from
+#                                 1Password by the same hook; sourced by .zprofile
+#                                 rather than rendered inline, so a locked or
+#                                 absent 1Password never blocks login.
+#   .cache/chezmoi/bootstrap-status.json
+#   .cache/chezmoi/bootstrap-status.txt
+#                                 Status document (contract C3) written by
+#                                 run_after_99-bootstrap-status.sh.tmpl on every
+#                                 apply, or by ~/.local/bin/bootstrap-status.
+.config/git/ssh-signing-key
+.config/sh/secrets.env
+.cache/chezmoi/bootstrap-status.json
+.cache/chezmoi/bootstrap-status.txt
+
 # Homebrew (~/.config/homebrew/) — Brewfile is tracked; runtime trust/lock state is not.
 .config/homebrew/trust.json
 .config/homebrew/trust.json.lock

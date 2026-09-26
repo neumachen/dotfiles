@@ -1,3 +1,35 @@
+{{- /*
+  SSH signing block, gated on RESOLVED state (~/.config/git/ssh-signing-key,
+  written by run_onchange_after_70-resolve-1password) rather than on the
+  1Password.app bundle. Gating on resolved state is what removes the need for a
+  second `chezmoi apply` to get a correct git config: the signing block used to
+  be baked into data.git.profile by .chezmoi.yaml.tmpl, which only re-renders on
+  `chezmoi init`.
+
+  The key file is read with stat + output "cat", never include: chezmoi's
+  include resolves relative to the SOURCE directory, not the filesystem. output
+  aborts template execution if the command fails, so it is always guarded by
+  stat.
+
+  .git.profile is a block scalar ending in a newline; trimSuffix it so the
+  signing block abuts `name = ...` with no blank line, and so the no-signing
+  case still ends in exactly one newline.
+
+  Ordering constraint: signingKey must be emitted before the [gpg] header so it
+  lands inside the [user] section opened by .git.profile.
+*/ -}}
 # vim:ft=gitconfig
 
-{{ .git.profile -}}
+{{ .git.profile | trimSuffix "\n" -}}
+{{- $keyFile := joinPath .chezmoi.homeDir ".config/git/ssh-signing-key" -}}
+{{- $opApp := .onepassword.app_path -}}
+{{- if and .onepassword.enabled (ne $opApp "") (stat $keyFile) }}
+  signingKey = {{ output "cat" $keyFile | trim }}
+[gpg]
+  format = ssh
+[gpg "ssh"]
+  program = "{{ $opApp }}/Contents/MacOS/op-ssh-sign"
+  allowedSignersFile = ~/.config/git/allowed_signers
+[commit]
+  gpgsign = true
+{{- end }}

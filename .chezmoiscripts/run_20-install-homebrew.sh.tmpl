@@ -1,0 +1,66 @@
+#!/bin/bash
+{{- if eq .chezmoi.os "darwin" }}
+
+set -e # -e: exit on error
+
+LOCAL_BIN="${HOME}/.local/bin"
+if [ -d "${LOCAL_BIN}" ]; then
+  export PATH="${LOCAL_BIN}:${PATH}"
+fi
+
+_log_info()  { if command -v echo-info  &>/dev/null; then echo-info  "$@"; else echo "[INFO] --- $*"; fi; }
+_log_ok()    { if command -v echo-ok    &>/dev/null; then echo-ok    "$@"; else echo "[SUCCESS] --- $*"; fi; }
+_log_warn()  { if command -v echo-warn  &>/dev/null; then echo-warn  "$@"; else echo "[WARN] --- $*" >&2; fi; }
+_log_err()   { if command -v echo-err   &>/dev/null; then echo-err   "$@"; else echo "[ERROR] --- $*" >&2; fi; }
+
+# Stays a plain `run_` script: it executes on every apply, and the
+# `command -v brew` guard below makes the common case a cheap no-op.
+if command -v brew &>/dev/null; then
+  _log_ok "Homebrew is already installed."
+  exit 0
+fi
+
+# The Homebrew installer needs a working compiler toolchain. On a fresh Mac
+# /usr/bin/{git,clang,python3} are Command Line Tools shims that fail with
+# "xcrun: error: invalid active developer path" until CLT is installed, so
+# running the installer here would abort the whole apply. Defer instead: this
+# is a `run_` script, so the next `chezmoi apply` retries automatically once
+# CLT (installed by install.sh, or by `xcode-select --install`) is present.
+if ! pkgutil --pkg-info=com.apple.pkg.CLTools_Executables >/dev/null 2>&1; then
+  _log_warn "deferred: Command Line Tools not installed — Homebrew install skipped; re-run chezmoi apply after installing CLT"
+  exit 0
+fi
+
+_log_info "Installing Homebrew..."
+
+INSTALLER_URL="https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh"
+
+# The installer needs sudo. With a TTY attached, leave it interactive so the
+# user can type their password; without one (CI, a detached bootstrap, or
+# chezmoi apply run from a non-terminal context) NONINTERACTIVE=1 stops it
+# hanging forever on a prompt nobody can answer.
+if [ -t 0 ] && [ -t 1 ]; then
+  /bin/bash -c "$(curl -fsSL "${INSTALLER_URL}")"
+else
+  _log_warn "No TTY available; running the Homebrew installer with NONINTERACTIVE=1 (passwordless sudo required)."
+  export NONINTERACTIVE=1
+  /bin/bash -c "$(curl -fsSL "${INSTALLER_URL}")"
+fi
+
+# Add Homebrew to PATH for the remainder of this run
+if [ -f /opt/homebrew/bin/brew ]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+elif [ -f /usr/local/bin/brew ]; then
+  eval "$(/usr/local/bin/brew shellenv)"
+fi
+
+# `set -e` already aborted us if the installer failed, so reaching here means
+# brew really is on PATH now. If it is not, that is a genuine failure: exit
+# non-zero so chezmoi does not silently carry on with a half-installed toolchain.
+if ! command -v brew &>/dev/null; then
+  _log_err "Homebrew installer finished but 'brew' is still not on PATH."
+  exit 1
+fi
+
+_log_ok "Homebrew installed successfully."
+{{- end }}

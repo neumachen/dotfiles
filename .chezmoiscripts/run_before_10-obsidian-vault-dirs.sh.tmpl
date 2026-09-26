@@ -1,0 +1,40 @@
+#!/bin/bash
+# Creates Obsidian vault directories that must exist BEFORE chezmoi applies
+# file contents into them — hence the run_before_ prefix, which chezmoi runs
+# ahead of every target-state update.
+#
+# Runtime content dirs — created so plugins/templates have somewhere to write.
+# Their contents are runtime-generated (notes, attachments) and must never be
+# tracked by chezmoi.
+#   akten/   — project/case notes (Templater new-akten-note template, Cmd+Shift+N)
+#   zakki/   — general notes, daily journal (default new-note location, Cmd+N)
+#   kadai/   — task notes (Templater kadai template)
+#   assets/  — attachments (images, PDFs); Obsidian writes here on first drag-drop
+#
+# .obsidian/shiki-themes/ is deliberately NOT created here any more: the Tokyo
+# Night Storm theme is now vendored in the source tree (see .chezmoiexternal.toml),
+# so chezmoi owns that directory and creates it as part of the normal apply.
+
+set -e
+
+VAULT_DIR="${HOME}/MeinCodex/Notizen/Obsidian/Main"
+
+_log_info()  { echo "[INFO] --- $*"; }
+_log_ok()    { echo "[OK] --- $*"; }
+
+content_dirs=(
+  akten
+  zakki
+  kadai
+  assets
+)
+
+for dir in "${content_dirs[@]}"; do
+  target="${VAULT_DIR}/${dir}"
+  if [ ! -d "${target}" ]; then
+    mkdir -p "${target}"
+    _log_ok "Created vault directory: ${target}"
+  else
+    _log_info "Vault directory already exists: ${target}"
+  fi
+done

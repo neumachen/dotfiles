@@ -1,0 +1,38 @@
+#!/bin/bash
+# dep hash: completions={{ include "dot_local/bin/executable_regen-zsh-completions" | sha256sum }}
+# dep hash: installed={{ if stat (joinPath .chezmoi.homeDir ".local/bin/regen-zsh-completions") }}yes{{ else }}no{{ end }}
+{{- if eq .chezmoi.os "darwin" }}
+
+set -euo pipefail
+
+LOCAL_BIN="${HOME}/.local/bin"
+if [ -d "${LOCAL_BIN}" ]; then
+  export PATH="${LOCAL_BIN}:${PATH}"
+fi
+
+_log_info()  { if command -v echo-info  &>/dev/null; then echo-info  "$@"; else echo "[INFO] --- $*"; fi; }
+_log_ok()    { if command -v echo-ok    &>/dev/null; then echo-ok    "$@"; else echo "[SUCCESS] --- $*"; fi; }
+_log_warn()  { if command -v echo-warn  &>/dev/null; then echo-warn  "$@"; else echo "[WARN] --- $*" >&2; fi; }
+_log_err()   { if command -v echo-err   &>/dev/null; then echo-err   "$@"; else echo "[ERROR] --- $*" >&2; fi; }
+
+REGEN="${LOCAL_BIN}/regen-zsh-completions"
+
+# Prerequisite absent -> defer, exit 0. The dep hash above flips to
+# installed=yes once chezmoi applies ~/.local/bin/regen-zsh-completions, which
+# re-runs this hook automatically.
+if [ ! -x "${REGEN}" ]; then
+  _log_warn "deferred: ${REGEN} not present or not executable yet; will retry on a later apply"
+  exit 0
+fi
+
+_log_info "Regenerating zsh completions..."
+
+# Prerequisites are present, so a failure here is genuine: exit non-zero so
+# chezmoi does NOT record this hook as done and retries on the next apply.
+if ! "${REGEN}"; then
+  _log_err "regen-zsh-completions failed."
+  exit 1
+fi
+
+_log_ok "zsh completions regenerated."
+{{- end }}

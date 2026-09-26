@@ -36,12 +36,14 @@ refreshPeriod = "48h"
 url = "https://github.com/MLFlexer/smart_workspace_switcher.wezterm"
 type = "git-repo"
 refreshPeriod = "48h"
-["MeinCodex/Notizen/Obsidian/Main/.obsidian/shiki-themes/tokyo-night-storm.json"]
-url = "https://raw.githubusercontent.com/enkia/tokyo-night-vscode-theme/master/themes/tokyo-night-storm-color-theme.json"
-type = "file"
-exact = true
-refreshPeriod = "48h"
-# Upstream ships VS Code JSONC (line comments + trailing commas); Shiki needs
-# strict JSON. Filter strips // line-comments and any trailing comma before } or ].
-filter.command = "python3"
-filter.args = ["-c", 'import sys, re; c = sys.stdin.read(); c = re.sub(r"//[^\n]*", "", c); c = re.sub(r",(\s*[}\]])", r"\1", c); sys.stdout.write(c)']
+# The Tokyo Night Storm Shiki theme is NOT an external. It is vendored at
+# MeinCodex/Notizen/Obsidian/Main/dot_obsidian/shiki-themes/tokyo-night-storm.json
+# (target ~/MeinCodex/Notizen/Obsidian/Main/.obsidian/shiki-themes/tokyo-night-storm.json).
+#
+# It used to be fetched from enkia/tokyo-night-vscode-theme with
+# filter.command = "python3" to strip the upstream JSONC comments. On a fresh
+# Mac /usr/bin/python3 is a Command Line Tools shim, so the filter died with
+# "xcrun: error: invalid active developer path" and aborted the whole apply --
+# before CLT (and therefore a real python3) had been installed. Vendoring the
+# already-stripped strict JSON removes that bootstrap-order dependency.
+# Re-vendor by hand if the upstream theme changes.

@@ -1,9 +1,24 @@
+{{- /*
+  The default signing key comes from RESOLVED state
+  (~/.config/git/ssh-signing-key, written by
+  run_onchange_after_70-resolve-1password). The legacy
+  data.onepassword.ssh_signing_key is kept as a fallback so hosts configured
+  before the resolver hook do not regress; the resolved file wins when present.
+
+  Read with stat + output "cat", never include: chezmoi's include resolves
+  relative to the SOURCE directory, not the filesystem. output aborts template
+  execution if the command fails, so it is always guarded by stat.
+*/ -}}
+{{- $keyFile := joinPath .chezmoi.homeDir ".config/git/ssh-signing-key" -}}
+{{- $key := "" -}}
+{{- if stat $keyFile -}}{{- $key = output "cat" $keyFile | trim -}}{{- end -}}
+{{- if and (eq $key "") .onepassword.ssh_signing_key -}}{{- $key = .onepassword.ssh_signing_key -}}{{- end -}}
 # Allowed SSH signing keys for Git signature verification
 # Format: <email> <key-type> <public-key>
 
 # Default signing key
-{{ if .onepassword.ssh_signing_key -}}
-{{ .git.email }} {{ .onepassword.ssh_signing_key }}
+{{ if $key -}}
+{{ .git.email }} {{ $key }}
 {{- end }}
 
 # Profile-specific signing keys

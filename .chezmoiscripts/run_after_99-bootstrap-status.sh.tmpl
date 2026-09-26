@@ -1,0 +1,407 @@
+#!/bin/bash
+# dep hash: schema=1
+# dep hash: checks=clt,xcode,xcode_license,homebrew,chezmoi,onepassword_app,onepassword_cli,onepassword_vault,ssh_signing_key,github_ssh,brewfile,mise,secrets,git_remote_ssh
+# dep hash: enabled={{ .onepassword.enabled }}
+# dep hash: app={{ .onepassword.app_path }}
+# dep hash: vault={{ .onepassword.vault }}
+# dep hash: defer_clt={{ .bootstrap.defer_clt }}
+# dep hash: defer_xcode={{ .bootstrap.defer_xcode }}
+# dep hash: secrets={{ .secrets | toJson | sha256sum }}
+# dep hash: reporter={{ if stat (joinPath .chezmoi.homeDir ".local/bin/bootstrap-status") }}yes{{ else }}no{{ end }}
+#
+# run_after_ => runs on EVERY apply, after all target-state updates, and sorts
+# last among the run_after_ hooks. Emits the canonical bootstrap status document
+# (contract C3):
+#
+#   ~/.cache/chezmoi/bootstrap-status.json
+#   ~/.cache/chezmoi/bootstrap-status.txt   (exactly one word: green|amber|red)
+#
+# This is a REPORTER, not a gate: it always exits 0, even when checks are red, so
+# a broken bootstrap can never make `chezmoi apply` fail and thus can never stop
+# itself from being retried.
+#
+# Preferred path: delegate to ~/.local/bin/bootstrap-status (the standalone
+# reporter), which implements the same contract and can also be run on demand.
+# The inline implementation below is a fallback so the document is still
+# produced on a machine where that helper has not been applied yet.
+#
+# SECURITY: never prints a secret value. For the `secrets` check only variable
+# NAMES and whether each one resolved are reported.
+
+# Deliberately NO `set -e`: a failing probe must degrade to amber/red, not
+# truncate the document or fail the apply.
+set -uo pipefail
+
+# Ensure Homebrew is in PATH
+if [ -f /opt/homebrew/bin/brew ]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+elif [ -f /usr/local/bin/brew ]; then
+  eval "$(/usr/local/bin/brew shellenv)"
+fi
+
+LOCAL_BIN="${HOME}/.local/bin"
+if [ -d "${LOCAL_BIN}" ]; then
+  export PATH="${LOCAL_BIN}:${PATH}"
+fi
+
+_log_info()  { if command -v echo-info  &>/dev/null; then echo-info  "$@"; else echo "[INFO] --- $*"; fi; }
+_log_ok()    { if command -v echo-ok    &>/dev/null; then echo-ok    "$@"; else echo "[SUCCESS] --- $*"; fi; }
+_log_warn()  { if command -v echo-warn  &>/dev/null; then echo-warn  "$@"; else echo "[WARN] --- $*" >&2; fi; }
+_log_err()   { if command -v echo-err   &>/dev/null; then echo-err   "$@"; else echo "[ERROR] --- $*" >&2; fi; }
+
+STATUS_VERSION=1
+STATUS_DIR="${BOOTSTRAP_STATUS_DIR:-${XDG_CACHE_HOME:-${HOME}/.cache}/chezmoi}"
+JSON_FILE="${STATUS_DIR}/bootstrap-status.json"
+TXT_FILE="${STATUS_DIR}/bootstrap-status.txt"
+REPORTER_BIN="${LOCAL_BIN}/bootstrap-status"
+
+# --- chezmoi data (rendered) -----------------------------------------------
+
+OP_ENABLED="{{ .onepassword.enabled }}"
+OP_APP="{{ .onepassword.app_path }}"
+OP_VAULT="{{ .onepassword.vault }}"
+DEFER_CLT="{{ .bootstrap.defer_clt }}"
+DEFER_XCODE="{{ .bootstrap.defer_xcode }}"
+SOURCE_DIR="{{ .chezmoi.sourceDir }}"
+HOSTNAME_S="{{ .chezmoi.hostname }}"
+
+CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}"
+SIGNING_KEY_FILE="${CONFIG_DIR}/git/ssh-signing-key"
+SECRETS_ENV_FILE="${CONFIG_DIR}/sh/secrets.env"
+BREWFILE="${CONFIG_DIR}/homebrew/Brewfile"
+OP_AGENT_SOCK="${HOME}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
+
+# Secret NAMES configured in .secrets (references that are non-empty). Only the
+# names are used here — the references and values never reach this script.
+SECRET_NAMES=({{- range $name, $ref := .secrets }}{{ if $ref }}
+  "{{ $name }}"
+{{- end }}{{ end }}
+)
+
+# ---------------------------------------------------------------------------
+# Preferred path: delegate to the standalone reporter.
+# ---------------------------------------------------------------------------
+
+if [ -x "${REPORTER_BIN}" ]; then
+  _log_info "Delegating bootstrap status to ${REPORTER_BIN}"
+  overall="$("${REPORTER_BIN}" --quiet 2>/dev/null || true)"
+  if [ -s "${JSON_FILE}" ] && [ -s "${TXT_FILE}" ]; then
+    _log_ok "bootstrap status: ${overall:-unknown} (written by ${REPORTER_BIN})"
+    exit 0
+  fi
+  _log_warn "bootstrap-status ran but did not produce ${JSON_FILE}; using the inline reporter"
+fi
+
+# ---------------------------------------------------------------------------
+# Inline fallback reporter (same 14 checks, same C3 document).
+# ---------------------------------------------------------------------------
+
+IDS=()
+STATES=()
+MSGS=()
+
+_add() { # <id> <state> <message>
+  IDS+=("$1")
+  STATES+=("$2")
+  MSGS+=("$3")
+}
+
+_os_name() { uname -s 2>/dev/null || true; }
+_is_darwin() { [ "$(_os_name)" = "Darwin" ]; }
+
+# _run_bounded <secs> <outfile> <cmd...> -> runs cmd with output captured in
+# <outfile>, killed after <secs>. Pure bash: macOS has no timeout(1) by default
+# and coreutils may not be installed yet.
+_run_bounded() {
+  local secs="$1" out="$2"
+  shift 2
+  "$@" >"${out}" 2>&1 &
+  local pid=$!
+  ( sleep "${secs}" 2>/dev/null; kill -TERM "${pid}" 2>/dev/null ) &
+  local watcher=$!
+  local rc=0
+  wait "${pid}" 2>/dev/null || rc=$?
+  kill -TERM "${watcher}" 2>/dev/null
+  wait "${watcher}" 2>/dev/null || true
+  return "${rc}"
+}
+
+_json_escape() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  s="${s//$'\t'/\\t}"
+  s="${s//$'\n'/\\n}"
+  s="${s//$'\r'/\\r}"
+  printf '%s' "${s}"
+}
+
+_overall() {
+  local i=0 state="" saw_amber=0
+  while [ "${i}" -lt "${#STATES[@]}" ]; do
+    state="${STATES[$i]}"
+    if [ "${state}" = "red" ]; then
+      printf 'red'
+      return 0
+    fi
+    [ "${state}" = "amber" ] && saw_amber=1
+    i=$((i + 1))
+  done
+  if [ "${saw_amber}" -eq 1 ]; then printf 'amber'; else printf 'green'; fi
+}
+
+_render_json() { # <generated_at> <hostname> <overall>
+  local generated_at="$1" host="$2" overall="$3"
+  local i=0 first=1
+  printf '{\n'
+  printf '  "version": %d,\n' "${STATUS_VERSION}"
+  printf '  "generated_at": "%s",\n' "$(_json_escape "${generated_at}")"
+  printf '  "hostname": "%s",\n' "$(_json_escape "${host}")"
+  printf '  "overall": "%s",\n' "${overall}"
+  printf '  "checks": [\n'
+  while [ "${i}" -lt "${#IDS[@]}" ]; do
+    [ "${first}" -eq 1 ] || printf ',\n'
+    first=0
+    printf '    { "id": "%s", "state": "%s", "message": "%s" }' \
+      "$(_json_escape "${IDS[$i]}")" \
+      "$(_json_escape "${STATES[$i]}")" \
+      "$(_json_escape "${MSGS[$i]}")"
+    i=$((i + 1))
+  done
+  [ "${first}" -eq 1 ] || printf '\n'
+  printf '  ]\n'
+  printf '}\n'
+}
+
+_write_atomic() { # <dest> <content>
+  local dest="$1" content="$2" dir tmp
+  dir="$(dirname "${dest}")"
+  mkdir -p "${dir}" 2>/dev/null || return 1
+  tmp="$(mktemp "${dir}/.bootstrap-status.XXXXXX" 2>/dev/null)" || return 1
+  if ! printf '%s' "${content}" >"${tmp}" 2>/dev/null; then
+    rm -f "${tmp}" 2>/dev/null
+    return 1
+  fi
+  chmod 0600 "${tmp}" 2>/dev/null
+  if ! mv -f "${tmp}" "${dest}" 2>/dev/null; then
+    rm -f "${tmp}" 2>/dev/null
+    return 1
+  fi
+  return 0
+}
+
+TMP_OUT=""
+mkdir -p "${STATUS_DIR}" 2>/dev/null
+TMP_OUT="${STATUS_DIR}/.probe.out.$$"
+trap 'rm -f "${TMP_OUT}" 2>/dev/null' EXIT
+
+# --- 1. clt ----------------------------------------------------------------
+clt_ver=""
+if _is_darwin; then
+  if pkgutil --pkg-info=com.apple.pkg.CLTools_Executables >/dev/null 2>&1; then
+    clt_ver="$(pkgutil --pkg-info=com.apple.pkg.CLTools_Executables 2>/dev/null | awk '/^version:/ {print $2; exit}')"
+    _add clt green "Command Line Tools installed${clt_ver:+ (version ${clt_ver})}"
+  elif [ "${DEFER_CLT}" = "true" ]; then
+    _add clt amber "deferred by config: bootstrap.defer_clt is true"
+  else
+    _add clt red "Command Line Tools not installed; run 'xcode-select --install'"
+  fi
+else
+  _add clt green "skipped: not macOS"
+fi
+
+# --- 2. xcode --------------------------------------------------------------
+XCODE_DIR=""
+XCODE_SELECTED=0
+if _is_darwin; then
+  XCODE_DIR="$(xcode-select -p 2>/dev/null || true)"
+  case "${XCODE_DIR}" in
+    */Xcode.app/Contents/Developer) XCODE_SELECTED=1 ;;
+  esac
+  if [ "${XCODE_SELECTED}" -eq 1 ]; then
+    _add xcode green "full Xcode selected: ${XCODE_DIR}"
+  elif [ "${DEFER_XCODE}" = "true" ]; then
+    _add xcode amber "deferred by config: bootstrap.defer_xcode is true (developer dir: ${XCODE_DIR:-none})"
+  elif [ -n "${XCODE_DIR}" ]; then
+    _add xcode amber "full Xcode not selected (developer dir: ${XCODE_DIR})"
+  else
+    _add xcode red "no active developer directory; run 'xcode-select --install'"
+  fi
+else
+  _add xcode green "skipped: not macOS"
+fi
+
+# --- 3. xcode_license ------------------------------------------------------
+if ! _is_darwin; then
+  _add xcode_license green "skipped: not macOS"
+elif [ "${XCODE_SELECTED}" -ne 1 ]; then
+  _add xcode_license amber "not checked: full Xcode is not selected"
+elif _run_bounded 30 "${TMP_OUT}" xcodebuild -version; then
+  _add xcode_license green "xcodebuild runs; license accepted"
+else
+  _add xcode_license red "xcodebuild failed; run 'sudo xcodebuild -license accept' then 'sudo xcodebuild -runFirstLaunch'"
+fi
+
+# --- 4. homebrew -----------------------------------------------------------
+if command -v brew >/dev/null 2>&1; then
+  _add homebrew green "brew: $(command -v brew)"
+elif [ -x /opt/homebrew/bin/brew ] || [ -x /usr/local/bin/brew ]; then
+  _add homebrew amber "Homebrew is installed but not on PATH"
+else
+  _add homebrew red "Homebrew not installed"
+fi
+
+# --- 5. chezmoi ------------------------------------------------------------
+if command -v chezmoi >/dev/null 2>&1; then
+  _add chezmoi green "chezmoi: $(command -v chezmoi)"
+else
+  # This hook is running, so chezmoi exists — it is just not on the PATH this
+  # script inherited. Amber, not red: nothing is actually broken.
+  _add chezmoi amber "chezmoi is not on this hook's PATH (it is obviously installed, since it ran this hook)"
+fi
+
+# --- 6. onepassword_app ----------------------------------------------------
+if [ -n "${OP_APP}" ] && [ -d "${OP_APP}" ]; then
+  _add onepassword_app green "1Password app: ${OP_APP}"
+elif [ "${OP_ENABLED}" != "true" ]; then
+  _add onepassword_app amber "1Password integration disabled in chezmoi data"
+else
+  _add onepassword_app red "1Password.app not found (onepassword.app_path='${OP_APP}')"
+fi
+
+# --- 7. onepassword_cli ----------------------------------------------------
+if command -v op >/dev/null 2>&1; then
+  _add onepassword_cli green "op: $(command -v op)"
+elif [ "${OP_ENABLED}" != "true" ]; then
+  _add onepassword_cli amber "1Password integration disabled in chezmoi data"
+else
+  _add onepassword_cli red "1Password CLI (op) not on PATH; install 'cask 1password-cli'"
+fi
+
+# --- 8. onepassword_vault --------------------------------------------------
+if [ "${OP_ENABLED}" != "true" ]; then
+  _add onepassword_vault amber "1Password integration disabled in chezmoi data"
+elif [ -z "${OP_VAULT}" ]; then
+  _add onepassword_vault amber "onepassword.vault is empty; run 'chezmoi init' to set it"
+elif ! command -v op >/dev/null 2>&1; then
+  _add onepassword_vault amber "not checked: op is not installed"
+elif _run_bounded 30 "${TMP_OUT}" op vault get "${OP_VAULT}"; then
+  _add onepassword_vault green "vault '${OP_VAULT}' is reachable"
+else
+  _add onepassword_vault amber "vault '${OP_VAULT}' is not reachable (1Password locked, or CLI not integrated with the app)"
+fi
+
+# --- 9. ssh_signing_key ----------------------------------------------------
+if [ -s "${SIGNING_KEY_FILE}" ]; then
+  _add ssh_signing_key green "resolved SSH public key present at ${SIGNING_KEY_FILE}"
+elif [ "${OP_ENABLED}" != "true" ]; then
+  _add ssh_signing_key amber "1Password integration disabled; no signing key expected"
+else
+  _add ssh_signing_key amber "not resolved yet: ${SIGNING_KEY_FILE} is missing (resolve-1password hook deferred?)"
+fi
+
+# --- 10. github_ssh --------------------------------------------------------
+if [ "${OP_ENABLED}" != "true" ]; then
+  _add github_ssh amber "1Password integration disabled; not checked"
+elif ! _is_darwin; then
+  _add github_ssh amber "not checked: SSH agent socket path is macOS-specific"
+else
+  if [ -z "${SSH_AUTH_SOCK:-}" ]; then
+    SSH_AUTH_SOCK="${OP_AGENT_SOCK}"
+    export SSH_AUTH_SOCK
+  fi
+  if _run_bounded 25 "${TMP_OUT}" ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -T git@github.com; then
+    _add github_ssh green "GitHub accepted the SSH key"
+  elif grep -q "successfully authenticated" "${TMP_OUT}" 2>/dev/null; then
+    # ssh(1) exits 1 even on a successful GitHub auth handshake.
+    _add github_ssh green "GitHub accepted the SSH key"
+  else
+    _add github_ssh amber "GitHub did not accept the SSH key (not registered, or the 1Password agent is not serving it)"
+  fi
+fi
+
+# --- 11. brewfile ----------------------------------------------------------
+if [ -f "${BREWFILE}" ]; then
+  brewfile_entries="$(grep -cE '^[[:space:]]*(brew|cask|tap|mas)[[:space:]]' "${BREWFILE}" 2>/dev/null || true)"
+  _add brewfile green "Brewfile applied (${brewfile_entries:-0} entries): ${BREWFILE}"
+else
+  _add brewfile red "Brewfile not found at ${BREWFILE}"
+fi
+
+# --- 12. mise --------------------------------------------------------------
+if command -v mise >/dev/null 2>&1; then
+  _add mise green "mise: $(command -v mise)"
+else
+  _add mise red "mise not on PATH (Brewfile formula; installed by the brew-apps hook)"
+fi
+
+# --- 13. secrets -----------------------------------------------------------
+# Only NAMES are ever reported; values stay inside the 0600 secrets.env.
+if [ "${#SECRET_NAMES[@]}" -eq 0 ]; then
+  _add secrets green "no secrets configured in chezmoi data"
+elif [ ! -s "${SECRETS_ENV_FILE}" ]; then
+  _add secrets amber "${#SECRET_NAMES[@]} secret(s) configured but ${SECRETS_ENV_FILE} is missing or empty"
+else
+  secrets_missing=""
+  secrets_found=0
+  i=0
+  while [ "${i}" -lt "${#SECRET_NAMES[@]}" ]; do
+    if grep -qE "^export ${SECRET_NAMES[$i]}=" "${SECRETS_ENV_FILE}" 2>/dev/null; then
+      secrets_found=$((secrets_found + 1))
+    else
+      secrets_missing="${secrets_missing}${secrets_missing:+,}${SECRET_NAMES[$i]}"
+    fi
+    i=$((i + 1))
+  done
+  if [ -z "${secrets_missing}" ]; then
+    _add secrets green "${secrets_found}/${#SECRET_NAMES[@]} secret(s) resolved into ${SECRETS_ENV_FILE}"
+  else
+    _add secrets amber "unresolved secret name(s): ${secrets_missing}"
+  fi
+fi
+
+# --- 14. git_remote_ssh ----------------------------------------------------
+origin_url=""
+if [ -n "${SOURCE_DIR}" ] && git -C "${SOURCE_DIR}" rev-parse --git-dir >/dev/null 2>&1; then
+  origin_url="$(git -C "${SOURCE_DIR}" remote get-url origin 2>/dev/null || true)"
+fi
+case "${origin_url}" in
+  git@github.com:*)
+    _add git_remote_ssh green "chezmoi source origin uses SSH: ${origin_url}"
+    ;;
+  https://github.com/*)
+    _add git_remote_ssh amber "chezmoi source origin is still HTTPS: ${origin_url}"
+    ;;
+  "")
+    _add git_remote_ssh amber "chezmoi source dir has no 'origin' remote (${SOURCE_DIR:-unset})"
+    ;;
+  *)
+    _add git_remote_ssh amber "unrecognised chezmoi source origin: ${origin_url}"
+    ;;
+esac
+
+# --- render + write --------------------------------------------------------
+
+GENERATED_AT="$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || true)"
+[ -n "${GENERATED_AT}" ] || GENERATED_AT="1970-01-01T00:00:00Z"
+[ -n "${HOSTNAME_S}" ] || HOSTNAME_S="unknown"
+
+OVERALL="$(_overall)"
+JSON_DOC="$(_render_json "${GENERATED_AT}" "${HOSTNAME_S}" "${OVERALL}")"
+
+if _write_atomic "${JSON_FILE}" "${JSON_DOC}"; then
+  :
+else
+  _log_err "could not write ${JSON_FILE}"
+fi
+if _write_atomic "${TXT_FILE}" "${OVERALL}
+"; then
+  :
+else
+  _log_err "could not write ${TXT_FILE}"
+fi
+
+_log_ok "bootstrap status: ${OVERALL} (${#IDS[@]} checks) -> ${JSON_FILE}"
+
+# A status reporter must never fail the apply.
+exit 0

@@ -1,0 +1,51 @@
+#!/bin/bash
+# dep hash: mise-config={{ include "private_dot_config/exact_mise/private_config.toml" | sha256sum }}
+{{- range (glob (joinPath .chezmoi.sourceDir "private_dot_config/exact_mise/exact_conf.d/*.toml")) }}
+# dep hash: conf.d/{{ base . }}={{ include (joinPath "private_dot_config/exact_mise/exact_conf.d" (base .)) | sha256sum }}
+{{- end }}
+# dep hash: mise={{ if lookPath "mise" }}yes{{ else }}no{{ end }}
+{{- if eq .chezmoi.os "darwin" }}
+
+set -e # -e: exit on error
+
+# Ensure Homebrew is in PATH
+if [ -f /opt/homebrew/bin/brew ]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+elif [ -f /usr/local/bin/brew ]; then
+  eval "$(/usr/local/bin/brew shellenv)"
+fi
+
+LOCAL_BIN="${HOME}/.local/bin"
+if [ -d "${LOCAL_BIN}" ]; then
+  export PATH="${LOCAL_BIN}:${PATH}"
+fi
+
+_log_info()  { if command -v echo-info  &>/dev/null; then echo-info  "$@"; else echo "[INFO] --- $*"; fi; }
+_log_ok()    { if command -v echo-ok    &>/dev/null; then echo-ok    "$@"; else echo "[SUCCESS] --- $*"; fi; }
+_log_warn()  { if command -v echo-warn  &>/dev/null; then echo-warn  "$@"; else echo "[WARN] --- $*" >&2; fi; }
+_log_err()   { if command -v echo-err   &>/dev/null; then echo-err   "$@"; else echo "[ERROR] --- $*" >&2; fi; }
+
+# Prerequisite absent -> defer, exit 0. mise is a Brewfile formula installed by
+# run_onchange_after_40-install-brew-apps, which may itself have deferred. The
+# dep hash above flips to mise=yes once the binary lands on PATH, which re-runs
+# this hook automatically.
+if ! command -v mise &>/dev/null; then
+  _log_warn "deferred: mise not installed yet; will retry on a later apply"
+  exit 0
+fi
+
+_log_info "Installing mise-managed tools..."
+
+# Prerequisites are present, so a failure here is genuine: exit non-zero so
+# chezmoi does NOT record this hook as done and retries on the next apply.
+if ! mise install --yes; then
+  _log_err "mise install encountered errors. Re-run 'chezmoi apply' (or 'mise install') to retry."
+  exit 1
+fi
+
+# NOTE: this hook used to respawn WezTerm and `kill -TERM "${PPID}"` right here,
+# in the middle of the `chezmoi apply` that was driving the install — destroying
+# the very session doing the work and leaving the apply half-finished. Shims are
+# picked up by the next login shell; nothing needs to be restarted mid-apply.
+_log_ok "mise tools installed. Run 'exec zsh -l' to pick up new shims."
+{{- end }}

@@ -1,0 +1,137 @@
+#!/bin/bash
+{{ $originCmd := "git -C \"$1\" remote get-url origin 2>/dev/null || echo none" -}}
+# dep hash: enabled={{ .onepassword.enabled }}
+# dep hash: app={{ .onepassword.app_path }}
+# dep hash: vault={{ .onepassword.vault }}
+# dep hash: op={{ if lookPath "op" }}yes{{ else }}no{{ end }}
+# dep hash: keyfile={{ if stat (joinPath .chezmoi.homeDir ".config/git/ssh-signing-key") }}yes{{ else }}no{{ end }}
+# dep hash: origin={{ output "sh" "-c" $originCmd "_" .chezmoi.sourceDir | trim }}
+#
+# Switches the chezmoi source repo's `origin` from HTTPS to SSH, but only once
+# SSH signing/auth actually works. Every prerequisite is in the dep hash above,
+# so chezmoi re-runs this hook automatically when the resolved SSH key file
+# appears or when the remote URL changes.
+#
+# Convergence rule: prerequisite absent/deferred => warn + exit 0 (the dep hash
+# guarantees a later re-run); prerequisites present but the switch itself failed
+# => exit non-zero so chezmoi does NOT record the hook as done.
+{{- if eq .chezmoi.os "darwin" }}
+
+set -e # -e: exit on error
+
+# Ensure Homebrew is in PATH
+if [ -f /opt/homebrew/bin/brew ]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+elif [ -f /usr/local/bin/brew ]; then
+  eval "$(/usr/local/bin/brew shellenv)"
+fi
+
+LOCAL_BIN="${HOME}/.local/bin"
+if [ -d "${LOCAL_BIN}" ]; then
+  export PATH="${LOCAL_BIN}:${PATH}"
+fi
+
+_log_info()  { if command -v echo-info  &>/dev/null; then echo-info  "$@"; else echo "[INFO] --- $*"; fi; }
+_log_ok()    { if command -v echo-ok    &>/dev/null; then echo-ok    "$@"; else echo "[SUCCESS] --- $*"; fi; }
+_log_warn()  { if command -v echo-warn  &>/dev/null; then echo-warn  "$@"; else echo "[WARN] --- $*" >&2; fi; }
+_log_err()   { if command -v echo-err   &>/dev/null; then echo-err   "$@"; else echo "[ERROR] --- $*" >&2; fi; }
+
+OP_ENABLED="{{ .onepassword.enabled }}"
+OP_APP="{{ .onepassword.app_path }}"
+OP_VAULT="{{ .onepassword.vault }}"
+SOURCE_DIR="{{ .chezmoi.sourceDir }}"
+KEY_FILE="${XDG_CONFIG_HOME:-${HOME}/.config}/git/ssh-signing-key"
+
+# --- prerequisite gates: absent/deferred => warn + exit 0 ------------------
+
+if [ "${OP_ENABLED}" != "true" ]; then
+  _log_warn "deferred: onepassword.enabled is false; leaving the git remote as-is."
+  exit 0
+fi
+
+if [ -z "${OP_APP}" ] || [ ! -x "${OP_APP}/Contents/MacOS/op-ssh-sign" ]; then
+  _log_warn "deferred: 1Password's op-ssh-sign helper is not installed yet; leaving the git remote as-is."
+  exit 0
+fi
+
+# This is the gate that used to be impossible to satisfy on a fresh machine:
+# the resolved key file is written by run_onchange_after_70-resolve-1password,
+# which itself defers until `op` and the vault are available. The keyfile dep
+# hash above re-runs this hook the moment that file appears.
+if [ ! -s "${KEY_FILE}" ]; then
+  _log_warn "deferred: ${KEY_FILE} is missing or empty — the SSH public key has not been"
+  _log_warn "  resolved from 1Password yet. Leaving the git remote as-is."
+  exit 0
+fi
+
+if ! command -v op &>/dev/null; then
+  _log_warn "deferred: 1Password CLI (op) not on PATH; leaving the git remote as-is."
+  exit 0
+fi
+
+if ! op account list &>/dev/null; then
+  _log_warn "deferred: 'op account list' failed — the CLI cannot reach the desktop app."
+  _log_warn "  Fix: 1Password → Settings → Developer → enable \"Integrate with 1Password CLI\"."
+  exit 0
+fi
+
+if [ -n "${OP_VAULT}" ] && ! op vault get "${OP_VAULT}" &>/dev/null; then
+  _log_warn "deferred: vault '${OP_VAULT}' is not reachable (1Password locked?); leaving the git remote as-is."
+  exit 0
+fi
+
+# rev-parse rather than `[ -d .git ]`: in a linked worktree .git is a FILE.
+if ! git -C "${SOURCE_DIR}" rev-parse --git-dir >/dev/null 2>&1; then
+  _log_warn "deferred: ${SOURCE_DIR} is not a git repository; nothing to switch."
+  exit 0
+fi
+
+CURRENT_URL="$(git -C "${SOURCE_DIR}" remote get-url origin 2>/dev/null || true)"
+case "${CURRENT_URL}" in
+  git@github.com:*)
+    _log_ok "Already using SSH remote: ${CURRENT_URL}"
+    exit 0
+    ;;
+  https://github.com/*)
+    NEW_URL="$(printf '%s' "${CURRENT_URL}" | sed 's|https://github.com/|git@github.com:|')"
+    ;;
+  "")
+    _log_warn "deferred: no 'origin' remote configured in ${SOURCE_DIR}; nothing to switch."
+    exit 0
+    ;;
+  *)
+    _log_warn "deferred: unexpected remote URL '${CURRENT_URL}'; not rewriting it."
+    exit 0
+    ;;
+esac
+
+_log_info "Testing SSH authentication to GitHub..."
+SSH_AUTH_SOCK="${HOME}/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
+export SSH_AUTH_SOCK
+# BatchMode=yes + accept-new keep this non-interactive: a host-key or password
+# prompt here would hang the whole `chezmoi apply`.
+if ! ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -T git@github.com 2>&1 \
+  | grep -q "successfully authenticated"; then
+  _log_warn "deferred: SSH authentication to GitHub failed — the key in ${KEY_FILE} is probably"
+  _log_warn "  not registered with your GitHub account yet. Leaving the remote on HTTPS so"
+  _log_warn "  'chezmoi update' keeps working; the dep hash above re-runs this hook later."
+  exit 0
+fi
+
+_log_info "Switching to SSH remote: ${NEW_URL}"
+# Prerequisites are all present, so a failure here is genuine: exit non-zero so
+# chezmoi does NOT record this hook as done and retries on the next apply.
+if ! git -C "${SOURCE_DIR}" remote set-url origin "${NEW_URL}"; then
+  _log_err "Failed to set the origin remote to ${NEW_URL}."
+  exit 1
+fi
+
+_log_ok "Switched to SSH remote successfully."
+
+# NOTE: the old deferred re-apply (nohup `chezmoi apply` + `sleep 15`) was
+# removed. It only existed because the git signing config was baked into
+# .chezmoi.yaml.tmpl at init time, so a second render pass was needed once
+# 1Password showed up. Signing config now lives in private_profile.tmpl gated on
+# resolved state, and every hook carries a dep hash, so chezmoi converges on its
+# own without rescheduling itself mid-apply.
+{{- end }}

@@ -1,19 +1,103 @@
 # vim: ft=yaml
 ---
+{{- /*
+  Resolve the 1Password app bundle path.
+
+  This is stored as data (.onepassword.app_path) instead of being used to gate
+  the prompts below. On a fresh Mac, 1Password is a Brewfile cask installed
+  *after* `chezmoi init` has already rendered this file, so gating the prompts
+  on the bundle made them permanently unreachable.
+
+  Empty-means-unset: promptStringOnce/promptBoolOnce return the stored value
+  whenever the key exists -- even when that value is "" -- so one blank answer
+  poisons the config forever and is never re-asked. Every value below is
+  therefore read behind an explicit hasKey guard and re-prompted with plain
+  promptString/promptBool whenever the stored value is empty. Plain prompt*
+  still persists, because the rendered output of this template *is* the config
+  file and the value is emitted into data:.
+
+  The sentinel "-" (or "none") means "skip" and is stored as "".
+*/ -}}
 {{- $onePasswordApp := "" -}}
 {{- if stat "/Applications/1Password.app" -}}
   {{- $onePasswordApp = "/Applications/1Password.app" -}}
 {{- else if stat (joinPath .chezmoi.homeDir "Applications/1Password.app") -}}
   {{- $onePasswordApp = joinPath .chezmoi.homeDir "Applications/1Password.app" -}}
 {{- end -}}
+{{- $gitEmail := "" -}}
+{{- if and (hasKey . "git") (hasKey .git "email") -}}
+  {{- $gitEmail = .git.email -}}
+{{- end -}}
+{{- if eq $gitEmail "" -}}
+  {{- $gitEmail = promptString "Git user email" -}}
+{{- end -}}
+{{- $gitName := "" -}}
+{{- if and (hasKey . "git") (hasKey .git "name") -}}
+  {{- $gitName = .git.name -}}
+{{- end -}}
+{{- if eq $gitName "" -}}
+  {{- $gitName = promptString "Git user name" -}}
+{{- end -}}
+{{- $opEnabled := true -}}
+{{- if and (hasKey . "onepassword") (hasKey .onepassword "enabled") -}}
+  {{- $opEnabled = .onepassword.enabled -}}
+{{- else -}}
+  {{- $opEnabled = promptBool "Use 1Password for git SSH signing and secrets" true -}}
+{{- end -}}
 {{- $vault := "" -}}
-{{- $sshKey := "" -}}
-{{- $gitEmail := promptStringOnce . "git.email" "Git user email" -}}
-{{- $gitName := promptStringOnce . "git.name" "Git user name" -}}
-{{- if ne $onePasswordApp "" -}}
-  {{- $vault = promptStringOnce . "onepassword.vault" "1Password vault name (e.g. Personal, Private)" -}}
-  {{- $sshKey = promptStringOnce . "onepassword.ssh_signing_key" "SSH signing key (e.g. ssh-ed25519 AAAA...)" -}}
-{{- end }}
+{{- $sshKeyItem := "" -}}
+{{- $opAccount := "" -}}
+{{- $tstructTokenRef := "" -}}
+{{- if $opEnabled -}}
+  {{- if and (hasKey . "onepassword") (hasKey .onepassword "vault") -}}
+    {{- $vault = .onepassword.vault -}}
+  {{- end -}}
+  {{- if eq $vault "" -}}
+    {{- $vault = promptString "1Password vault name (e.g. Private)" "Private" -}}
+  {{- end -}}
+  {{- if or (eq $vault "-") (eq $vault "none") -}}{{- $vault = "" -}}{{- end -}}
+  {{- if and (hasKey . "onepassword") (hasKey .onepassword "ssh_key_item") -}}
+    {{- $sshKeyItem = .onepassword.ssh_key_item -}}
+  {{- end -}}
+  {{- if eq $sshKeyItem "" -}}
+    {{- $sshKeyItem = promptString "1Password item NAME or UUID holding your SSH key (enter - to skip)" -}}
+  {{- end -}}
+  {{- if or (eq $sshKeyItem "-") (eq $sshKeyItem "none") -}}{{- $sshKeyItem = "" -}}{{- end -}}
+  {{- if and (hasKey . "onepassword") (hasKey .onepassword "account") -}}
+    {{- $opAccount = .onepassword.account -}}
+  {{- end -}}
+  {{- if eq $opAccount "" -}}
+    {{- $opAccount = promptString "1Password account shorthand (optional, enter - to skip)" -}}
+  {{- end -}}
+  {{- if or (eq $opAccount "-") (eq $opAccount "none") -}}{{- $opAccount = "" -}}{{- end -}}
+  {{- if and (hasKey . "secrets") (hasKey .secrets "TSTRUCT_TOKEN") -}}
+    {{- $tstructTokenRef = .secrets.TSTRUCT_TOKEN -}}
+  {{- end -}}
+  {{- if eq $tstructTokenRef "" -}}
+    {{- $tstructTokenRef = promptString "1Password reference for TSTRUCT_TOKEN (op://vault/item/field, enter - to skip)" (printf "op://%s/Tstruct/token" $vault) -}}
+  {{- end -}}
+  {{- if or (eq $tstructTokenRef "-") (eq $tstructTokenRef "none") -}}{{- $tstructTokenRef = "" -}}{{- end -}}
+{{- end -}}
+{{- /* LEGACY: kept so hosts configured before the resolve-1password hook keep
+     rendering. New machines leave it empty; the key now lives in a 1Password
+     item and is resolved into ~/.config/git/ssh-signing-key at apply time. */ -}}
+{{- $sshSigningKey := "" -}}
+{{- if and (hasKey . "onepassword") (hasKey .onepassword "ssh_signing_key") -}}
+  {{- $sshSigningKey = .onepassword.ssh_signing_key -}}
+{{- end -}}
+{{- $deferCLT := false -}}
+{{- if and (hasKey . "bootstrap") (hasKey .bootstrap "defer_clt") -}}
+  {{- $deferCLT = .bootstrap.defer_clt -}}
+{{- else -}}
+  {{- $deferCLT = promptBool "Defer Command Line Tools install during bootstrap" false -}}
+{{- end -}}
+{{- $deferXcode := false -}}
+{{- if and (hasKey . "bootstrap") (hasKey .bootstrap "defer_xcode") -}}
+  {{- $deferXcode = .bootstrap.defer_xcode -}}
+{{- else -}}
+  {{- $deferXcode = promptBool "Defer full Xcode install during bootstrap" false -}}
+{{- end -}}
+{{- /* Emit exactly one newline before sourceDir: (see commit dddbafd9). */}}
 sourceDir: ~/MeinCodex/Codebasis/github.com/neumachen/dotfiles
 diff:
   command: nvim
@@ -31,8 +115,12 @@ merge:
     - "{{`{{ .Target }}`}}"
 data:
   onepassword:
+    enabled: {{ $opEnabled }}
     vault: {{ $vault | quote }}
-    ssh_signing_key: {{ $sshKey | quote }}
+    account: {{ $opAccount | quote }}
+    ssh_key_item: {{ $sshKeyItem | quote }}
+    ssh_signing_key: {{ $sshSigningKey | quote }}
+    app_path: {{ $onePasswordApp | quote }}
   git:
     email: {{ $gitEmail | quote }}
     name: {{ $gitName | quote }}
@@ -40,16 +128,6 @@ data:
       [user]
         email = {{ $gitEmail }}
         name = {{ $gitName }}
-{{- if ne $onePasswordApp "" }}
-        signingKey = {{ $sshKey }}
-      [gpg]
-        format = ssh
-      [gpg "ssh"]
-        program = "{{ $onePasswordApp }}/Contents/MacOS/op-ssh-sign"
-        allowedSignersFile = ~/.config/git/allowed_signers
-      [commit]
-        gpgsign = true
-{{- end }}
     # Directory-specific git profiles
     # Example:
     #   profiles:
@@ -59,4 +137,13 @@ data:
     #       # name: Optional (inherits from git.name if omitted)
     #       # signingKey: Optional (inherits from onepassword.ssh_signing_key if omitted)
     profiles: []
+  secrets:
+    # Map of ENV_VAR_NAME -> 1Password reference (op://vault/item/field).
+    # "" means skip. Resolved by the resolve-1password hook into
+    # ~/.config/sh/secrets.env (mode 0600); never rendered inline.
+    TSTRUCT_TOKEN: {{ $tstructTokenRef | quote }}
+  envvars: []
+  bootstrap:
+    defer_clt: {{ $deferCLT }}
+    defer_xcode: {{ $deferXcode }}
 
