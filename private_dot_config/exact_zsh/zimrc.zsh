@@ -122,7 +122,7 @@ zmodule ahmetb/kubectx --fpath completion/_kubectx.zsh --fpath completion/_kuben
 zmodule greymd/docker-zsh-completion --source docker-zsh-completion.plugin.zsh
 zmodule eza-community/eza --root completions/zsh --fpath _eza
 zmodule ohmyzsh/ohmyzsh --root plugins/rust --fpath _rustc
-zmodule rust-lang/cargo --root src/etc --fpath _cargo
+zmodule rust-lang/cargo --root etc --fpath _cargo
 zmodule sharkdp/fd --root contrib/completion --fpath _fd
 zmodule wfxr/forgit --root completions --fpath _git-forgit
 zmodule x-motemen/ghq --root misc/zsh --fpath _ghq
