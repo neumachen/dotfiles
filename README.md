@@ -304,8 +304,15 @@ Homebrew is green — this GUI-only block. These cannot be automated:
 - [ ] **1Password** — Settings → Developer → enable the *SSH agent*, add the
       SSH key item, and approve the agent prompt when it appears (fixes
       `ssh_signing_key` / `github_ssh`)
-- [ ] `mas signin` — the Brewfile installs `mas`; the repo currently has no
-      `mas` entries
+- [ ] **Mac App Store apps** — the Brewfile now includes a manually curated
+      `mas` list under the `# Mac App Store apps` section of
+      `private_dot_config/exact_homebrew/Brewfile.tmpl`. Delete unwanted
+      entries before your next `chezmoi apply`. Deleting an entry does NOT
+      uninstall the app. Sign in through the App Store application before
+      installing apps (do not use `mas signin`). Account ownership, regional
+      availability, and macOS compatibility can affect restoration on another
+      machine. The list is a one-time inventory snapshot — it does not
+      auto-synchronize.
 - [ ] `sudo xcodebuild -license accept` — only if you install full Xcode
 - [ ] `xcode-select --install` — only if you skipped or timed out at stage 1
 - [ ] `set-shell-zsh` — registers Homebrew zsh in `/etc/shells`; no chezmoi
