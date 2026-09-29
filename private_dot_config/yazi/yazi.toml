@@ -19,20 +19,20 @@ ueberzug_offset = [0, 0, 0, 0]
 
 [opener]
 edit = [
-  { run = '${EDITOR:=nvim} "$@"', desc = "$EDITOR", block = true },
-  { run = 'zed "$@"', desc = "Zed", orphan = true },
+  { run = '${EDITOR:=nvim} %s', desc = "$EDITOR", block = true },
+  { run = 'zed %s', desc = "Zed", orphan = true },
 ]
 open = [
-  { run = 'xdg-open "$@"', desc = "System default", for = "linux" },
-  { run = 'open "$@"', desc = "System default", for = "macos" },
-  { run = 'start "%1"', orphan = true, desc = "System default", for = "windows" },
+  { run = 'xdg-open %s', desc = "System default", for = "linux" },
+  { run = 'open %s', desc = "System default", for = "macos" },
+  { run = 'start %s', orphan = true, desc = "System default", for = "windows" },
 ]
 play = [
-  { run = 'mpv --force-window "$@"' },
-  { run = 'iina --no-stdin "$@"' },
-  { run = '''mediainfo "$1"; echo "Press enter to exit"; read''', block = true, desc = "Show media info" },
+  { run = 'mpv --force-window %s' },
+  { run = 'iina --no-stdin %s' },
+  { run = '''mediainfo %s; echo "Press enter to exit"; read''', block = true, desc = "Show media info" },
 ]
-extract = [{ run = '''"${XDG_CONFIG_HOME:-$HOME/.config}/yazi/scripts/yazi-open-archive" "$@"''', desc = "Open archive (Keka CLI if available)" }]
+extract = [{ run = '''"${XDG_CONFIG_HOME:-$HOME/.config}/yazi/scripts/yazi-open-archive" %s''', desc = "Open archive (Keka CLI if available)" }]
 
 [open]
 rules = [
