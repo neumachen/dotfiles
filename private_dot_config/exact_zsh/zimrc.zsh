@@ -137,6 +137,12 @@ zmodule-custom zsh-patina --eval "zsh-patina activate"
 # fzf-tab needs to be loaded after compinit, but before plugins which will wrap
 # widgets, such as zsh-autosuggestions or zsh-autocomplete
 zmodule Aloxaf/fzf-tab
+# zsh-autocomplete's async engine, put on fpath only (no autoload, no source).
+# Its first precmd runs `autoload +X zasync` and, when that fails, clones zasync
+# into ~/.cache and autoloads it by absolute path. On zsh 5.9 the failed +X
+# leaves a stub that absolute-path autoload cannot replace, so zasync never
+# initializes and automatic completion lists never appear.
+zmodule marlonrichert/zasync --fpath .
 zmodule marlonrichert/zsh-autocomplete
 
 # Load last
