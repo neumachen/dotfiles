@@ -79,6 +79,7 @@ dotfiles/
 | macOS key/event handling | `private_dot_config/exact_hammerspoon/init.lua` | `symlink_dot_hammerspoon` points to `.config/hammerspoon` |
 | Codex / Claude source | `dot_codex/private_config.toml`, `dot_claude/settings.json` | Current Codex source is a full file, not a partial modifier |
 | Classic Aider | `private_dot_config/private_aider/` | Separate configuration from AiderDesk |
+| macOS preferences / shortcuts | `dot_local/bin/executable_macos-preferences`, `private_dot_config/macos-preferences/profile.json`, `.chezmoiscripts/run_onchange_after_55-macos-preferences.sh.tmpl` | Allowlisted capture/restore via `defaults`; guide in `docs/macos-preferences.md`; `restore` mutates live preferences |
 
 ## CODE MAP
 

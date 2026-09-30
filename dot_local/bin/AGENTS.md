@@ -18,6 +18,7 @@ Standalone installed commands for dotfiles, package tools, fuzzy pickers, loggin
 | Resource pickers | `executable_fzdocker`, `executable_fzpods`, `executable_fzkill`, `executable_fzapt` | Backend-specific commands can mutate selected resources |
 | Clipping organization | `executable_obsidian-clip-sort` | Sorts source URLs into host directories; quarantines duplicate notes |
 | Plugin settings capture | `executable_obsidian-plugin-sync` | launchd-triggered chezmoi re-add of manifest.json/data.json |
+| macOS preferences | `executable_macos-preferences` | Python 3.9+; allowlisted capture/diff/restore/rollback of shortcuts and settings via `defaults`; profile, hook and tests below |
 
 ## CONVENTIONS AND COUPLING
 
@@ -41,6 +42,19 @@ Standalone installed commands for dotfiles, package tools, fuzzy pickers, loggin
   with `private_Library/LaunchAgents/com.neumachen.obsidian-plugin-sync.plist.tmpl`
   and `.chezmoiscripts/run_onchange_after_obsidian-plugin-sync-launchd.sh.tmpl`.
   The hook hashes both files; the plist supplies a login Bash environment.
+- `macos-preferences` is coupled to `private_dot_config/macos-preferences/profile.json`
+  (generated; never hand-edit), `.chezmoiscripts/run_onchange_after_55-macos-preferences.sh.tmpl`
+  (hashes the profile and this file; runs `restore --yes` only, never `capture`), and
+  `private_dot_config/macos-preferences/tests/` (source-only; ignored in `.chezmoiignore`).
+  The allowlist (`KEY_INDEX`) is the only definition of what may be captured or
+  restored; `restore` re-validates the profile against it. Guide: `docs/macos-preferences.md`.
+- `macos-preferences` writes only with `defaults write`/`delete` (never `defaults import`,
+  never files under `Library/Preferences`), backs up affected values first, and verifies by
+  read-back. Keep it standard-library Python 3.9 compatible: a new Mac has only the
+  Command Line Tools `/usr/bin/python3` until mise runs. It logs in the `echo-*` format
+  in-process to stderr so stdout stays clean for reports.
+- `macos-defaults-snapshot` is unrelated: it dumps and re-imports whole domains and is
+  not a safe way to migrate preferences to another Mac.
 
 ## VALIDATION
 
@@ -51,7 +65,13 @@ sh -n dot_local/bin/executable_dotc
 sh -n dot_local/bin/executable_echo-run
 bash -n dot_local/bin/executable_dotb
 /bin/bash -n dot_local/bin/executable_obsidian-clip-sort
+python3 -c 'import ast,sys; ast.parse(open(sys.argv[1]).read())' dot_local/bin/executable_macos-preferences
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s private_dot_config/macos-preferences/tests
 ```
+
+The macos-preferences tests use a fake `defaults` and a sandbox HOME; they never read or
+write real preferences. Run `macos-preferences diff` or `validate` for live checks;
+`restore` and `rollback` change real preferences and are not validation commands.
 
 ## ANTI-PATTERNS
 

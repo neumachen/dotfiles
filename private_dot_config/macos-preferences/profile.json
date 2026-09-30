@@ -1,0 +1,377 @@
+{
+  "schema": 1,
+  "description": "Curated macOS preferences captured by macos-preferences. Generated: do not edit by hand; run `macos-preferences capture`. Absent keys are listed under \"absent\" and are never written or deleted on restore.",
+  "preferences": [
+    {
+      "domain": "NSGlobalDomain",
+      "scope": "currentHost",
+      "keys": {
+        "com.apple.mouse.tapBehavior": 1,
+        "com.apple.trackpad.enableSecondaryClick": true,
+        "com.apple.trackpad.fiveFingerPinchSwipeGesture": 2,
+        "com.apple.trackpad.fourFingerHorizSwipeGesture": 2,
+        "com.apple.trackpad.fourFingerPinchSwipeGesture": 2,
+        "com.apple.trackpad.fourFingerVertSwipeGesture": 2,
+        "com.apple.trackpad.momentumScroll": true,
+        "com.apple.trackpad.pinchGesture": true,
+        "com.apple.trackpad.rotateGesture": true,
+        "com.apple.trackpad.scrollBehavior": 2,
+        "com.apple.trackpad.threeFingerDragGesture": false,
+        "com.apple.trackpad.threeFingerHorizSwipeGesture": 2,
+        "com.apple.trackpad.threeFingerTapGesture": 0,
+        "com.apple.trackpad.threeFingerVertSwipeGesture": 2,
+        "com.apple.trackpad.twoFingerDoubleTapGesture": 1,
+        "com.apple.trackpad.twoFingerFromRightEdgeSwipeGesture": 3
+      },
+      "absent": []
+    },
+    {
+      "domain": "NSGlobalDomain",
+      "scope": "user",
+      "keys": {
+        "AppleActionOnDoubleClick": "None",
+        "AppleInterfaceStyle": "Dark",
+        "AppleKeyboardUIMode": 2,
+        "AppleMenuBarVisibleInFullscreen": false,
+        "AppleMiniaturizeOnDoubleClick": false,
+        "AppleShowAllExtensions": true,
+        "AppleSpacesSwitchOnActivate": false,
+        "KB_DoubleQuoteOption": "“abc”",
+        "KB_SingleQuoteOption": "‘abc’",
+        "NSAutomaticCapitalizationEnabled": true,
+        "NSAutomaticPeriodSubstitutionEnabled": true,
+        "NSGlassDiffusionSetting": false,
+        "NSQuitAlwaysKeepsWindows": false,
+        "NSTableViewDefaultSizeMode": 3,
+        "NSUserQuotesArray": ["“", "”", "‘", "’"],
+        "SLSMenuBarUseBlurredAppearance": true,
+        "_HIHideMenuBar": false,
+        "com.apple.keyboard.fnState": true,
+        "com.apple.trackpad.forceClick": true,
+        "com.apple.trackpad.scaling": 1.5
+      },
+      "absent": ["AppleAccentColor", "AppleAquaColorVariant", "AppleHighlightColor", "AppleInterfaceStyleSwitchesAutomatically", "ApplePressAndHoldEnabled", "AppleReduceDesktopTinting", "AppleShowScrollBars", "AppleWindowTabbingMode", "InitialKeyRepeat", "KeyRepeat", "NSAutomaticDashSubstitutionEnabled", "NSAutomaticQuoteSubstitutionEnabled", "NSAutomaticSpellingCorrectionEnabled", "NSAutomaticTextCompletionEnabled", "NSCloseAlwaysConfirmsChanges", "NSUserKeyEquivalents", "WebAutomaticSpellingCorrectionEnabled", "com.apple.swipescrolldirection"]
+    },
+    {
+      "domain": "com.apple.AppleMultitouchTrackpad",
+      "scope": "user",
+      "keys": {
+        "ActuateDetents": 1,
+        "Clicking": true,
+        "DragLock": 0,
+        "Dragging": 0,
+        "FirstClickThreshold": 1,
+        "ForceSuppressed": false,
+        "SecondClickThreshold": 1,
+        "TrackpadCornerSecondaryClick": 0,
+        "TrackpadFiveFingerPinchGesture": 2,
+        "TrackpadFourFingerHorizSwipeGesture": 2,
+        "TrackpadFourFingerPinchGesture": 2,
+        "TrackpadFourFingerVertSwipeGesture": 2,
+        "TrackpadHandResting": true,
+        "TrackpadHorizScroll": 1,
+        "TrackpadMomentumScroll": true,
+        "TrackpadPinch": 1,
+        "TrackpadRightClick": 1,
+        "TrackpadRotate": 1,
+        "TrackpadScroll": 1,
+        "TrackpadThreeFingerDrag": false,
+        "TrackpadThreeFingerHorizSwipeGesture": 2,
+        "TrackpadThreeFingerTapGesture": 0,
+        "TrackpadThreeFingerVertSwipeGesture": 2,
+        "TrackpadTwoFingerDoubleTapGesture": 1,
+        "TrackpadTwoFingerFromRightEdgeSwipeGesture": 3,
+        "USBMouseStopsTrackpad": 0
+      },
+      "absent": []
+    },
+    {
+      "domain": "com.apple.HIToolbox",
+      "scope": "user",
+      "keys": {
+        "AppleCurrentKeyboardLayoutInputSourceID": "com.apple.keylayout.US",
+        "AppleEnabledInputSources": [
+          {"InputSourceKind": "Keyboard Layout", "KeyboardLayout ID": 0, "KeyboardLayout Name": "U.S."},
+          {"Bundle ID": "com.apple.CharacterPaletteIM", "InputSourceKind": "Non Keyboard Input Method"},
+          {"Bundle ID": "com.apple.PressAndHold", "InputSourceKind": "Non Keyboard Input Method"}
+        ],
+        "AppleSelectedInputSources": [
+          {"InputSourceKind": "Keyboard Layout", "KeyboardLayout ID": 0, "KeyboardLayout Name": "U.S."},
+          {"Bundle ID": "com.apple.PressAndHold", "InputSourceKind": "Non Keyboard Input Method"}
+        ]
+      },
+      "absent": []
+    },
+    {
+      "domain": "com.apple.WindowManager",
+      "scope": "user",
+      "keys": {
+        "AppWindowGroupingBehavior": 1,
+        "AutoHide": true,
+        "EnableStandardClickToShowDesktop": false,
+        "EnableTiledWindowMargins": false,
+        "EnableTilingByEdgeDrag": false,
+        "EnableTilingOptionAccelerator": false,
+        "EnableTopTilingByEdgeDrag": false,
+        "GloballyEnabled": false,
+        "HideDesktop": true,
+        "StageManagerHideWidgets": false,
+        "StandardHideWidgets": false
+      },
+      "absent": []
+    },
+    {
+      "domain": "com.apple.dock",
+      "scope": "user",
+      "keys": {
+        "autohide": true,
+        "autohide-delay": 1000.0,
+        "expose-group-apps": true,
+        "largesize": 36.0,
+        "magnification": true,
+        "mineffect": "scale",
+        "minimize-to-application": true,
+        "mru-spaces": false,
+        "no-bouncing": true,
+        "orientation": "right",
+        "show-recents": false,
+        "tilesize": 64.0,
+        "wvous-br-corner": 14
+      },
+      "absent": ["autohide-time-modifier", "launchanim", "show-process-indicators", "static-only", "wvous-bl-corner", "wvous-bl-modifier", "wvous-br-modifier", "wvous-tl-corner", "wvous-tl-modifier", "wvous-tr-corner", "wvous-tr-modifier"]
+    },
+    {
+      "domain": "com.apple.driver.AppleBluetoothMultitouch.trackpad",
+      "scope": "user",
+      "keys": {
+        "Clicking": true,
+        "DragLock": false,
+        "Dragging": false,
+        "TrackpadCornerSecondaryClick": 0,
+        "TrackpadFiveFingerPinchGesture": 2,
+        "TrackpadFourFingerHorizSwipeGesture": 2,
+        "TrackpadFourFingerPinchGesture": 2,
+        "TrackpadFourFingerVertSwipeGesture": 2,
+        "TrackpadHandResting": true,
+        "TrackpadHorizScroll": 1,
+        "TrackpadMomentumScroll": true,
+        "TrackpadPinch": 1,
+        "TrackpadRightClick": 1,
+        "TrackpadRotate": 1,
+        "TrackpadScroll": 1,
+        "TrackpadThreeFingerDrag": false,
+        "TrackpadThreeFingerHorizSwipeGesture": 2,
+        "TrackpadThreeFingerTapGesture": 0,
+        "TrackpadThreeFingerVertSwipeGesture": 2,
+        "TrackpadTwoFingerDoubleTapGesture": 1,
+        "TrackpadTwoFingerFromRightEdgeSwipeGesture": 3,
+        "USBMouseStopsTrackpad": 0
+      },
+      "absent": ["ActuateDetents", "FirstClickThreshold", "ForceSuppressed", "SecondClickThreshold"]
+    },
+    {
+      "domain": "com.apple.finder",
+      "scope": "user",
+      "keys": {
+        "AppleShowAllFiles": true,
+        "FXPreferredViewStyle": "Nlsv",
+        "FXRemoveOldTrashItems": true,
+        "NewWindowTarget": "PfHm",
+        "ShowExternalHardDrivesOnDesktop": false,
+        "ShowHardDrivesOnDesktop": false,
+        "ShowRemovableMediaOnDesktop": false
+      },
+      "absent": ["CreateDesktop", "FXDefaultSearchScope", "FXEnableExtensionChangeWarning", "QuitMenuItem", "ShowMountedServersOnDesktop", "ShowPathbar", "ShowStatusBar", "WarnOnEmptyTrash", "_FXSortFoldersFirst", "_FXSortFoldersFirstOnDesktop"]
+    },
+    {
+      "domain": "com.apple.spaces",
+      "scope": "user",
+      "keys": {},
+      "absent": ["spans-displays"]
+    },
+    {
+      "domain": "com.apple.symbolichotkeys",
+      "scope": "user",
+      "keys": {
+        "AppleSymbolicHotKeys": {
+          "7": {"enabled": false, "value": {"parameters": [65535, 120, 8650752], "type": "standard"}},
+          "8": {"enabled": false, "value": {"parameters": [65535, 99, 8650752], "type": "standard"}},
+          "9": {"enabled": false, "value": {"parameters": [65535, 118, 8650752], "type": "standard"}},
+          "10": {"enabled": false, "value": {"parameters": [65535, 96, 8650752], "type": "standard"}},
+          "11": {"enabled": false, "value": {"parameters": [65535, 97, 8650752], "type": "standard"}},
+          "12": {"enabled": false, "value": {"parameters": [65535, 122, 8650752], "type": "standard"}},
+          "13": {"enabled": false, "value": {"parameters": [65535, 98, 8650752], "type": "standard"}},
+          "15": {"enabled": false, "value": {"parameters": [56, 28, 1572864], "type": "standard"}},
+          "16": {"enabled": false},
+          "17": {"enabled": false, "value": {"parameters": [61, 24, 1572864], "type": "standard"}},
+          "18": {"enabled": false},
+          "19": {"enabled": false, "value": {"parameters": [45, 27, 1572864], "type": "standard"}},
+          "20": {"enabled": false},
+          "21": {"enabled": false},
+          "22": {"enabled": false},
+          "23": {"enabled": false, "value": {"parameters": [92, 42, 1572864], "type": "standard"}},
+          "24": {"enabled": false},
+          "25": {"enabled": false},
+          "26": {"enabled": false},
+          "27": {"enabled": false, "value": {"parameters": [96, 50, 1048576], "type": "standard"}},
+          "28": {"enabled": false, "value": {"parameters": [51, 20, 1179648], "type": "standard"}},
+          "29": {"enabled": false, "value": {"parameters": [51, 20, 1441792], "type": "standard"}},
+          "30": {"enabled": false, "value": {"parameters": [52, 21, 1179648], "type": "standard"}},
+          "31": {"enabled": false, "value": {"parameters": [52, 21, 1441792], "type": "standard"}},
+          "32": {"enabled": false, "value": {"parameters": [65535, 232, 0], "type": "standard"}},
+          "33": {"enabled": false, "value": {"parameters": [65535, 125, 8650752], "type": "standard"}},
+          "34": {"enabled": true, "value": {"parameters": [65535, 232, 131072], "type": "standard"}},
+          "35": {"enabled": true, "value": {"parameters": [65535, 125, 8781824], "type": "standard"}},
+          "36": {"enabled": true, "value": {"parameters": [65535, 103, 8388608], "type": "standard"}},
+          "37": {"enabled": true, "value": {"parameters": [65535, 103, 8519680], "type": "standard"}},
+          "52": {"enabled": false, "value": {"parameters": [100, 2, 1572864], "type": "standard"}},
+          "53": {"enabled": false, "value": {"parameters": [65535, 107, 8388608], "type": "standard"}},
+          "54": {"enabled": false, "value": {"parameters": [65535, 113, 8388608], "type": "standard"}},
+          "57": {"enabled": false, "value": {"parameters": [65535, 100, 8650752], "type": "standard"}},
+          "59": {"enabled": false, "value": {"parameters": [65535, 96, 9437184], "type": "standard"}},
+          "60": {"enabled": false, "value": {"parameters": [32, 49, 262144], "type": "standard"}},
+          "61": {"enabled": false, "value": {"parameters": [32, 49, 786432], "type": "standard"}},
+          "64": {"enabled": false, "value": {"parameters": [32, 49, 1048576], "type": "standard"}},
+          "65": {"enabled": false, "value": {"parameters": [32, 49, 1572864], "type": "standard"}},
+          "79": {"enabled": true, "value": {"parameters": [65535, 123, 10354688], "type": "standard"}},
+          "80": {"enabled": false, "value": {"parameters": [65535, 123, 8781824], "type": "standard"}},
+          "81": {"enabled": true, "value": {"parameters": [65535, 124, 10354688], "type": "standard"}},
+          "82": {"enabled": false, "value": {"parameters": [65535, 124, 9568256], "type": "standard"}},
+          "98": {"enabled": false, "value": {"parameters": [47, 44, 1179648], "type": "standard"}},
+          "118": {"enabled": false, "value": {"parameters": [65535, 18, 262144], "type": "standard"}},
+          "119": {"enabled": false, "value": {"parameters": [65535, 19, 262144], "type": "standard"}},
+          "120": {"enabled": false, "value": {"parameters": [65535, 20, 262144], "type": "standard"}},
+          "121": {"enabled": false, "value": {"parameters": [65535, 21, 262144], "type": "standard"}},
+          "122": {"enabled": false, "value": {"parameters": [65535, 23, 262144], "type": "standard"}},
+          "159": {"enabled": false, "value": {"parameters": [65535, 36, 262144], "type": "standard"}},
+          "162": {"enabled": false, "value": {"parameters": [65535, 96, 9961472], "type": "standard"}},
+          "163": {"enabled": true, "value": {"parameters": [65535, 111, 8388608], "type": "standard"}},
+          "164": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "175": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "176": {"enabled": false, "value": {"type": "SAE1.0"}},
+          "179": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "184": {"enabled": false, "value": {"parameters": [53, 23, 1179648], "type": "standard"}},
+          "190": {"enabled": false, "value": {"parameters": [113, 12, 8388608], "type": "standard"}},
+          "215": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "216": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "217": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "218": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "219": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "222": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "223": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "224": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "225": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "226": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "227": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "228": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "229": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "230": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "231": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "232": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "233": {"enabled": false, "value": {"parameters": [109, 46, 1048576], "type": "standard"}},
+          "235": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "237": {"enabled": false, "value": {"parameters": [102, 3, 8650752], "type": "standard"}},
+          "238": {"enabled": false, "value": {"parameters": [99, 8, 8650752], "type": "standard"}},
+          "239": {"enabled": false, "value": {"parameters": [114, 15, 8650752], "type": "standard"}},
+          "240": {"enabled": false, "value": {"parameters": [65535, 123, 8650752], "type": "standard"}},
+          "241": {"enabled": false, "value": {"parameters": [65535, 124, 8650752], "type": "standard"}},
+          "242": {"enabled": false, "value": {"parameters": [65535, 126, 8650752], "type": "standard"}},
+          "243": {"enabled": false, "value": {"parameters": [65535, 125, 8650752], "type": "standard"}},
+          "244": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "245": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "246": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "247": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "248": {"enabled": false, "value": {"parameters": [65535, 123, 8781824], "type": "standard"}},
+          "249": {"enabled": false, "value": {"parameters": [65535, 124, 8781824], "type": "standard"}},
+          "250": {"enabled": false, "value": {"parameters": [65535, 126, 8781824], "type": "standard"}},
+          "251": {"enabled": false, "value": {"parameters": [65535, 125, 8781824], "type": "standard"}},
+          "256": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "257": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "258": {"enabled": false, "value": {"parameters": [65535, 65535, 0], "type": "standard"}},
+          "260": {"enabled": false, "value": {"parameters": [65535, 53, 1048576], "type": "standard"}}
+        }
+      },
+      "absent": []
+    },
+    {
+      "domain": "pbs",
+      "scope": "user",
+      "keys": {
+        "NSServicesStatus": {
+          "com.aone.keka - Keka/Compress using Keka - serviceCompress": {"key_equivalent": ""},
+          "com.aone.keka - Keka/Extract using Keka - serviceExtract": {"key_equivalent": ""},
+          "com.aone.keka - Keka/Send to Keka - serviceHandle": {"key_equivalent": ""},
+          "com.apple.BluetoothFileExchange - Send File To Bluetooth Device - sendFileUsingBluetoothOBEXService": {
+            "key_equivalent": ""
+          },
+          "com.apple.ChineseTextConverterService - Convert Text from Simplified to Traditional Chinese - convertTextToTraditionalChinese": {
+            "enabled_context_menu": false,
+            "enabled_services_menu": false,
+            "key_equivalent": "",
+            "presentation_modes": {"ContextMenu": false, "ServicesMenu": false}
+          },
+          "com.apple.ChineseTextConverterService - Convert Text from Traditional to Simplified Chinese - convertTextToSimplifiedChinese": {
+            "enabled_context_menu": false,
+            "enabled_services_menu": false,
+            "key_equivalent": "",
+            "presentation_modes": {"ContextMenu": false, "ServicesMenu": false}
+          },
+          "com.apple.Safari - Add to Reading List - addToReadingList": {
+            "enabled_context_menu": false,
+            "enabled_services_menu": false,
+            "presentation_modes": {"ContextMenu": false, "ServicesMenu": false}
+          },
+          "com.apple.Safari - Search With %WebSearchProvider@ - searchWithWebSearchProvider": {
+            "key_equivalent": ""
+          },
+          "com.apple.SpotlightService - SEARCH_WITH_SPOTLIGHT - doSearchWithSpotlight": {
+            "key_equivalent": ""
+          },
+          "com.apple.Stickies - Make Sticky - makeStickyFromTextService": {
+            "enabled_context_menu": true,
+            "key_equivalent": "",
+            "presentation_modes": {"ContextMenu": true, "ServicesMenu": true}
+          },
+          "com.apple.SummaryService - Summarize - doSummarization": {
+            "enabled_context_menu": true,
+            "enabled_services_menu": true,
+            "presentation_modes": {"ContextMenu": true, "ServicesMenu": true}
+          },
+          "com.apple.Terminal - Open man Page in Terminal - openManPage": {"key_equivalent": ""},
+          "com.apple.Terminal - Search man Page Index in Terminal - searchManPages": {"key_equivalent": ""},
+          "com.colliderli.iina - IINA: Open URL - droppedText": {
+            "enabled_context_menu": true,
+            "enabled_services_menu": true,
+            "presentation_modes": {"ContextMenu": true, "ServicesMenu": true}
+          },
+          "com.sindresorhus.Supercharge - Invert Selection in Finder - service_invertSelectionInFinder": {
+            "enabled_context_menu": false,
+            "enabled_services_menu": false,
+            "presentation_modes": {"ContextMenu": false, "ServicesMenu": false}
+          },
+          "com.sindresorhus.Supercharge - Toggle Hidden Files in Finder - service_toggleHiddenFilesInFinder": {
+            "enabled_context_menu": false,
+            "enabled_services_menu": false,
+            "presentation_modes": {"ContextMenu": false, "ServicesMenu": false}
+          },
+          "iordv.Droppy - Add to Droppy Basket - addToBasket": {
+            "enabled_context_menu": true,
+            "enabled_services_menu": true,
+            "presentation_modes": {"ContextMenu": true, "ServicesMenu": true}
+          },
+          "iordv.Droppy - Add to Droppy Shelf - addToShelf": {
+            "enabled_context_menu": true,
+            "enabled_services_menu": true,
+            "presentation_modes": {"ContextMenu": true, "ServicesMenu": true}
+          },
+          "org.localsend.localsendApp - Send to LocalSend - handleTextDropEvent": {
+            "enabled_context_menu": true,
+            "enabled_services_menu": true,
+            "presentation_modes": {"ContextMenu": true, "ServicesMenu": true}
+          }
+        }
+      },
+      "absent": []
+    }
+  ]
+}

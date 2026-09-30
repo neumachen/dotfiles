@@ -1,0 +1,69 @@
+#!/bin/bash
+# Restore the curated macOS preferences profile (system keyboard shortcuts,
+# Services, app shortcut overrides, trackpad, Dock/Mission Control, Finder,
+# appearance) after chezmoi has applied the files.
+#
+# Runs only when one of its inputs changes: the profile and the restore
+# implementation are both hashed into this script's own text, so editing
+# either one re-runs it on the next apply.
+#   profile hash:        {{ include "private_dot_config/macos-preferences/profile.json" | sha256sum }}
+#   implementation hash: {{ include "dot_local/bin/executable_macos-preferences" | sha256sum }}
+# dep hash: installed={{ if stat (joinPath .chezmoi.homeDir ".local/bin/macos-preferences") }}yes{{ else }}no{{ end }}
+# dep hash: python={{ if lookPath "python3" }}yes{{ else }}no{{ end }}
+#
+# This hook only ever runs `macos-preferences restore`. It never runs `capture`:
+# recapturing this Mac's preferences into the profile is always a deliberate,
+# manual step (see docs/macos-preferences.md). A restore that finds nothing to
+# change writes nothing and makes no backup; one that writes backs the affected
+# values up to ~/.local/state/macos-preferences/backups first.
+#
+# Set DOTFILES_SKIP_MACOS_PREFERENCES=1 to skip it for one apply. Note that
+# chezmoi then records this version of the hook as done; it runs again the next
+# time the profile or the tool changes, or via `macos-preferences restore`.
+{{ template "script_darwin_only" . }}
+set -euo pipefail
+
+LOCAL_BIN="${HOME}/.local/bin"
+if [ -d "${LOCAL_BIN}" ]; then
+  export PATH="${LOCAL_BIN}:${PATH}"
+fi
+
+_log_info()  { if command -v echo-info  &>/dev/null; then echo-info  "$@"; else echo "[INFO] --- $*"; fi; }
+_log_ok()    { if command -v echo-ok    &>/dev/null; then echo-ok    "$@"; else echo "[SUCCESS] --- $*"; fi; }
+_log_warn()  { if command -v echo-warn  &>/dev/null; then echo-warn  "$@"; else echo "[WARN] --- $*" >&2; fi; }
+_log_err()   { if command -v echo-err   &>/dev/null; then echo-err   "$@"; else echo "[ERROR] --- $*" >&2; fi; }
+
+TOOL="${LOCAL_BIN}/macos-preferences"
+PROFILE="${HOME}/.config/macos-preferences/profile.json"
+
+if [ "${DOTFILES_SKIP_MACOS_PREFERENCES:-}" = "1" ]; then
+  _log_warn "DOTFILES_SKIP_MACOS_PREFERENCES=1: not restoring macOS preferences"
+  exit 0
+fi
+
+# Prerequisite absent -> defer, exit 0. The dep hashes above flip when the
+# tool is installed or python3 appears, which re-runs this hook automatically.
+if [ ! -x "${TOOL}" ]; then
+  _log_warn "deferred: ${TOOL} not present or not executable yet; will retry on a later apply"
+  exit 0
+fi
+if [ ! -f "${PROFILE}" ]; then
+  _log_warn "deferred: ${PROFILE} not present yet; will retry on a later apply"
+  exit 0
+fi
+if ! command -v python3 &>/dev/null; then
+  _log_warn "deferred: python3 not found; will retry once it is installed"
+  exit 0
+fi
+
+_log_info "Restoring macOS preferences from ${PROFILE}..."
+
+# Prerequisites are present, so a failure here is genuine: exit non-zero so
+# chezmoi does NOT record this hook as done and retries on the next apply.
+# The tool has already printed what failed and how to roll back.
+if ! "${TOOL}" restore --profile "${PROFILE}" --yes; then
+  _log_err "macos-preferences restore failed; see the messages above."
+  exit 1
+fi
+
+_log_ok "macOS preferences restored."

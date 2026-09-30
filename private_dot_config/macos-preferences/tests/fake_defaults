@@ -1,0 +1,175 @@
+#!/usr/bin/env python3
+"""Test double for /usr/bin/defaults, used by test_macos_preferences.py.
+
+This is a MODEL of the subset of `defaults` that macos-preferences uses, not
+Apple's implementation. It exists so the tool's argv construction, merge
+behaviour, scope handling, verification and rollback can be tested without
+touching this Mac's preferences. What the real `defaults` does with the same
+arguments is checked at run time by the tool's own read-back, and on a real
+machine by the manual steps in docs/macos-preferences.md.
+
+State lives under $FAKE_DEFAULTS_ROOT/<scope>/<domain>.plist where scope is
+"user" or "currentHost". Every invocation is appended to
+$FAKE_DEFAULTS_ROOT/calls.jsonl.
+
+Fault injection (comma-separated, matched as substrings):
+  FAKE_DEFAULTS_FAIL_ON     write/delete whose argv contains one of these fails
+  FAKE_DEFAULTS_MISPARSE    compound XML values for these key names are stored
+                            as a string, like a parser that did not understand
+                            the fragment
+  FAKE_DEFAULTS_MISPARSE_LIMIT  misparse only the first N such values (so a
+                            revert through the same path can succeed)
+  FAKE_DEFAULTS_EXPORT_FAIL `export` of these domains fails
+"""
+
+import datetime
+import json
+import os
+import plistlib
+import struct
+import sys
+
+ROOT = os.environ['FAKE_DEFAULTS_ROOT']
+
+
+def die(message, code=1):
+    sys.stderr.write(message + '\n')
+    sys.exit(code)
+
+
+def csv_env(name):
+    return [v for v in os.environ.get(name, '').split(',') if v]
+
+
+def path_for(scope, domain):
+    if '/' in domain or domain.startswith('-'):
+        die('fake defaults: refusing domain %r (the tool must never pass paths or options)' % domain, 64)
+    return os.path.join(ROOT, scope, domain + '.plist')
+
+
+def load(scope, domain):
+    try:
+        with open(path_for(scope, domain), 'rb') as handle:
+            return plistlib.load(handle)
+    except FileNotFoundError:
+        return {}
+
+
+def store(scope, domain, data):
+    path = path_for(scope, domain)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'wb') as handle:
+        plistlib.dump(data, handle, fmt=plistlib.FMT_XML)
+
+
+def float32_text(text):
+    """-float is single precision: keep the shortest text that names the float32."""
+    packed = struct.pack('f', float(text))
+    for digits in range(1, 10):
+        candidate = '%.*g' % (digits, struct.unpack('f', packed)[0])
+        if struct.pack('f', float(candidate)) == packed:
+            return float(candidate)
+    return struct.unpack('f', packed)[0]
+
+
+def misparse_allowed():
+    limit = os.environ.get('FAKE_DEFAULTS_MISPARSE_LIMIT')
+    if not limit:
+        return True
+    counter = os.path.join(ROOT, 'misparse.count')
+    used = int(open(counter).read()) if os.path.exists(counter) else 0
+    if used >= int(limit):
+        return False
+    with open(counter, 'w') as handle:
+        handle.write(str(used + 1))
+    return True
+
+
+def parse_value(tokens, key):
+    if not tokens:
+        die('fake defaults: missing value')
+    flag = tokens[0]
+    if flag in ('-bool', '-boolean'):
+        text = tokens[1].upper()
+        if text not in ('TRUE', 'FALSE', 'YES', 'NO'):
+            die('fake defaults: bad boolean %r' % tokens[1])
+        return text in ('TRUE', 'YES')
+    if flag in ('-int', '-integer'):
+        return int(tokens[1])
+    if flag == '-float':
+        return float32_text(tokens[1])
+    if flag == '-string':
+        return tokens[1]
+    if flag == '-data':
+        return bytes.fromhex(tokens[1])
+    if flag == '-date':
+        return datetime.datetime.strptime(tokens[1], '%Y-%m-%d %H:%M:%S +0000')
+    text = tokens[0]
+    # Untyped: a property list if it parses as one, otherwise a plain string.
+    try:
+        value = plistlib.loads(('<plist version="1.0">%s</plist>' % text).encode('utf-8'))
+    except Exception:
+        return text
+    if isinstance(value, (dict, list)) and any(bad and bad in key for bad in csv_env('FAKE_DEFAULTS_MISPARSE')) \
+            and misparse_allowed():
+        return text
+    return value
+
+
+def main():
+    argv = sys.argv[1:]
+    scope = 'user'
+    if argv and argv[0] == '-currentHost':
+        scope, argv = 'currentHost', argv[1:]
+    os.makedirs(ROOT, exist_ok=True)
+    with open(os.path.join(ROOT, 'calls.jsonl'), 'a') as log:
+        log.write(json.dumps({'scope': scope, 'argv': argv}) + '\n')
+    if not argv:
+        die('fake defaults: no command')
+    command, rest = argv[0], argv[1:]
+
+    if command == 'domains':
+        directory = os.path.join(ROOT, 'user')
+        names = sorted(n[:-6] for n in os.listdir(directory) if n.endswith('.plist')) if os.path.isdir(directory) else []
+        print(', '.join(names))
+        return
+    if command == 'export':
+        domain = rest[0]
+        if rest[1:] != ['-']:
+            die('fake defaults: export needs "-" as the destination')
+        if any(d == domain for d in csv_env('FAKE_DEFAULTS_EXPORT_FAIL')):
+            die('fake defaults: export of %s failed' % domain)
+        sys.stdout.write(plistlib.dumps(load(scope, domain), fmt=plistlib.FMT_XML).decode('utf-8'))
+        return
+
+    joined = ' '.join(argv)
+    for needle in csv_env('FAKE_DEFAULTS_FAIL_ON'):
+        if command in ('write', 'delete') and needle in joined:
+            die('fake defaults: injected failure for %r' % needle)
+
+    if command == 'delete':
+        domain, key = rest[0], rest[1]
+        data = load(scope, domain)
+        if key not in data:
+            die('Domain %s, key %s does not exist' % (domain, key))
+        del data[key]
+        store(scope, domain, data)
+        return
+    if command == 'write':
+        domain, key, tail = rest[0], rest[1], rest[2:]
+        data = load(scope, domain)
+        if tail and tail[0] == '-dict-add':
+            entry, value_tokens = tail[1], tail[2:]
+            existing = data.get(key, {})
+            if not isinstance(existing, dict):
+                die('Cannot add key to non-dictionary %s' % key)
+            existing[entry] = parse_value(value_tokens, key)
+            data[key] = existing
+        else:
+            data[key] = parse_value(tail, key)
+        store(scope, domain, data)
+        return
+    die('fake defaults: unsupported command %r' % command, 64)
+
+
+main()

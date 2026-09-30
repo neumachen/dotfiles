@@ -1,0 +1,1315 @@
+#!/usr/bin/env python3
+"""macos-preferences -- capture, preview, restore and roll back a curated set
+of macOS preferences (keyboard shortcuts first) through the `defaults` CLI.
+
+USAGE
+  macos-preferences capture  [--profile PATH] [--stdout]
+  macos-preferences diff     [--profile PATH] [--only AREA[,AREA...]] [--all]
+  macos-preferences restore  [--profile PATH] [--only AREA[,AREA...]] [--yes] [--dry-run]
+  macos-preferences rollback [BACKUP|latest] [--yes] [--dry-run]
+  macos-preferences validate [--profile PATH]
+
+SUBCOMMANDS
+  capture   Read the live preferences named by the built-in allowlist and write
+            them to the profile. Never runs implicitly: chezmoi hooks only ever
+            call `restore`. Writes the deployed profile
+            (~/.config/macos-preferences/profile.json) unless --profile says
+            otherwise; publish it with `chezmoi re-add`.
+  diff      Compare the profile with this Mac and print what `restore` would
+            change. Read-only by construction (the backend is wrapped so any
+            write raises). Exit 0 = in sync, 1 = differences, 2 = error.
+  restore   Apply the profile with `defaults write` (never `defaults import`,
+            never by copying files under Library/Preferences). Backs up every
+            affected value first, then reads each write back and compares it
+            type-exactly. Exit 0 = done, 1 = a write failed, 2 = usage/profile/
+            environment error.
+  rollback  Put the values recorded in a restore backup back (deleting keys that
+            did not exist before). Takes its own backup first.
+  validate  Check a profile against the allowlist and schema. Needs no macOS.
+
+PROFILE
+  ~/.config/macos-preferences/profile.json (source: private_dot_config/
+  macos-preferences/profile.json). Deterministic JSON, no timestamps, hosts or
+  paths. plist types survive: true/false are booleans, 1 is an integer, 1.0 is
+  a real, {"$data": base64} is data, {"$date": ISO-8601} is a date. Keys the
+  Mac does not have are listed under "absent" and are never written or deleted.
+
+ENVIRONMENT
+  MACOS_PREFERENCES_PROFILE      default profile path
+  MACOS_PREFERENCES_BACKUP_DIR   backup root (default $XDG_STATE_HOME/macos-preferences/backups)
+  MACOS_PREFERENCES_DEFAULTS_BIN `defaults` executable to use (tests point this
+                                 at a fake; the default is /usr/bin/defaults)
+
+Full guide: docs/macos-preferences.md in the dotfiles repository.
+
+Logging follows the ~/.local/bin echo-* format ("[LEVEL] --- message") but is
+emitted in-process to stderr so stdout stays clean for reports and --stdout.
+"""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import datetime
+import hashlib
+import json
+import math
+import os
+import plistlib
+import re
+import struct
+import subprocess
+import sys
+import tempfile
+from dataclasses import dataclass, field
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+
+if sys.version_info < (3, 9):  # pragma: no cover
+    sys.exit('macos-preferences: Python 3.9 or newer is required')
+
+TOOL = 'macos-preferences'
+SCHEMA = 1
+USER = 'user'
+HOST = 'currentHost'
+SCOPES = (USER, HOST)
+GLOBAL = 'NSGlobalDomain'
+KEY_EQUIVALENTS = 'NSUserKeyEquivalents'
+
+ENV_PROFILE = 'MACOS_PREFERENCES_PROFILE'
+ENV_BACKUP_DIR = 'MACOS_PREFERENCES_BACKUP_DIR'
+ENV_DEFAULTS_BIN = 'MACOS_PREFERENCES_DEFAULTS_BIN'
+
+TAG_DATA = '$data'
+TAG_DATE = '$date'
+TAGS = (TAG_DATA, TAG_DATE)
+DATE_FMT = '%Y-%m-%dT%H:%M:%SZ'
+
+DOMAIN_RE = re.compile(r'^[A-Za-z0-9_][A-Za-z0-9_.+-]*$')
+COMMAND_TIMEOUT = 60
+
+PROFILE_DESCRIPTION = (
+    'Curated macOS preferences captured by macos-preferences. Generated: do '
+    'not edit by hand; run `macos-preferences capture`. Absent keys are '
+    'listed under "absent" and are never written or deleted on restore.'
+)
+
+
+# ---------------------------------------------------------------------------
+# Errors and logging
+# ---------------------------------------------------------------------------
+
+
+class ToolError(Exception):
+    """Environment or usage problem; the CLI exits 2."""
+
+
+class ProfileError(ToolError):
+    """Profile/backup failed validation. Carries every message found."""
+
+    def __init__(self, messages: Sequence[str]):
+        self.messages = list(messages)
+        super().__init__('; '.join(self.messages))
+
+
+class BackendError(Exception):
+    """A `defaults` invocation failed or returned unusable data."""
+
+
+class Log:
+    LEVELS = {'DEBUG': 39, 'SUCCESS': 76, 'WARN': 214, 'ERROR': 167, 'INFO': 34}
+
+    def __init__(self, stream=None):
+        self.stream = stream if stream is not None else sys.stderr
+        try:
+            self.color = self.stream.isatty() and 'NO_COLOR' not in os.environ
+        except (AttributeError, ValueError):
+            self.color = False
+
+    def _emit(self, level: str, message: str) -> None:
+        tag = '[%s] ---' % level
+        if self.color:
+            tag = '\033[38;5;%dm%s\033[0m' % (self.LEVELS[level], tag)
+        self.stream.write('%s %s\n' % (tag, message))
+        self.stream.flush()
+
+    def info(self, message: str) -> None:
+        self._emit('INFO', message)
+
+    def ok(self, message: str) -> None:
+        self._emit('SUCCESS', message)
+
+    def warn(self, message: str) -> None:
+        self._emit('WARN', message)
+
+    def err(self, message: str) -> None:
+        self._emit('ERROR', message)
+
+
+class Missing(object):
+    """Sentinel for a preference that does not exist (distinct from False/0/'')."""
+
+    def __repr__(self) -> str:
+        return '<absent>'
+
+
+MISSING = Missing()
+
+
+# ---------------------------------------------------------------------------
+# Value model: strict equality and the JSON codec for plist values
+# ---------------------------------------------------------------------------
+
+
+def _norm_dt(value: datetime.datetime) -> datetime.datetime:
+    if value.tzinfo is not None:
+        value = value.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+    return value
+
+
+def strict_eq(a: Any, b: Any) -> bool:
+    """Equality that also compares plist types: True != 1 != 1.0, '1' != 1."""
+    if type(a) is not type(b):
+        return False
+    if isinstance(a, dict):
+        return a.keys() == b.keys() and all(strict_eq(a[k], b[k]) for k in a)
+    if isinstance(a, list):
+        return len(a) == len(b) and all(strict_eq(x, y) for x, y in zip(a, b))
+    if isinstance(a, datetime.datetime):
+        return _norm_dt(a) == _norm_dt(b)
+    return a == b
+
+
+def key_order(name: str) -> Tuple[int, int, str]:
+    """All-digit names (shortcut IDs) sort numerically first, then the rest."""
+    if name.isdigit():
+        return (0, int(name), name)
+    return (1, 0, name)
+
+
+def to_jsonable(value: Any, path: str = '$') -> Any:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        if not -(2 ** 63) <= value <= 2 ** 64 - 1:
+            raise ProfileError(['%s: integer outside the plist range' % path])
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ProfileError(['%s: non-finite real is not representable' % path])
+        return value
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (bytes, bytearray)):
+        return {TAG_DATA: base64.b64encode(bytes(value)).decode('ascii')}
+    if isinstance(value, datetime.datetime):
+        value = _norm_dt(value)
+        if value.microsecond:
+            raise ProfileError(['%s: date with sub-second precision' % path])
+        return {TAG_DATE: value.strftime(DATE_FMT)}
+    if isinstance(value, list):
+        return [to_jsonable(v, '%s[%d]' % (path, i)) for i, v in enumerate(value)]
+    if isinstance(value, dict):
+        if len(value) == 1 and next(iter(value)) in TAGS:
+            raise ProfileError(['%s: a dictionary whose only key is %r collides with the type tags' % (path, next(iter(value)))])
+        out = {}
+        for k, v in value.items():
+            if not isinstance(k, str):
+                raise ProfileError(['%s: non-string dictionary key %r' % (path, k)])
+            out[k] = to_jsonable(v, '%s.%s' % (path, k))
+        return out
+    raise ProfileError(['%s: unsupported plist type %s' % (path, type(value).__name__)])
+
+
+def from_jsonable(value: Any, path: str, errors: List[str]) -> Any:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        if not -(2 ** 63) <= value <= 2 ** 64 - 1:
+            errors.append('%s: integer outside the plist range' % path)
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            errors.append('%s: non-finite real' % path)
+        return value
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return [from_jsonable(v, '%s[%d]' % (path, i), errors) for i, v in enumerate(value)]
+    if isinstance(value, dict):
+        if len(value) == 1:
+            (tag, inner), = value.items()
+            if tag == TAG_DATA:
+                try:
+                    if not isinstance(inner, str):
+                        raise ValueError('not a string')
+                    return base64.b64decode(inner, validate=True)
+                except ValueError as exc:
+                    errors.append('%s: bad %s payload (%s)' % (path, TAG_DATA, exc))
+                    return b''
+            if tag == TAG_DATE:
+                try:
+                    if not isinstance(inner, str):
+                        raise ValueError('not a string')
+                    return datetime.datetime.strptime(inner, DATE_FMT)
+                except ValueError as exc:
+                    errors.append('%s: bad %s payload (%s)' % (path, TAG_DATE, exc))
+                    return datetime.datetime(1970, 1, 1)
+        return {k: from_jsonable(v, '%s.%s' % (path, k), errors) for k, v in value.items()}
+    errors.append('%s: unsupported JSON value %r (null is not a plist type)' % (path, value))
+    return None
+
+
+def plist_fragment(value: Any) -> str:
+    """XML text of one compound value without the <plist> document wrapper."""
+    doc = plistlib.dumps(value, fmt=plistlib.FMT_XML, sort_keys=True).decode('utf-8')
+    match = re.search(r'<plist version="1\.0">\n(.*)\n</plist>\s*$', doc, re.S)
+    if not match:  # pragma: no cover - plistlib always emits this shape
+        raise ToolError('cannot serialise value as a plist fragment')
+    return match.group(1)
+
+
+def scalar_flags(value: Any) -> Optional[List[str]]:
+    """`defaults` typed-value flags for a scalar; None means "use a fragment"."""
+    if isinstance(value, bool):
+        return ['-bool', 'true' if value else 'false']
+    if isinstance(value, int):
+        return ['-int', str(value)]
+    if isinstance(value, float):
+        # -float is single precision; anything it cannot hold exactly goes
+        # through the XML fragment path instead of being silently rounded.
+        if struct.unpack('f', struct.pack('f', value))[0] != value:
+            return None
+        return ['-float', repr(value)]
+    if isinstance(value, str):
+        return ['-string', value]
+    if isinstance(value, (bytes, bytearray)):
+        return ['-data', bytes(value).hex()]
+    if isinstance(value, datetime.datetime):
+        return ['-date', _norm_dt(value).strftime('%Y-%m-%d %H:%M:%S +0000')]
+    return None
+
+
+def value_args(value: Any) -> List[str]:
+    flags = scalar_flags(value)
+    if flags is not None:
+        return flags
+    return [plist_fragment(value)]
+
+
+# ---------------------------------------------------------------------------
+# The allowlist: the only place that decides what can be captured or restored
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class KeySpec:
+    area: str
+    merge: bool = False  # dictionary restored entry by entry, never replaced
+    reject: Tuple[Any, ...] = ()  # values that are machine-specific: never captured
+
+
+AREAS = {
+    'shortcuts': 'Log out and back in; system keyboard shortcuts are read at login.',
+    'app-shortcuts': 'Quit and reopen each affected app (menu key equivalents are read at launch).',
+    'services': 'Log out and back in; the Services menu and Quick Actions rebuild at login.',
+    'keyboard': 'Log out and back in; key repeat and function-key behaviour apply to new sessions.',
+    'input-sources': 'Log out and back in; the input-source menu reads its list at login.',
+    'trackpad': 'Log out and back in (or toggle the setting once in System Settings > Trackpad).',
+    'dock': 'Run `killall Dock`; hot corners, Stage Manager and window tiling may need a logout.',
+    'finder': 'Run `killall Finder` to relaunch it with the new settings.',
+    'appearance': 'Log out and back in; running apps pick up appearance changes when relaunched.',
+}
+
+KEY_INDEX: Dict[Tuple[str, str, str], KeySpec] = {}
+DISCOVERED_SPEC = KeySpec('app-shortcuts', merge=True)
+
+
+def _grp(area: str, domain: str, scope: str, keys: Iterable[str],
+         merge: Iterable[str] = (), reject: Optional[Dict[str, Tuple[Any, ...]]] = None) -> None:
+    merge_set = set(merge)
+    for key in keys:
+        ident = (domain, scope, key)
+        if ident in KEY_INDEX:
+            raise AssertionError('allowlist lists %r twice' % (ident,))
+        KEY_INDEX[ident] = KeySpec(area, key in merge_set, tuple((reject or {}).get(key, ())))
+
+
+_TRACKPAD_KEYS = (
+    'ActuateDetents', 'Clicking', 'DragLock', 'Dragging', 'FirstClickThreshold',
+    'ForceSuppressed', 'SecondClickThreshold', 'TrackpadCornerSecondaryClick',
+    'TrackpadFiveFingerPinchGesture', 'TrackpadFourFingerHorizSwipeGesture',
+    'TrackpadFourFingerPinchGesture', 'TrackpadFourFingerVertSwipeGesture',
+    'TrackpadHandResting', 'TrackpadHorizScroll', 'TrackpadMomentumScroll',
+    'TrackpadPinch', 'TrackpadRightClick', 'TrackpadRotate', 'TrackpadScroll',
+    'TrackpadThreeFingerDrag', 'TrackpadThreeFingerHorizSwipeGesture',
+    'TrackpadThreeFingerTapGesture', 'TrackpadThreeFingerVertSwipeGesture',
+    'TrackpadTwoFingerDoubleTapGesture', 'TrackpadTwoFingerFromRightEdgeSwipeGesture',
+    'USBMouseStopsTrackpad',
+)
+
+# System Settings > Keyboard > Keyboard Shortcuts: every symbolic-hotkey record
+# (enabled flag, key parameters, record type) is captured whole.
+_grp('shortcuts', 'com.apple.symbolichotkeys', USER, ['AppleSymbolicHotKeys'],
+     merge=['AppleSymbolicHotKeys'])
+# ... > Services: per-service enabled/disabled state and custom shortcut.
+_grp('services', 'pbs', USER, ['NSServicesStatus'], merge=['NSServicesStatus'])
+# ... > App Shortcuts, "All Applications" (per-app overrides are discovered).
+_grp('app-shortcuts', GLOBAL, USER, [KEY_EQUIVALENTS], merge=[KEY_EQUIVALENTS])
+
+_grp('keyboard', GLOBAL, USER, [
+    'ApplePressAndHoldEnabled', 'AppleKeyboardUIMode', 'InitialKeyRepeat', 'KB_DoubleQuoteOption',
+    'KB_SingleQuoteOption', 'KeyRepeat', 'NSAutomaticCapitalizationEnabled',
+    'NSAutomaticDashSubstitutionEnabled', 'NSAutomaticPeriodSubstitutionEnabled',
+    'NSAutomaticQuoteSubstitutionEnabled', 'NSAutomaticSpellingCorrectionEnabled',
+    'NSAutomaticTextCompletionEnabled', 'NSUserQuotesArray', 'WebAutomaticSpellingCorrectionEnabled',
+    'com.apple.keyboard.fnState',
+])
+_grp('input-sources', 'com.apple.HIToolbox', USER, [
+    'AppleCurrentKeyboardLayoutInputSourceID', 'AppleEnabledInputSources', 'AppleSelectedInputSources',
+])
+
+_grp('trackpad', 'com.apple.AppleMultitouchTrackpad', USER, _TRACKPAD_KEYS)
+_grp('trackpad', 'com.apple.driver.AppleBluetoothMultitouch.trackpad', USER, _TRACKPAD_KEYS)
+_grp('trackpad', GLOBAL, USER, [
+    'com.apple.swipescrolldirection', 'com.apple.trackpad.forceClick', 'com.apple.trackpad.scaling',
+])
+# Per-host: these live in Library/Preferences/ByHost/, keyed by a host UUID that
+# `defaults -currentHost` resolves on whichever Mac they are applied to.
+_grp('trackpad', GLOBAL, HOST, [
+    'com.apple.mouse.tapBehavior', 'com.apple.trackpad.enableSecondaryClick',
+    'com.apple.trackpad.fiveFingerPinchSwipeGesture', 'com.apple.trackpad.fourFingerHorizSwipeGesture',
+    'com.apple.trackpad.fourFingerPinchSwipeGesture', 'com.apple.trackpad.fourFingerVertSwipeGesture',
+    'com.apple.trackpad.momentumScroll', 'com.apple.trackpad.pinchGesture',
+    'com.apple.trackpad.rotateGesture', 'com.apple.trackpad.scrollBehavior',
+    'com.apple.trackpad.threeFingerDragGesture', 'com.apple.trackpad.threeFingerHorizSwipeGesture',
+    'com.apple.trackpad.threeFingerTapGesture', 'com.apple.trackpad.threeFingerVertSwipeGesture',
+    'com.apple.trackpad.twoFingerDoubleTapGesture', 'com.apple.trackpad.twoFingerFromRightEdgeSwipeGesture',
+])
+
+# Dock and Mission Control. Dock contents (persistent-apps, recent-apps) hold
+# bookmarks and file URLs of this Mac and are deliberately not listed.
+_grp('dock', 'com.apple.dock', USER, [
+    'autohide', 'autohide-delay', 'autohide-time-modifier', 'expose-group-apps', 'largesize',
+    'launchanim', 'magnification', 'mineffect', 'minimize-to-application', 'mru-spaces',
+    'no-bouncing', 'orientation', 'show-process-indicators', 'show-recents', 'static-only',
+    'tilesize', 'wvous-bl-corner', 'wvous-bl-modifier', 'wvous-br-corner', 'wvous-br-modifier',
+    'wvous-tl-corner', 'wvous-tl-modifier', 'wvous-tr-corner', 'wvous-tr-modifier',
+])
+_grp('dock', 'com.apple.spaces', USER, ['spans-displays'])
+_grp('dock', GLOBAL, USER, ['AppleSpacesSwitchOnActivate'])
+_grp('dock', 'com.apple.WindowManager', USER, [
+    'AppWindowGroupingBehavior', 'AutoHide', 'EnableStandardClickToShowDesktop',
+    'EnableTiledWindowMargins', 'EnableTilingByEdgeDrag', 'EnableTilingOptionAccelerator',
+    'EnableTopTilingByEdgeDrag', 'GloballyEnabled', 'HideDesktop', 'StageManagerHideWidgets',
+    'StandardHideWidgets',
+])
+
+# Finder. Window geometry, recents, "Go to" history, iCloud state and sidebar
+# bookmarks are machine-specific and are not listed. NewWindowTarget "PfLo"
+# means "custom folder" and needs a machine path, so it is never captured.
+_grp('finder', 'com.apple.finder', USER, [
+    'AppleShowAllFiles', 'CreateDesktop', 'FXDefaultSearchScope', 'FXEnableExtensionChangeWarning',
+    'FXPreferredViewStyle', 'FXRemoveOldTrashItems', 'NewWindowTarget', 'QuitMenuItem',
+    'ShowExternalHardDrivesOnDesktop', 'ShowHardDrivesOnDesktop', 'ShowMountedServersOnDesktop',
+    'ShowPathbar', 'ShowRemovableMediaOnDesktop', 'ShowStatusBar', 'WarnOnEmptyTrash',
+    '_FXSortFoldersFirst', '_FXSortFoldersFirstOnDesktop',
+], reject={'NewWindowTarget': ('PfLo',)})
+_grp('finder', GLOBAL, USER, ['AppleShowAllExtensions'])
+
+_grp('appearance', GLOBAL, USER, [
+    'AppleAccentColor', 'AppleActionOnDoubleClick', 'AppleAquaColorVariant', 'AppleHighlightColor',
+    'AppleInterfaceStyle', 'AppleInterfaceStyleSwitchesAutomatically', 'AppleMenuBarVisibleInFullscreen',
+    'AppleMiniaturizeOnDoubleClick', 'AppleReduceDesktopTinting', 'AppleShowScrollBars',
+    'AppleWindowTabbingMode', 'NSCloseAlwaysConfirmsChanges', 'NSGlassDiffusionSetting',
+    'NSQuitAlwaysKeepsWindows', 'NSTableViewDefaultSizeMode', 'SLSMenuBarUseBlurredAppearance',
+    '_HIHideMenuBar',
+])
+
+
+def spec_for(domain: str, scope: str, key: str) -> Optional[KeySpec]:
+    spec = KEY_INDEX.get((domain, scope, key))
+    if spec is not None:
+        return spec
+    if scope == USER and key == KEY_EQUIVALENTS and DOMAIN_RE.match(domain):
+        return DISCOVERED_SPEC
+    return None
+
+
+def entry_name_problem(name: str) -> Optional[str]:
+    if not name:
+        return 'empty entry name'
+    if name.startswith('-'):
+        return 'entry name starts with "-" and would be read as a defaults option'
+    return None
+
+
+def shape_problems(domain: str, key: str, value: Any) -> List[str]:
+    """Structural checks for merge keys of a profile (not of a backup)."""
+    if not isinstance(value, dict):
+        return ['must be a dictionary']
+    problems = []
+    for name, entry in value.items():
+        bad = entry_name_problem(name)
+        if bad:
+            problems.append('%s: %s' % (name, bad))
+        if key == 'AppleSymbolicHotKeys':
+            if not name.isdigit():
+                problems.append('%s: shortcut IDs are decimal numbers' % name)
+            if not isinstance(entry, dict):
+                problems.append('%s: shortcut record must be a dictionary' % name)
+                continue
+            if 'enabled' in entry and not isinstance(entry['enabled'], bool):
+                problems.append('%s: "enabled" must be a boolean' % name)
+            if 'value' in entry and not isinstance(entry['value'], dict):
+                problems.append('%s: "value" must be a dictionary' % name)
+        elif key == 'NSServicesStatus':
+            if not isinstance(entry, dict):
+                problems.append('%s: service record must be a dictionary' % name)
+        elif key == KEY_EQUIVALENTS:
+            if not isinstance(entry, str):
+                problems.append('%s: key equivalent must be a string' % name)
+    return problems
+
+
+# ---------------------------------------------------------------------------
+# Profile and backup documents: canonical JSON out, validated data in
+# ---------------------------------------------------------------------------
+
+INLINE_WIDTH = 110
+INDENT = '  '
+
+
+def _compact(value: Any) -> str:
+    if isinstance(value, dict):
+        return '{' + ', '.join(
+            '%s: %s' % (json.dumps(k, ensure_ascii=False), _compact(value[k]))
+            for k in sorted(value, key=key_order)) + '}'
+    if isinstance(value, list):
+        return '[' + ', '.join(_compact(v) for v in value) + ']'
+    return json.dumps(value, ensure_ascii=False)
+
+
+def _pretty(value: Any, level: int, lead: int) -> str:
+    if isinstance(value, (dict, list)) and value:
+        flat = _compact(value)
+        if len(INDENT) * level + lead + len(flat) + 1 <= INLINE_WIDTH:
+            return flat
+        pad = INDENT * (level + 1)
+        if isinstance(value, dict):
+            rows = []
+            for k in sorted(value, key=key_order):
+                head = json.dumps(k, ensure_ascii=False) + ': '
+                rows.append(pad + head + _pretty(value[k], level + 1, len(head)))
+            return '{\n' + ',\n'.join(rows) + '\n' + INDENT * level + '}'
+        rows = [pad + _pretty(v, level + 1, 0) for v in value]
+        return '[\n' + ',\n'.join(rows) + '\n' + INDENT * level + ']'
+    return _compact(value)
+
+
+def _dump_group(group: Dict[str, Any]) -> str:
+    """One preferences[] entry: always expanded, one line per key or record."""
+    where = '%s/%s' % (group['domain'], group['scope'])
+    keys = {k: to_jsonable(v, '%s/%s' % (where, k)) for k, v in group['keys'].items()}
+    pad, deep = INDENT * 3, INDENT * 4
+    if keys:
+        rows = []
+        for k in sorted(keys, key=key_order):
+            head = json.dumps(k, ensure_ascii=False) + ': '
+            rows.append(deep + head + _pretty(keys[k], 4, len(head)))
+        keys_text = '{\n' + ',\n'.join(rows) + '\n' + pad + '}'
+    else:
+        keys_text = '{}'
+    fields = [
+        '"domain": %s' % json.dumps(group['domain']),
+        '"scope": %s' % json.dumps(group['scope']),
+        '"keys": %s' % keys_text,
+        '"absent": %s' % _compact(sorted(group['absent'])),
+    ]
+    return INDENT * 2 + '{\n' + ',\n'.join(pad + f for f in fields) + '\n' + INDENT * 2 + '}'
+
+
+def dump_document(doc: Dict[str, Any]) -> str:
+    """Canonical text of a profile/backup dict holding plist values."""
+    rows = []
+    for k in ('schema', 'kind', 'created', 'source_profile_sha256', 'description'):
+        if k in doc:
+            rows.append('%s%s: %s' % (INDENT, json.dumps(k), json.dumps(doc[k], ensure_ascii=False)))
+    groups = sorted(doc['preferences'], key=lambda g: (g['domain'], g['scope']))
+    body = '[\n' + ',\n'.join(_dump_group(g) for g in groups) + '\n' + INDENT + ']' if groups else '[]'
+    rows.append('%s"preferences": %s' % (INDENT, body))
+    return '{\n' + ',\n'.join(rows) + '\n}\n'
+
+
+def documents_equal(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
+    """Type-exact comparison of two parsed documents' preference groups."""
+    if len(a['preferences']) != len(b['preferences']):
+        return False
+    return all(x['domain'] == y['domain'] and x['scope'] == y['scope'] and sorted(x['absent']) == sorted(y['absent'])
+               and strict_eq(x['keys'], y['keys'])
+               for x, y in zip(a['preferences'], b['preferences']))
+
+
+def _reject_duplicates(pairs: List[Tuple[str, Any]]) -> Dict[str, Any]:
+    out: Dict[str, Any] = {}
+    for k, v in pairs:
+        if k in out:
+            raise ValueError('duplicate JSON key %r' % k)
+        out[k] = v
+    return out
+
+
+def _reject_constant(name: str) -> Any:
+    raise ValueError('%s is not valid JSON' % name)
+
+
+def parse_document(text: str, kind: str, origin: str) -> Dict[str, Any]:
+    """Parse and validate a profile (kind='profile') or backup (kind='backup').
+
+    Raises ProfileError listing every problem, each prefixed with its location.
+    """
+    try:
+        raw = json.loads(text, object_pairs_hook=_reject_duplicates, parse_constant=_reject_constant)
+    except ValueError as exc:
+        raise ProfileError(['%s: not valid JSON: %s' % (origin, exc)]) from exc
+    errors: List[str] = []
+    if not isinstance(raw, dict):
+        raise ProfileError(['%s: top level must be an object' % origin])
+
+    allowed = {'schema', 'preferences'}
+    allowed |= {'description'} if kind == 'profile' else {'kind', 'created', 'source_profile_sha256'}
+    for k in raw:
+        if k not in allowed:
+            errors.append('%s: unknown top-level field %r' % (origin, k))
+    if raw.get('schema') != SCHEMA or isinstance(raw.get('schema'), bool):
+        errors.append('%s: "schema" must be %d (this tool cannot read schema %r)' % (origin, SCHEMA, raw.get('schema')))
+    if kind == 'backup' and raw.get('kind') != 'backup':
+        errors.append('%s: not a restore backup (missing "kind": "backup")' % origin)
+    prefs = raw.get('preferences')
+    if not isinstance(prefs, list):
+        errors.append('%s: "preferences" must be a list' % origin)
+        raise ProfileError(errors)
+
+    groups = []
+    seen = set()
+    for i, group in enumerate(prefs):
+        where = '%s: preferences[%d]' % (origin, i)
+        if not isinstance(group, dict) or set(group) != {'domain', 'scope', 'keys', 'absent'}:
+            errors.append('%s: must be an object with exactly domain, scope, keys, absent' % where)
+            continue
+        domain, scope = group['domain'], group['scope']
+        if not isinstance(domain, str) or not DOMAIN_RE.match(domain):
+            errors.append('%s: invalid domain %r' % (where, domain))
+            continue
+        if scope not in SCOPES:
+            errors.append('%s (%s): scope must be one of %s' % (where, domain, ', '.join(SCOPES)))
+            continue
+        where = '%s: %s [%s]' % (origin, domain, scope)
+        if (domain, scope) in seen:
+            errors.append('%s: listed more than once' % where)
+            continue
+        seen.add((domain, scope))
+        keys, absent = group['keys'], group['absent']
+        if not isinstance(keys, dict):
+            errors.append('%s: "keys" must be an object' % where)
+            continue
+        if not isinstance(absent, list) or not all(isinstance(a, str) for a in absent):
+            errors.append('%s: "absent" must be a list of key names' % where)
+            continue
+        if len(set(absent)) != len(absent):
+            errors.append('%s: "absent" has duplicates' % where)
+        decoded = {}
+        for key, value in keys.items():
+            if spec_for(domain, scope, key) is None:
+                errors.append('%s: key %r is not in the allowlist' % (where, key))
+                continue
+            decoded[key] = from_jsonable(value, '%s: %s' % (where, key), errors)
+            if kind == 'profile' and spec_for(domain, scope, key).merge:
+                for problem in shape_problems(domain, key, decoded[key]):
+                    errors.append('%s: %s: %s' % (where, key, problem))
+        for key in absent:
+            if spec_for(domain, scope, key) is None:
+                errors.append('%s: absent key %r is not in the allowlist' % (where, key))
+            if key in keys:
+                errors.append('%s: key %r is both present and absent' % (where, key))
+        groups.append({'domain': domain, 'scope': scope, 'keys': decoded, 'absent': sorted(set(absent))})
+    if errors:
+        raise ProfileError(errors)
+    doc = {k: v for k, v in raw.items() if k != 'preferences'}
+    doc['preferences'] = groups
+    return doc
+
+
+def load_document(path: str, kind: str) -> Dict[str, Any]:
+    try:
+        with open(path, 'rb') as handle:
+            data = handle.read()
+    except OSError as exc:
+        raise ToolError('cannot read %s: %s' % (path, exc.strerror or exc)) from exc
+    try:
+        text = data.decode('utf-8')
+    except UnicodeDecodeError as exc:
+        raise ProfileError(['%s: not UTF-8 (%s)' % (path, exc)]) from exc
+    return parse_document(text, kind, path)
+
+
+def atomic_write(path: str, text: str, mode: int = 0o644) -> bool:
+    """Write `text` to `path` via a temp file; returns False if unchanged."""
+    data = text.encode('utf-8')
+    try:
+        with open(path, 'rb') as handle:
+            if handle.read() == data:
+                return False
+    except OSError:
+        pass
+    directory = os.path.dirname(os.path.abspath(path))
+    os.makedirs(directory, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix='.macos-preferences.', dir=directory)
+    try:
+        with os.fdopen(fd, 'wb') as handle:
+            handle.write(data)
+        os.chmod(tmp, mode)
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Preference backends
+# ---------------------------------------------------------------------------
+
+
+class DefaultsBackend(object):
+    """Reads and writes preferences by shelling out to `defaults`.
+
+    Only argv lists are used (no shell). Every domain and key that reaches here
+    has already passed the allowlist, so `defaults` never sees a file path or an
+    option-looking domain. The write operations are the ones listed in
+    ReadOnlyBackend below; nothing else in this file mutates preferences.
+    """
+
+    def __init__(self, binary: str = '/usr/bin/defaults'):
+        self.binary = binary
+
+    def _run(self, scope: str, *args: str) -> str:
+        argv = [self.binary] + (['-currentHost'] if scope == HOST else []) + list(args)
+        try:
+            proc = subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=COMMAND_TIMEOUT)
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise BackendError('cannot run %s: %s' % (self.binary, exc)) from exc
+        if proc.returncode != 0:
+            detail = proc.stderr.decode('utf-8', 'replace').strip() or 'exit status %d' % proc.returncode
+            raise BackendError('`%s %s` failed: %s' % (os.path.basename(self.binary), ' '.join(args[:3]), detail))
+        return proc.stdout.decode('utf-8', 'replace')
+
+    def export(self, domain: str, scope: str) -> Dict[str, Any]:
+        out = self._run(scope, 'export', domain, '-')
+        try:
+            data = plistlib.loads(out.encode('utf-8'))
+        except Exception as exc:
+            raise BackendError('unreadable export of %s [%s]: %s' % (domain, scope, exc)) from exc
+        if not isinstance(data, dict):
+            raise BackendError('export of %s [%s] is not a dictionary' % (domain, scope))
+        return data
+
+    def domains(self) -> List[str]:
+        out = self._run(USER, 'domains').strip()
+        return [d.strip() for d in out.split(',') if d.strip()] if out else []
+
+    def set_key(self, domain: str, scope: str, key: str, value: Any) -> None:
+        self._run(scope, 'write', domain, key, *value_args(value))
+
+    def set_entry(self, domain: str, scope: str, key: str, entry: str, value: Any) -> None:
+        self._run(scope, 'write', domain, key, '-dict-add', entry, *value_args(value))
+
+    def delete_key(self, domain: str, scope: str, key: str) -> None:
+        self._run(scope, 'delete', domain, key)
+
+
+class ReadOnlyBackend(object):
+    """Wraps a backend so preview paths cannot write, however they are called."""
+
+    def __init__(self, inner):
+        self._inner = inner
+
+    def export(self, domain: str, scope: str) -> Dict[str, Any]:
+        return self._inner.export(domain, scope)
+
+    def domains(self) -> List[str]:
+        return self._inner.domains()
+
+    def _refuse(self, *_args, **_kwargs):
+        raise AssertionError('write attempted through a read-only backend')
+
+    set_key = set_entry = delete_key = _refuse
+
+
+# ---------------------------------------------------------------------------
+# Capture
+# ---------------------------------------------------------------------------
+
+
+def capture_profile(backend, log: Log) -> Dict[str, Any]:
+    groups: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    cache: Dict[Tuple[str, str], Dict[str, Any]] = {}
+
+    def exported(domain: str, scope: str) -> Dict[str, Any]:
+        if (domain, scope) not in cache:
+            cache[(domain, scope)] = backend.export(domain, scope)
+        return cache[(domain, scope)]
+
+    def slot(domain: str, scope: str) -> Dict[str, Any]:
+        return groups.setdefault((domain, scope), {'domain': domain, 'scope': scope, 'keys': {}, 'absent': []})
+
+    def clean(domain: str, key: str, value: Any) -> Any:
+        """Drop merge entries the tool could not restore safely."""
+        if isinstance(value, dict):
+            kept = {}
+            for name, entry in value.items():
+                problem = entry_name_problem(name)
+                if problem:
+                    log.warn('skipping %s / %s / %r: %s' % (domain, key, name, problem))
+                else:
+                    kept[name] = entry
+            return kept
+        return value
+
+    for (domain, scope, key), spec in sorted(KEY_INDEX.items()):
+        current = exported(domain, scope)
+        target = slot(domain, scope)
+        if key not in current:
+            target['absent'].append(key)
+            continue
+        value = current[key]
+        if any(strict_eq(value, bad) for bad in spec.reject):
+            log.warn('skipping %s [%s] %s = %r: machine-specific value (set it by hand on the new Mac)'
+                     % (domain, scope, key, value))
+            continue
+        target['keys'][key] = clean(domain, key, value) if spec.merge else value
+
+    # Per-app menu key-equivalent overrides (System Settings > Keyboard >
+    # Keyboard Shortcuts > App Shortcuts) live in each app's own domain, so
+    # they are discovered rather than listed.
+    unreadable = 0
+    for domain in sorted(set(backend.domains())):
+        if domain.startswith('.') or domain == GLOBAL:
+            continue
+        if not DOMAIN_RE.match(domain):
+            log.warn('discovery: skipping domain with unsupported name %r' % domain)
+            continue
+        try:
+            current = exported(domain, USER)
+        except BackendError:
+            unreadable += 1
+            continue
+        if KEY_EQUIVALENTS not in current:
+            continue
+        value = current[KEY_EQUIVALENTS]
+        if not isinstance(value, dict) or not all(isinstance(v, str) for v in value.values()):
+            log.warn('discovery: %s has a %s value that is not a string dictionary; skipped' % (domain, KEY_EQUIVALENTS))
+            continue
+        slot(domain, USER)['keys'][KEY_EQUIVALENTS] = clean(domain, KEY_EQUIVALENTS, value)
+    if unreadable:
+        log.warn('discovery: %d domain(s) could not be read and were skipped' % unreadable)
+
+    ordered = [groups[k] for k in sorted(groups)]
+    for group in ordered:
+        group['absent'] = sorted(group['absent'])
+    return {'schema': SCHEMA, 'description': PROFILE_DESCRIPTION, 'preferences': ordered}
+
+
+def summarize_capture(doc: Dict[str, Any]) -> List[str]:
+    lines = []
+    present = sum(len(g['keys']) for g in doc['preferences'])
+    absent = sum(len(g['absent']) for g in doc['preferences'])
+    lines.append('%d domain/scope group(s); %d allowlisted key(s) present, %d absent (recorded as absent, not invented)'
+                 % (len(doc['preferences']), present, absent))
+    for g in doc['preferences']:
+        for key, value in g['keys'].items():
+            if key == 'AppleSymbolicHotKeys' and isinstance(value, dict):
+                enabled = sum(1 for r in value.values() if isinstance(r, dict) and r.get('enabled') is True)
+                disabled = sum(1 for r in value.values() if isinstance(r, dict) and r.get('enabled') is False)
+                other = len(value) - enabled - disabled
+                lines.append('AppleSymbolicHotKeys: %d records (%d enabled, %d disabled%s)'
+                             % (len(value), enabled, disabled, ', %d without a boolean flag' % other if other else ''))
+            elif key == 'NSServicesStatus' and isinstance(value, dict):
+                lines.append('NSServicesStatus: %d service entries' % len(value))
+            elif key == KEY_EQUIVALENTS and isinstance(value, dict):
+                lines.append('%s in %s: %d override(s)' % (KEY_EQUIVALENTS, g['domain'], len(value)))
+    if not any(KEY_EQUIVALENTS in g['keys'] for g in doc['preferences']):
+        lines.append('%s: no overrides found in any readable domain' % KEY_EQUIVALENTS)
+    return lines
+
+
+# ---------------------------------------------------------------------------
+# Planning: compare a document with the Mac
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class Change:
+    domain: str
+    scope: str
+    key: str
+    entry: Optional[str]  # None for a whole-key change
+    action: str  # set-key | set-entry | delete-key
+    kind: str  # add | change | remove (display)
+    old: Any
+    new: Any
+
+
+@dataclass
+class Plan:
+    changes: List[Change] = field(default_factory=list)
+    same: int = 0
+    kept: int = 0  # destination-only entries inside merge keys (left alone)
+    left_alone: List[Tuple[str, str, str]] = field(default_factory=list)
+    current: Dict[Tuple[str, str], Dict[str, Any]] = field(default_factory=dict)
+    samples: List[Tuple[str, str, str, Optional[str]]] = field(default_factory=list)
+
+
+def build_plan(doc: Dict[str, Any], backend, exact: bool = False,
+               only: Optional[Iterable[str]] = None) -> Plan:
+    """Compare `doc` with the Mac.
+
+    exact=False (restore): merge keys change entry by entry and nothing is ever
+    deleted. exact=True (rollback): keys are set wholesale and keys recorded as
+    absent are deleted.
+    """
+    wanted_areas = set(only) if only else None
+    plan = Plan()
+    for group in doc['preferences']:
+        domain, scope = group['domain'], group['scope']
+        current = backend.export(domain, scope)
+        plan.current[(domain, scope)] = current
+        for key in sorted(group['keys'], key=key_order):
+            spec = spec_for(domain, scope, key)
+            if spec is None or (wanted_areas is not None and spec.area not in wanted_areas):
+                continue
+            want = group['keys'][key]
+            have = current.get(key, MISSING)
+            if spec.merge and not exact and isinstance(want, dict) and (have is MISSING or isinstance(have, dict)):
+                have_map = {} if have is MISSING else have
+                for entry in sorted(want, key=key_order):
+                    old = have_map.get(entry, MISSING)
+                    if old is not MISSING and strict_eq(old, want[entry]):
+                        plan.same += 1
+                        plan.samples.append((domain, scope, key, entry))
+                    else:
+                        plan.changes.append(Change(domain, scope, key, entry, 'set-entry',
+                                                   'add' if old is MISSING else 'change', old, want[entry]))
+                plan.kept += sum(1 for e in have_map if e not in want)
+                continue
+            if have is not MISSING and strict_eq(have, want):
+                plan.same += 1
+                plan.samples.append((domain, scope, key, None))
+            else:
+                plan.changes.append(Change(domain, scope, key, None, 'set-key',
+                                           'add' if have is MISSING else 'change', have, want))
+        for key in group['absent']:
+            spec = spec_for(domain, scope, key)
+            if spec is None or (wanted_areas is not None and spec.area not in wanted_areas):
+                continue
+            if key in current:
+                if exact:
+                    plan.changes.append(Change(domain, scope, key, None, 'delete-key', 'remove', current[key], MISSING))
+                else:
+                    plan.left_alone.append((domain, scope, key))
+    return plan
+
+
+def _show(value: Any, limit: int = 100) -> str:
+    if value is MISSING:
+        return '<absent>'
+    try:
+        text = _compact(to_jsonable(value))
+    except ProfileError:
+        text = repr(value)
+    return text if len(text) <= limit else text[:limit - 1] + '…'
+
+
+def format_plan(plan: Plan, show_same: bool = False) -> str:
+    lines: List[str] = []
+    symbol = {'add': '+', 'change': '~', 'remove': '-'}
+    last = None
+    for ch in plan.changes:
+        head = (ch.domain, ch.scope, ch.key)
+        if head != last:
+            lines.append('%s [%s] %s' % (ch.domain, ch.scope, ch.key))
+            last = head
+        label = ch.entry if ch.entry is not None else '(whole key)'
+        if ch.kind == 'add':
+            lines.append('  + %s: %s' % (label, _show(ch.new)))
+        elif ch.kind == 'remove':
+            lines.append('  - %s: %s' % (label, _show(ch.old)))
+        else:
+            lines.append('  %s %s: %s -> %s' % (symbol[ch.kind], label, _show(ch.old), _show(ch.new)))
+    if show_same:
+        for domain, scope, key, entry in plan.samples:
+            lines.append('  = %s [%s] %s%s' % (domain, scope, key, '' if entry is None else ' / ' + entry))
+    for domain, scope, key in plan.left_alone:
+        lines.append('  ! %s [%s] %s: unset in the profile but set here; left unchanged' % (domain, scope, key))
+    adds = sum(1 for c in plan.changes if c.kind == 'add')
+    changes = sum(1 for c in plan.changes if c.kind == 'change')
+    removes = sum(1 for c in plan.changes if c.kind == 'remove')
+    summary = '%d to add, %d to change' % (adds, changes)
+    if removes:
+        summary += ', %d to remove' % removes
+    summary += ', %d identical' % plan.same
+    if plan.kept:
+        summary += ', %d destination-only entries kept' % plan.kept
+    if plan.left_alone:
+        summary += ', %d unset-in-profile key(s) left unchanged' % len(plan.left_alone)
+    lines.append('summary: ' + summary)
+    return '\n'.join(lines) + '\n'
+
+
+# ---------------------------------------------------------------------------
+# Backup, apply, rollback
+# ---------------------------------------------------------------------------
+
+
+def backup_root() -> str:
+    override = os.environ.get(ENV_BACKUP_DIR)
+    if override:
+        return override
+    state = os.environ.get('XDG_STATE_HOME') or os.path.join(os.path.expanduser('~'), '.local', 'state')
+    return os.path.join(state, TOOL, 'backups')
+
+
+def create_backup(plan: Plan, source_sha256: str) -> str:
+    """Record the current value (or absence) of every key `plan` will touch."""
+    touched: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    seen = set()
+    for ch in plan.changes:
+        ident = (ch.domain, ch.scope, ch.key)
+        if ident in seen:
+            continue
+        seen.add(ident)
+        group = touched.setdefault((ch.domain, ch.scope),
+                                   {'domain': ch.domain, 'scope': ch.scope, 'keys': {}, 'absent': []})
+        current = plan.current[(ch.domain, ch.scope)]
+        if ch.key in current:
+            group['keys'][ch.key] = current[ch.key]
+        else:
+            group['absent'].append(ch.key)
+    stamp = datetime.datetime.now(datetime.timezone.utc)
+    doc = {
+        'schema': SCHEMA,
+        'kind': 'backup',
+        'created': stamp.strftime(DATE_FMT),
+        'source_profile_sha256': source_sha256,
+        'preferences': [touched[k] for k in sorted(touched)],
+    }
+    root = backup_root()
+    os.makedirs(root, mode=0o700, exist_ok=True)
+    name = stamp.strftime('%Y%m%dT%H%M%SZ')
+    for attempt in range(1000):
+        path = os.path.join(root, name if attempt == 0 else '%s-%d' % (name, attempt))
+        try:
+            os.mkdir(path, 0o700)
+            break
+        except FileExistsError:
+            continue
+    else:  # pragma: no cover
+        raise ToolError('cannot allocate a backup directory under %s' % root)
+    atomic_write(os.path.join(path, 'before.json'), dump_document(doc), 0o600)
+    return path
+
+
+def resolve_backup(spec: str) -> str:
+    """Accept a backup directory, its before.json, or the word `latest`."""
+    if spec == 'latest':
+        root = backup_root()
+        try:
+            names = sorted(n for n in os.listdir(root) if os.path.isfile(os.path.join(root, n, 'before.json')))
+        except OSError:
+            names = []
+        if not names:
+            raise ToolError('no backups found under %s' % root)
+        return os.path.join(root, names[-1], 'before.json')
+    path = os.path.join(spec, 'before.json') if os.path.isdir(spec) else spec
+    if not os.path.isfile(path):
+        raise ToolError('no backup found at %s' % spec)
+    return path
+
+
+def _dest_matches(change: Change, current: Dict[str, Any]) -> bool:
+    if change.action == 'delete-key':
+        return change.key not in current
+    have = current.get(change.key, MISSING)
+    if change.action == 'set-key':
+        return have is not MISSING and strict_eq(have, change.new)
+    return isinstance(have, dict) and change.entry in have and strict_eq(have[change.entry], change.new)
+
+
+@dataclass
+class ApplyResult:
+    applied: int = 0
+    failures: List[str] = field(default_factory=list)
+    aborted: bool = False
+    domains: int = 0
+
+
+def _write(backend, ch: Change) -> None:
+    if ch.action == 'set-key':
+        backend.set_key(ch.domain, ch.scope, ch.key, ch.new)
+    elif ch.action == 'set-entry':
+        backend.set_entry(ch.domain, ch.scope, ch.key, ch.entry, ch.new)
+    else:
+        backend.delete_key(ch.domain, ch.scope, ch.key)
+
+
+def _revert(backend, plan: Plan, ch: Change, log: Log) -> None:
+    before = plan.current[(ch.domain, ch.scope)].get(ch.key, MISSING)
+    try:
+        if before is MISSING:
+            backend.delete_key(ch.domain, ch.scope, ch.key)
+        else:
+            backend.set_key(ch.domain, ch.scope, ch.key, before)
+        log.warn('reverted %s [%s] %s to its previous value' % (ch.domain, ch.scope, ch.key))
+    except BackendError as exc:
+        log.err('could not revert %s [%s] %s (%s); use `%s rollback` with the backup' % (ch.domain, ch.scope, ch.key, exc, TOOL))
+
+
+def apply_plan(backend, plan: Plan, log: Log) -> ApplyResult:
+    """Write every change, then read each domain back and compare type-exactly.
+
+    A failing `defaults` call is recorded and the run continues with the next
+    change. A read-back mismatch means a value did not land as intended, which
+    may be systematic, so that key is reverted and the run stops.
+    """
+    result = ApplyResult()
+    by_group: Dict[Tuple[str, str], List[Change]] = {}
+    for ch in plan.changes:
+        by_group.setdefault((ch.domain, ch.scope), []).append(ch)
+    for (domain, scope), changes in by_group.items():
+        written: List[Change] = []
+        for ch in changes:
+            try:
+                _write(backend, ch)
+                written.append(ch)
+            except BackendError as exc:
+                where = '%s [%s] %s%s' % (domain, scope, ch.key, '' if ch.entry is None else ' / ' + ch.entry)
+                result.failures.append('%s: %s' % (where, exc))
+                log.err('%s: %s' % (where, exc))
+        if not written:
+            continue
+        try:
+            current = backend.export(domain, scope)
+        except BackendError as exc:
+            result.failures.append('%s [%s]: cannot verify writes: %s' % (domain, scope, exc))
+            log.err('%s [%s]: cannot verify writes: %s' % (domain, scope, exc))
+            result.aborted = True
+            break
+        mismatched = [ch for ch in written if not _dest_matches(ch, current)]
+        result.applied += len(written) - len(mismatched)
+        result.domains += 1
+        if mismatched:
+            reverted = set()
+            for ch in mismatched:
+                where = '%s [%s] %s%s' % (domain, scope, ch.key, '' if ch.entry is None else ' / ' + ch.entry)
+                got = current.get(ch.key, MISSING)
+                if ch.entry is not None and isinstance(got, dict):
+                    got = got.get(ch.entry, MISSING)
+                result.failures.append('%s: wrote %s but read back %s' % (where, _show(ch.new), _show(got)))
+                log.err('verification failed for %s: wrote %s, read back %s' % (where, _show(ch.new), _show(got)))
+                if (ch.domain, ch.scope, ch.key) not in reverted:
+                    reverted.add((ch.domain, ch.scope, ch.key))
+                    _revert(backend, plan, ch, log)
+            result.aborted = True
+            break
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Command line
+# ---------------------------------------------------------------------------
+
+
+def default_profile_path() -> str:
+    override = os.environ.get(ENV_PROFILE)
+    if override:
+        return override
+    config = os.environ.get('XDG_CONFIG_HOME') or os.path.join(os.path.expanduser('~'), '.config')
+    return os.path.join(config, TOOL, 'profile.json')
+
+
+def make_backend() -> DefaultsBackend:
+    override = os.environ.get(ENV_DEFAULTS_BIN)
+    if override:
+        return DefaultsBackend(override)
+    if sys.platform != 'darwin':
+        raise ToolError('%s reads and writes macOS preferences; this is not macOS (validate works anywhere)' % TOOL)
+    return DefaultsBackend()
+
+
+def parse_only(value: Optional[str]) -> Optional[List[str]]:
+    if not value:
+        return None
+    names = [n.strip() for n in value.split(',') if n.strip()]
+    unknown = [n for n in names if n not in AREAS]
+    if unknown:
+        raise ToolError('unknown area(s) %s; choose from: %s' % (', '.join(unknown), ', '.join(sorted(AREAS))))
+    return names
+
+
+def profile_sha256(path: str) -> str:
+    with open(path, 'rb') as handle:
+        return hashlib.sha256(handle.read()).hexdigest()
+
+
+def cmd_capture(args, log: Log, backend) -> int:
+    doc = capture_profile(backend, log)
+    text = dump_document(doc)
+    # Prove the file we are about to write reads back to exactly what was seen.
+    check = parse_document(text, 'profile', 'captured profile')
+    if not documents_equal(check, doc):
+        raise ToolError('internal error: captured profile does not round-trip')
+    for line in summarize_capture(doc):
+        log.info(line)
+    if args.stdout:
+        sys.stdout.write(text)
+        return 0
+    path = args.profile or default_profile_path()
+    changed = atomic_write(path, text)
+    log.ok('%s %s' % ('wrote' if changed else 'unchanged:', path))
+    if changed and os.path.abspath(path) == os.path.abspath(default_profile_path()):
+        log.info('this is the deployed profile; publish it to the source tree with: chezmoi re-add %s' % path)
+    return 0
+
+
+def cmd_diff(args, log: Log, backend) -> int:
+    path = args.profile or default_profile_path()
+    doc = load_document(path, 'profile')
+    plan = build_plan(doc, ReadOnlyBackend(backend), only=parse_only(args.only))
+    sys.stdout.write(format_plan(plan, show_same=args.all))
+    return 1 if plan.changes else 0
+
+
+def _confirm(args, count: int, what: str) -> bool:
+    if args.yes:
+        return True
+    if not sys.stdin.isatty():
+        raise ToolError('refusing to change preferences without a terminal to confirm; pass --yes')
+    sys.stderr.write('Apply %d change(s) (%s)? [y/N] ' % (count, what))
+    sys.stderr.flush()
+    return sys.stdin.readline().strip().lower() in ('y', 'yes')
+
+
+def _apply(doc: Dict[str, Any], source_sha: str, args, log: Log, backend, exact: bool,
+           only: Optional[List[str]], what: str) -> int:
+    plan = build_plan(doc, backend if not args.dry_run else ReadOnlyBackend(backend), exact=exact, only=only)
+    if not plan.changes:
+        log.ok('already in sync; nothing to change')
+        return 0
+    sys.stdout.write(format_plan(plan))
+    if args.dry_run:
+        log.info('dry run: nothing was written')
+        return 0
+    if not _confirm(args, len(plan.changes), what):
+        log.info('cancelled')
+        return 0
+    backup = create_backup(plan, source_sha)
+    log.info('backed up the %d affected key(s) to %s' % (len({(c.domain, c.scope, c.key) for c in plan.changes}), backup))
+    result = apply_plan(backend, plan, log)
+    areas = sorted({spec_for(c.domain, c.scope, c.key).area for c in plan.changes})
+    if result.failures:
+        log.err('%d problem(s); %d change(s) verified' % (len(result.failures), result.applied))
+        if result.aborted:
+            log.err('stopped early; remaining changes were not attempted')
+        log.info('undo with: %s rollback %s' % (TOOL, backup))
+        return 1
+    log.ok('applied and verified %d change(s) in %d domain(s)' % (result.applied, result.domains))
+    log.info('undo with: %s rollback %s' % (TOOL, backup))
+    for area in areas:
+        log.info('%s: %s' % (area, AREAS[area]))
+    return 0
+
+
+def cmd_restore(args, log: Log, backend) -> int:
+    path = args.profile or default_profile_path()
+    doc = load_document(path, 'profile')
+    return _apply(doc, profile_sha256(path), args, log, backend, False, parse_only(args.only), 'restore')
+
+
+def cmd_rollback(args, log: Log, backend) -> int:
+    path = resolve_backup(args.backup)
+    doc = load_document(path, 'backup')
+    log.info('rolling back to %s' % path)
+    return _apply(doc, profile_sha256(path), args, log, backend, True, None, 'rollback')
+
+
+def cmd_validate(args, log: Log, backend) -> int:
+    path = args.profile or default_profile_path()
+    doc = load_document(path, 'profile')
+    keys = sum(len(g['keys']) for g in doc['preferences'])
+    log.ok('%s is valid: %d group(s), %d key(s)' % (path, len(doc['preferences']), keys))
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog=TOOL, formatter_class=argparse.RawDescriptionHelpFormatter,
+        description='Capture, preview, restore and roll back curated macOS preferences.',
+        epilog='Areas for --only: %s\nGuide: docs/macos-preferences.md' % ', '.join(sorted(AREAS)))
+    sub = parser.add_subparsers(dest='command', metavar='COMMAND')
+    sub.required = True
+
+    def add_profile(p):
+        p.add_argument('--profile', help='profile path (default: $%s or ~/.config/%s/profile.json)' % (ENV_PROFILE, TOOL))
+
+    p = sub.add_parser('capture', help='read the allowlisted preferences into the profile')
+    add_profile(p)
+    p.add_argument('--stdout', action='store_true', help='print the profile instead of writing it')
+    p.set_defaults(func=cmd_capture, needs_backend=True)
+
+    p = sub.add_parser('diff', aliases=['preview'], help='show what restore would change (read-only)')
+    add_profile(p)
+    p.add_argument('--only', help='comma-separated areas')
+    p.add_argument('--all', action='store_true', help='also list identical entries')
+    p.set_defaults(func=cmd_diff, needs_backend=True)
+
+    p = sub.add_parser('restore', help='apply the profile with defaults write (backs up first)')
+    add_profile(p)
+    p.add_argument('--only', help='comma-separated areas')
+    p.add_argument('--yes', '-y', action='store_true', help='do not ask for confirmation')
+    p.add_argument('--dry-run', action='store_true', help='show the changes; write nothing')
+    p.set_defaults(func=cmd_restore, needs_backend=True)
+
+    p = sub.add_parser('rollback', help='put a restore backup back')
+    p.add_argument('backup', nargs='?', default='latest', help='backup directory, its before.json, or "latest"')
+    p.add_argument('--yes', '-y', action='store_true', help='do not ask for confirmation')
+    p.add_argument('--dry-run', action='store_true', help='show the changes; write nothing')
+    p.set_defaults(func=cmd_rollback, needs_backend=True)
+
+    p = sub.add_parser('validate', help='check a profile against the allowlist and schema')
+    add_profile(p)
+    p.set_defaults(func=cmd_validate, needs_backend=False)
+    return parser
+
+
+def main(argv: Optional[Sequence[str]] = None) -> int:
+    log = Log()
+    args = build_parser().parse_args(argv)
+    try:
+        backend = make_backend() if args.needs_backend else None
+        return args.func(args, log, backend)
+    except ProfileError as exc:
+        for message in exc.messages:
+            log.err(message)
+        return 2
+    except ToolError as exc:
+        log.err(str(exc))
+        return 2
+    except BackendError as exc:
+        log.err(str(exc))
+        return 2
+
+
+if __name__ == '__main__':
+    sys.exit(main())
