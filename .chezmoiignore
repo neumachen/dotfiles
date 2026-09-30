@@ -56,6 +56,7 @@ AGENTS.md
 .local/bin/AGENTS.md
 .config/nvim/AGENTS.md
 .config/aider-desk/AGENTS.md
+.config/hammerspoon/tests
 .config/macos-preferences/tests
 MeinCodex/Notizen/Obsidian/AGENTS.md
 bin/chezmoi

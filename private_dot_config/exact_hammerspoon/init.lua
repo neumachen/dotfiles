@@ -1,8 +1,18 @@
 -- Hammerspoon config
 -- ~/.hammerspoon is a symlink -> ~/.config/hammerspoon (managed by chezmoi)
 
+-- Hammerspoon stops a pathwatcher, timer or event tap when Lua garbage-collects
+-- it. A local in this file stops protecting an object once the file has
+-- loaded, unless a closure that is itself still reachable captures it, so
+-- everything that must keep working is owned by this one global table. It is
+-- also the place to inspect that state from the Hammerspoon console.
+local dotfiles = {}
+_G.dotfiles = dotfiles
+
 -- Reload config on file change
-hs.pathwatcher.new(os.getenv('HOME') .. '/.config/hammerspoon', hs.reload):start()
+dotfiles.configWatcher = hs.pathwatcher
+  .new(os.getenv('HOME') .. '/.config/hammerspoon', hs.reload)
+  :start()
 hs.alert.show('Hammerspoon config loaded')
 
 -------------------------------------------------------------------------------
@@ -43,18 +53,18 @@ hs.hotkey.bind(hyper, 'l', function()
 end)
 
 -------------------------------------------------------------------------------
--- WezTerm ⌘C → Markdown fenced code block
+-- ⌘⌥V → Markdown fenced code block (paste-time)
 --
--- When WezTerm is frontmost and ⌘C or ⌘⇧C is pressed, the normal copy still
--- happens (we return false so the event propagates). After a short delay to let
--- WezTerm finish writing to the clipboard, we open a chooser so you can pick
--- (or type) a language tag. On selection the clipboard text is wrapped in a
--- Markdown fenced code block and written back, ready to paste elsewhere.
+-- Pressing ⌘⌥V captures the current clipboard text and the frontmost
+-- application/window, then opens a chooser for a language tag (a preset, or
+-- a custom one typed into the query). Choosing a tag formats the text as a
+-- Markdown fenced code block, writes it to the pasteboard, and emits a
+-- synthetic ⌘V to the captured destination. Escape leaves the clipboard
+-- untouched.
 --
--- ⌘⇧C uses a 150 ms delay instead of 50 ms so that tmux has time to finish
--- writing the selection to the pasteboard before we read it.
---
--- The eventtap is completely independent of the hyper space-switching above.
+-- The hotkey is consumed — it does not pass through to the frontmost app.
+-- Only one request is active at a time; a second ⌘⌥V while the chooser is
+-- open is rejected.
 -------------------------------------------------------------------------------
 
 -- Common language tags shown in the chooser list.
@@ -82,38 +92,133 @@ end
 
 -- Wrap `text` in a Markdown fenced code block.
 -- If `lang` is empty the opening fence has no tag.
+-- Uses enough backticks to avoid conflicting with backtick runs in the text.
 local function wrapInFence(text, lang)
-  return '```' .. lang .. '\n' .. text .. '\n```'
+  local maxRun = 0
+  local run = 0
+  for i = 1, #text do
+    if text:sub(i, i) == '`' then
+      run = run + 1
+      if run > maxRun then maxRun = run end
+    else
+      run = 0
+    end
+  end
+  local n = math.max(3, maxRun + 1)
+  local fence = string.rep('`', n)
+  return fence .. lang .. '\n' .. text .. '\n' .. fence
 end
 
--- The chooser is created once and reused to avoid repeated allocation.
-local fenceChooser
+-------------------------------------------------------------------------------
+-- Paste requests
+--
+-- Each ⌘⌥V starts one request with an increasing id, and only the newest
+-- request is live. Starting a request ends the previous one.
+--
+--  1. Hotkey (⌘⌥V). The frontmost application and focused window are
+--     captured as the paste destination. The clipboard is read in a
+--     generation-stable snapshot (change count before and after must match).
+--     Non-text or empty clipboard contents are rejected.
+--  2. Choosing (chooser). The copied text and its change count stay with the
+--     request, and every chooser row carries the request's id. A choice is
+--     accepted only for the request its row was built for, and only while
+--     the pasteboard is still at that change count; anything newer is left
+--     untouched. A cancellation (no choice) carries no id. hs.chooser hides
+--     its window before reporting any result. hs.chooser's default global
+--     callback returns focus to the window that was active just before the
+--     chooser opened.
+--  3. Focusing (timer). After the chooser dismisses, the destination window
+--     needs to regain focus. A bounded poll waits for the exact captured
+--     window to become focused. If the captured window closes, focus goes
+--     to a different window or app, or a timeout elapses, the request is
+--     cancelled.
+--  4. Pasting. Once focus is confirmed, the clipboard generation is
+--     rechecked. If still stable, the formatted block is written and a
+--     synthetic ⌘V is emitted to the validated destination.
+--
+-- Every asynchronous entry point is guarded: an error is logged and ends the
+-- live request rather than leaving it half done. Logs carry request ids,
+-- phases and reasons, never pasteboard contents.
+-------------------------------------------------------------------------------
 
-local function initFenceChooser()
-  fenceChooser = hs.chooser.new(function(choice)
-    -- choice is nil when the user dismisses with Escape — leave clipboard alone.
-    if not choice then return end
+local FOCUS_TIMEOUT = 0.5 -- seconds to wait for destination focus
+local FOCUS_POLL = 0.02 -- seconds between focus checks
 
-    local contents = hs.pasteboard.getContents()
-    if contents and #contents > 0 then
-      hs.pasteboard.setContents(wrapInFence(contents, choice.lang))
-    end
-  end)
+local log = hs.logger.new('pastefence', 'info')
 
-  -- Allow typing a custom language name not in the preset list.
-  -- When the user types something that doesn't match any row, hs.chooser
-  -- surfaces a synthetic choice whose `text` equals the query string.
-  -- We handle that by treating the typed text as the language tag.
-  fenceChooser:queryChangedCallback(function(query)
-    local choices = buildChooserChoices()
-    -- If the query is non-empty and doesn't exactly match any preset tag,
-    -- prepend a "use as custom tag" row so the user can confirm with Enter.
-    if query and #query > 0 then
-      local matched = false
-      for _, c in ipairs(choices) do
-        if c.lang == query then matched = true; break end
+local paste = {
+  lastId = 0,
+  active = nil,
+  chooserFor = nil,
+}
+dotfiles.pasteFence = paste
+
+local function stopTimer(req)
+  if req.timer then
+    req.timer:stop()
+    req.timer = nil
+  end
+end
+
+-- Ends `req` once, releasing its timer and copied text. Ending the request
+-- that owns the open chooser also dismisses that chooser for good.
+local function finish(req, outcome)
+  if req.finished then return end
+  stopTimer(req)
+  req.finished = true
+  req.text = nil
+  if paste.active == req then paste.active = nil end
+  if paste.chooserFor == req.id then
+    paste.chooserFor = nil
+    if paste.chooser:isVisible() then paste.chooser:hide() end
+  end
+  log.f('request %d %s: %s', req.id, req.phase, outcome)
+end
+
+-- Runs `fn`, logging an error instead of raising it. Returns true on success.
+local function try(where, fn, ...)
+  local ok, err = xpcall(fn, debug.traceback, ...)
+  if not ok then log.ef('%s failed: %s', where, err) end
+  return ok
+end
+
+-- Runs a request entry point. After an error, `req` (when given) and the live
+-- request are ended, so the next ⌘⌥V starts from a clean state.
+local function guarded(where, req, fn, ...)
+  if try(where, fn, ...) then return end
+  if req then try('cleanup', finish, req, 'ended after error') end
+  if paste.active then
+    try('cleanup', finish, paste.active, 'ended after error')
+  end
+  paste.active = nil
+  paste.chooserFor = nil
+end
+
+-- Reject tags containing newlines, carriage returns, or any backtick
+-- (CommonMark info strings must not contain backticks or line breaks).
+local function isValidTag(tag)
+  if tag:find('[\r\n]') then return false end
+  if tag:find('`') then return false end
+  return true
+end
+
+local function updateChoices(query)
+  local choices = buildChooserChoices()
+  if query and #query > 0 then
+    local matchedIndex = nil
+    for i, c in ipairs(choices) do
+      if c.lang == query then
+        matchedIndex = i
+        break
       end
-      if not matched then
+    end
+    if matchedIndex then
+      -- Move the matched preset to the top so Enter picks it.
+      local matched = table.remove(choices, matchedIndex)
+      table.insert(choices, 1, matched)
+    else
+      -- No exact match; prepend a custom tag row.
+      if isValidTag(query) then
         table.insert(choices, 1, {
           text = query,
           subText = 'custom language tag',
@@ -121,149 +226,243 @@ local function initFenceChooser()
         })
       end
     end
-    fenceChooser:choices(choices)
-  end)
-
-  fenceChooser:choices(buildChooserChoices())
-  fenceChooser:placeholderText('Language tag (or type a custom one)…')
+  end
+  -- hs.chooser returns extra row keys with a choice, so each row names the
+  -- request the chooser was opened for.
+  for _, c in ipairs(choices) do
+    c.requestId = paste.chooserFor
+  end
+  paste.chooser:choices(choices)
 end
 
--- Initialise the chooser immediately so it is ready on first use.
-initFenceChooser()
-
--- ───────────────────────────────────────────────────────────────────────────
--- Design notes — three failure modes this code defends against
--- ───────────────────────────────────────────────────────────────────────────
---
--- 1. Eventtap disabled by macOS (the "works once, then silent" symptom).
---
---    The original implementation called hs.application.frontmostApplication()
---    inside the eventtap callback. That is a synchronous AppKit call. Most
---    of the time it returns in microseconds, but right after the chooser
---    closes it can stall briefly while macOS restores focus. If the next
---    ⌘C lands during that stall, the callback exceeds macOS's eventtap
---    budget and the kernel issues kCGEventTapDisabledByTimeout.
---    Hammerspoon does NOT auto-re-enable the tap; every subsequent ⌘C is
---    silently dropped.
---
---    Defenses:
---      • The eventtap callback does NO AppKit work. It only inspects the
---        event's modifier flags and keycode — pure CGEvent reads, no
---        cross-thread calls.
---      • The chooser open is scheduled via hs.timer.doAfter(0.05, …) which
---        runs on the main thread, outside the eventtap timing budget.
---      • A 1-second watchdog restarts the tap if isEnabled() ever returns
---        false (Secure Input toggles, kernel timeouts).
---      • The whole callback is wrapped in xpcall so a Lua error logs a
---        trace instead of silently killing the tap.
---
--- 2. Second ⌘C in succession silently no-ops.
---
---    hs.chooser's default globalCallback restores focus to the previously-
---    active window on didClose. That restoration is asynchronous. If
---    :show() is called again while the prior cycle's focus-restoration is
---    still in flight, hs.chooser silently no-ops — the panel never
---    appears, no callback fires, no log line.
---
---    Defenses (at the :show() call site):
---      a. fenceChooser:hide() — idempotent when not visible; forces a
---         known starting state when it is.
---      b. fenceChooser:query(nil) — clears the search box (documented
---         "clear the query string" form). queryChangedCallback re-runs
---         synchronously and resets the choices list.
---      c. hs.timer.doAfter(0, …) wrapping :show() — yields one run-loop
---         tick so any pending didClose / focus-restoration work from the
---         previous cycle finishes before the next :show().
---
--- 3. Chooser fires in the WRONG app (Brave, Mail, anywhere not WezTerm).
---
---    The previous design cached frontmostAppName via hs.application.watcher
---    and read it from the eventtap. The watcher is asynchronous and
---    unreliable as a single source of truth: its activated events can be
---    missed, can land out of order with hs.chooser's focus-restoration
---    events, or can fail to fire at all when Hammerspoon's own chooser
---    panel briefly owns focus. Once stale, the cache reads "WezTerm"
---    forever and every ⌘C in any app opens the chooser.
---
---    Defense: don't cache. The authoritative
---    hs.application.frontmostApplication():name() check is moved INTO
---    the hs.timer.doAfter(0.05, …) callback. That callback runs on the
---    main thread — not on the eventtap thread — so the AppKit call is
---    free of the timeout concern from failure mode #1. The check is
---    re-evaluated on every ⌘C, so there is no stale state to go wrong.
---    The cached variable, bootstrap query, and hs.application.watcher
---    were removed because they were the source of the bug.
---
--- The 50 ms delay before the chooser opens is unchanged — its purpose is
--- to let WezTerm finish writing the selection to the pasteboard, not to
--- wait for chooser cleanup.
--- ───────────────────────────────────────────────────────────────────────────
-
--- The eventtap watches for every keyDown event. It does the absolute
--- minimum work synchronously: check modifiers and keycode. The frontmost-
--- app check and chooser presentation happen on the main thread via the
--- 50 ms timer, so the eventtap callback never touches AppKit.
-local wezTermCopyTap = hs.eventtap.new(
-  { hs.eventtap.event.types.keyDown },
-  function(e)
-    -- xpcall guards the whole callback. If anything inside raises, log
-    -- the trace and return false so the event still propagates AND the
-    -- eventtap stays alive (an unguarded error here disables the tap).
-    local ok, err = xpcall(function()
-      -- Gate: ⌘C or ⌘⇧C only. Pure CGEvent reads — no AppKit, no blocking.
-      local flags = e:getFlags()
-      local isCmd = flags.cmd
-      local isShift = flags.shift
-      local keyCode = e:getKeyCode()
-      if not (isCmd and keyCode == 8) then return end
-
-      -- Use a longer delay for ⌘⇧C to give tmux time to finish writing
-      -- to the clipboard before we read it (tmux adds latency vs. bare WezTerm).
-      local delay = isShift and 0.15 or 0.05
-
-      -- Schedule the rest of the work on the main thread. Both the
-      -- frontmost-app check and the chooser presentation run here,
-      -- outside the eventtap timing budget. The delay also lets
-      -- WezTerm (or tmux) finish writing the selection to the pasteboard.
-      hs.timer.doAfter(delay, function()
-        -- Authoritative frontmost-app check, evaluated fresh on every
-        -- ⌘C. Replaces the previous cached variable, which went stale
-        -- when hs.application.watcher missed activation events around
-        -- chooser focus restoration.
-        local front = hs.application.frontmostApplication()
-        if not front or front:name() ~= 'WezTerm' then return end
-
-        local contents = hs.pasteboard.getContents()
-        if not (contents and #contents > 0) then return end
-
-        -- Force a known starting state. :hide() is idempotent when the
-        -- chooser isn't visible. :query(nil) clears the search box;
-        -- queryChangedCallback re-sets the choices list synchronously
-        -- in response, so we don't need to call :choices() here too.
-        fenceChooser:hide()
-        fenceChooser:query(nil)
-        -- Yield one run-loop tick before showing. Without this, a
-        -- rapid second ⌘C lands while hs.chooser's previous-cycle
-        -- didClose / focus-restoration work is still in flight, and
-        -- :show() silently no-ops. doAfter(0) is the documented way
-        -- to defer to the next run-loop iteration.
-        hs.timer.doAfter(0, function() fenceChooser:show() end)
-      end)
-    end, debug.traceback)
-
-    if not ok then print('wezTermCopyTap callback error: ' .. tostring(err)) end
-
-    return false -- never consume the event — WezTerm still copies
+local function onChoice(choice)
+  local req = paste.active
+  if
+    not req
+    or paste.chooserFor ~= req.id
+    or paste.chooser:isVisible()
+    or (choice and choice.requestId ~= req.id)
+  then
+    log.f(
+      'ignored a chooser %s from request %s (live request %s)',
+      choice and 'choice' or 'cancellation',
+      choice and choice.requestId or 'unknown',
+      req and req.id or 'none'
+    )
+    return
   end
+  paste.chooserFor = nil
+
+  -- Escape, or the chooser losing focus, reports no choice.
+  if not choice then return finish(req, 'dismissed; pasteboard untouched') end
+  if type(choice.lang) ~= 'string' then
+    return finish(req, 'cancelled; choice has no language tag')
+  end
+
+  -- Reject custom tags with newlines, carriage returns, or backticks.
+  if not isValidTag(choice.lang) then
+    return finish(req, 'cancelled; invalid language tag')
+  end
+
+  -- Recheck clipboard generation before proceeding.
+  if hs.pasteboard.changeCount() ~= req.generation then
+    return finish(req, 'cancelled; pasteboard changed since the snapshot')
+  end
+
+  -- Capture the chosen language tag for the focus timer.
+  local lang = choice.lang
+
+  req.phase = 'focusing'
+  req.focusDeadline = hs.timer.absoluteTime()
+    + math.floor(FOCUS_TIMEOUT * 1e9)
+
+  local focusTimer = hs.timer.doEvery(FOCUS_POLL, function()
+    guarded('focus poll', req, function()
+      -- Check if destination app still exists.
+      local apps = hs.application.runningApplications()
+      local destStillRunning = false
+      for _, app in ipairs(apps) do
+        if app:pid() == req.destApp:pid() then
+          destStillRunning = true
+          break
+        end
+      end
+      if not destStillRunning then
+        return finish(req, 'cancelled; destination app closed')
+      end
+
+      -- Check timeout.
+      if hs.timer.absoluteTime() >= req.focusDeadline then
+        return finish(req, 'cancelled; focus timeout')
+      end
+
+      -- Check if destination window is focused.
+      local focused = hs.window.focusedWindow()
+      if not focused then return end -- still waiting
+
+      -- Check if the captured window still exists within its app.
+      -- app:allWindows() is the native hs.application method.
+      local destWindows = req.destApp:allWindows()
+      local windowExists = false
+      if destWindows then
+        for _, w in ipairs(destWindows) do
+          if w:id() == req.destWindow:id() then
+            windowExists = true
+            break
+          end
+        end
+      end
+      if not windowExists then
+        return finish(req, 'cancelled; captured window closed')
+      end
+
+      if focused:id() ~= req.destWindow:id() then
+        -- Focus went elsewhere; check if it's our destination's app.
+        local focusedApp = focused:application()
+        if focusedApp and focusedApp:pid() == req.destApp:pid() then
+          return finish(req, 'cancelled; focus went to a different window')
+        else
+          return finish(req, 'cancelled; focus went to another app')
+        end
+      end
+
+      -- Focus confirmed!
+
+      -- Check modifiers before synthetic paste.
+      local mods = hs.eventtap.checkKeyboardModifiers()
+      if mods.cmd or mods.alt or mods.ctrl or mods.shift then
+        -- Modifiers held; retry on next poll.
+        return
+      end
+
+      -- Stop timer now that we are committing to paste.
+      stopTimer(req)
+
+      -- Recheck clipboard generation before formatting.
+      if hs.pasteboard.changeCount() ~= req.generation then
+        return finish(
+          req,
+          'cancelled; pasteboard changed while awaiting focus'
+        )
+      end
+
+      -- Format and write.
+      if hs.pasteboard.setContents(wrapInFence(req.text, lang)) then
+        -- Another process may have written after our format write.
+        if hs.pasteboard.changeCount() ~= req.generation + 1 then
+          return finish(
+            req,
+            'cancelled; pasteboard changed after format write'
+          )
+        end
+
+        -- Re-validate focus immediately before dispatch.
+        -- Race: focus can still shift between this check and keyStroke.
+        local finalFocused = hs.window.focusedWindow()
+        if
+          not finalFocused
+          or finalFocused:id() ~= req.destWindow:id()
+        then
+          -- Formatted text is already on the clipboard; leave it there.
+          return finish(req, 'cancelled; focus changed during write')
+        end
+
+        -- Emit synthetic Cmd+V targeted at the captured destination.
+        hs.eventtap.keyStroke({ 'cmd' }, 'v', 0, req.destApp)
+        return finish(req, 'formatted and pasted')
+      end
+
+      -- Write failed — ownership-aware recovery.
+      local outcome
+      if hs.pasteboard.changeCount() ~= req.generation + 1 then
+        outcome = 'newer pasteboard data left untouched'
+      elseif hs.pasteboard.setContents(req.text) then
+        outcome = 'copied text restored'
+      else
+        outcome = 'copied text could not be restored'
+      end
+      log.ef('request %d: pasteboard write failed; %s', req.id, outcome)
+      finish(req, 'failed; pasteboard write')
+    end)
+  end)
+  req.timer = focusTimer
+end
+
+local function onPasteFence()
+  guarded('paste fence', nil, function()
+    -- Gate: one active request at a time.
+    if paste.active then
+      log.f('request %d still active; ignoring hotkey', paste.active.id)
+      return
+    end
+
+    -- Capture destination.
+    local destApp = hs.application.frontmostApplication()
+    local destWindow = hs.window.focusedWindow()
+    if not destApp then
+      log.f('no frontmost application; ignoring hotkey')
+      hs.alert.show('No frontmost application')
+      return
+    end
+    if not destWindow then
+      log.f('no focused window; ignoring hotkey')
+      hs.alert.show('No focused window')
+      return
+    end
+
+    -- Stable snapshot of the clipboard.
+    local count1 = hs.pasteboard.changeCount()
+    local text = hs.pasteboard.getContents()
+    local count2 = hs.pasteboard.changeCount()
+    if count1 ~= count2 then
+      log.f('unstable clipboard snapshot; ignoring hotkey')
+      hs.alert.show('Clipboard changed during read')
+      return
+    end
+    if type(text) ~= 'string' then
+      log.f('clipboard is not text; ignoring hotkey')
+      hs.alert.show('Clipboard is not text')
+      return
+    end
+    if text == '' then
+      log.f('clipboard is empty; ignoring hotkey')
+      hs.alert.show('Clipboard is empty')
+      return
+    end
+
+    -- Create request.
+    paste.lastId = paste.lastId + 1
+    local req = {
+      id = paste.lastId,
+      phase = 'choosing',
+      text = text,
+      generation = count1,
+      destApp = destApp,
+      destWindow = destWindow,
+    }
+    local previous = paste.active
+    paste.active = req
+    if previous then finish(previous, 'superseded by request ' .. req.id) end
+
+    paste.chooserFor = req.id
+    paste.chooser:query(nil)
+    paste.chooser:show()
+    log.f('request %d started', req.id)
+  end)
+end
+
+paste.chooser = hs.chooser.new(
+  function(choice) guarded('chooser result', nil, onChoice, choice) end
 )
+paste.chooser:queryChangedCallback(
+  function(query) guarded('chooser query', nil, updateChoices, query) end
+)
+paste.chooser:choices(buildChooserChoices())
+paste.chooser:placeholderText('Language tag (or type a custom one)…')
 
-wezTermCopyTap:start()
-
--- Watchdog: macOS can disable the tap (kCGEventTapDisabledByTimeout, or
--- briefly during Secure Input). Hammerspoon does not auto-re-enable. Poll
--- once a second; if the tap went silent, restart it. This is the
--- canonical Hammerspoon workaround referenced in their GitHub issues for
--- long-running eventtaps.
-hs.timer.doEvery(1, function()
-  if not wezTermCopyTap:isEnabled() then wezTermCopyTap:start() end
-end)
+-- Register the hotkey. The callback consumes the keystroke.
+paste.hotkey = hs.hotkey.bind({ 'cmd', 'alt' }, 'v', onPasteFence)
+if not paste.hotkey then
+  log.ef('failed to bind Cmd+Opt+V hotkey')
+  hs.alert.show('Failed to bind Cmd+Opt+V')
+end
