@@ -1,0 +1,81 @@
+#!/bin/bash
+# dep hash: wezterm-terminfo={{ range list "/opt/homebrew" "/usr/local" }}{{ with stat (printf "%s/opt/ncurses/share/terminfo/77/wezterm" .) }}{{ .size }}:{{ .modTime }}{{ end }}{{ end }}
+{{- if eq .chezmoi.os "darwin" }}
+
+set -euo pipefail
+
+# WezTerm runs with term = 'wezterm' (private_dot_config/exact_wezterm/
+# wezterm.lua), but macOS ships no wezterm terminfo entry. Apple's libncurses
+# (what /bin/zsh, /usr/bin/tput and /usr/bin/infocmp link) therefore finds
+# nothing, and zsh leaves $terminfo[kcbt] unset, which breaks zsh-autocomplete.
+# Homebrew's ncurses does carry the entry, so decompile it from there and
+# recompile it with Apple's tic into ~/.terminfo, which Apple's and Homebrew's
+# ncurses both search.
+#
+# Ordering: this hook is numbered after 40-install-brew-apps, which installs
+# ncurses. The dep hash above is the size and mtime of Homebrew's wezterm entry:
+# it is empty until ncurses is installed, so a deferral below re-runs on the
+# next apply once it appears, and it changes when an ncurses upgrade changes the
+# definition, so the copy in ~/.terminfo follows along.
+
+LOCAL_BIN="${HOME}/.local/bin"
+if [ -d "${LOCAL_BIN}" ]; then
+  export PATH="${LOCAL_BIN}:${PATH}"
+fi
+
+_log_info()  { if command -v echo-info  &>/dev/null; then echo-info  "$@"; else echo "[INFO] --- $*"; fi; }
+_log_ok()    { if command -v echo-ok    &>/dev/null; then echo-ok    "$@"; else echo "[SUCCESS] --- $*"; fi; }
+_log_warn()  { if command -v echo-warn  &>/dev/null; then echo-warn  "$@"; else echo "[WARN] --- $*" >&2; fi; }
+_log_err()   { if command -v echo-err   &>/dev/null; then echo-err   "$@"; else echo "[ERROR] --- $*" >&2; fi; }
+
+# <prefix>/opt/ncurses is Homebrew's stable symlink to the current keg, so no
+# versioned Cellar path is involved.
+NCURSES=""
+for prefix in /opt/homebrew /usr/local; do
+  if [ -x "${prefix}/opt/ncurses/bin/infocmp" ]; then
+    NCURSES="${prefix}/opt/ncurses"
+    break
+  fi
+done
+
+# Prerequisite absent -> defer, exit 0. Homebrew (or its ncurses) may not be
+# installed yet on a fresh Mac; the dep hash above flips once it is.
+if [ -z "${NCURSES}" ]; then
+  _log_warn "deferred: Homebrew ncurses not installed yet; wezterm terminfo skipped, will retry on a later apply"
+  exit 0
+fi
+
+DEST="${HOME}/.terminfo"
+SRC="$(mktemp "${TMPDIR:-/tmp}/wezterm-terminfo.XXXXXX")"
+trap 'rm -f "${SRC}"' EXIT
+
+_log_info "Installing the wezterm terminfo entry into ${DEST}..."
+
+# Prerequisites are present, so a failure below is genuine: exit non-zero so
+# chezmoi does NOT record this hook as done and retries on the next apply.
+
+# TERMINFO pins the read to Homebrew's own database. Without it infocmp prefers
+# an existing ${DEST} entry, so a stale copy would be re-compiled from itself
+# and never refreshed. -x keeps the extended capabilities (Tc, Smulx, Setulc...).
+if ! TERMINFO="${NCURSES}/share/terminfo" "${NCURSES}/bin/infocmp" -x wezterm >"${SRC}"; then
+  _log_err "Homebrew ncurses has no wezterm terminfo entry. Try 'brew upgrade ncurses', then re-run chezmoi apply."
+  exit 1
+fi
+
+# Apple's tic (ncurses 6.0) is used on purpose: a definition compiled by
+# Homebrew's 6.x tic can use a newer on-disk format that Apple's libncurses
+# cannot read. It cannot take the source on stdin, hence the temp file.
+if ! /usr/bin/tic -x -o "${DEST}" "${SRC}"; then
+  _log_err "/usr/bin/tic failed to compile the wezterm terminfo entry into ${DEST}."
+  exit 1
+fi
+
+# Read it back with Apple's infocmp. Apple's own database has no wezterm entry,
+# so this only succeeds if ${DEST} really holds a readable one.
+if ! TERMINFO="${DEST}" /usr/bin/infocmp wezterm >/dev/null; then
+  _log_err "/usr/bin/infocmp cannot read the wezterm entry that was just compiled into ${DEST}."
+  exit 1
+fi
+
+_log_ok "wezterm terminfo installed in ${DEST}."
+{{- end }}
