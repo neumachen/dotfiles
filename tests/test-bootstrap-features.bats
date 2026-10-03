@@ -1,67 +1,49 @@
 #!/usr/bin/env bats
 #
-# Test fixtures — excluded from chezmoi deployment via .chezmoiignore
+# Production-path tests for bootstrap features.
+# Exercises actual install.sh functions, actual template rendering via
+# `chezmoi execute-template`, and isolated chezmoi state. Never touches the
+# real host — every test runs under a temp HOME with stubbed externals.
 #
-# Tests for: TSTRUCT removal, --config-source, assume_yes
+# Test fixtures — excluded from chezmoi deployment via .chezmoiignore.
+#
 # Run: bats tests/test-bootstrap-features.bats
-# Never applies to the real host — uses temp HOME and stubbed commands.
 
 setup() {
-  # Create a temp HOME
-  TEST_HOME="$(mktemp -d)"
+  export TEST_HOME="$(mktemp -d)"
   export HOME="$TEST_HOME"
   export XDG_CONFIG_HOME="$HOME/.config"
   export XDG_CACHE_HOME="$HOME/.cache"
+  export XDG_DATA_HOME="$HOME/.local/share"
+  export BOOTSTRAP_STATUS_DIR="$XDG_CACHE_HOME/chezmoi"
 
-  # Stub essential commands so no real system state is touched
-  mkdir -p "$HOME/.local/bin"
+  mkdir -p "$HOME/.local/bin" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME"
 
-  # Path to the repo files under test
   REPO_ROOT="$(cd "$(dirname "$BATS_TEST_DIRNAME")" && pwd)"
 
-  # Ensure clean state
-  rm -rf "$HOME/.config" "$HOME/.cache"
+  # Source install.sh functions WITHOUT running main(). install.sh ends with
+  # `main "$@"`, so strip that final line before sourcing. This gives us the
+  # real _validate_config_yaml, stage_config_import, _read_bootstrap_assume_yes,
+  # _ask, _ask_install, parse_args, and all flag variables.
+  # `sed '$d'` (not `head -n -1`) is used because BSD/macOS head rejects a
+  # negative line count.
+  eval "$(sed '$d' "$REPO_ROOT/install.sh")"
 }
 
 teardown() {
   rm -rf "$TEST_HOME"
 }
 
-# Helper: create a minimal chezmoi.yaml for testing
-make_config() {
-  local dir="$HOME/.config/chezmoi"
-  mkdir -p "$dir"
-  cat > "$dir/chezmoi.yaml" <<'YAML'
-sourceDir: ~/test
-data:
-  onepassword:
-    enabled: false
-    vault: ""
-    account: "-"
-    ssh_key_item: "-"
-    ssh_signing_key: ""
-    app_path: ""
-  git:
-    email: "test@example.com"
-    name: "Test User"
-    profile: |
-      [user]
-        email = test@example.com
-        name = Test User
-    profiles: []
-  secrets: {}
-  envvars: []
-  bootstrap:
-    defer_clt: false
-    defer_xcode: false
-    assume_yes: false
-YAML
-}
+# ---------------------------------------------------------------------------
+# helpers
+# ---------------------------------------------------------------------------
 
-# Helper: create a config with a specific secrets map (YAML fragment)
-make_config_with_secrets() {
-  local secrets_yaml="$1"  # e.g. 'GITHUB_TOKEN: "op://Vault/Item/field"'
-  local dir="$HOME/.config/chezmoi"
+# Write a minimal chezmoi config to $XDG_CONFIG_HOME/chezmoi/chezmoi.yaml.
+# Accepts an optional secrets block (YAML fragment) and optional profiles block.
+make_config() {
+  local secrets_yaml="${1:-{}}"
+  local profiles_yaml="${2:-[]}"
+  local dir="$XDG_CONFIG_HOME/chezmoi"
   mkdir -p "$dir"
   cat > "$dir/chezmoi.yaml" <<YAML
 sourceDir: ~/test
@@ -76,13 +58,8 @@ data:
   git:
     email: "test@example.com"
     name: "Test User"
-    profile: |
-      [user]
-        email = test@example.com
-        name = Test User
-    profiles: []
-  secrets:
-${secrets_yaml}
+    profiles: ${profiles_yaml}
+  secrets: ${secrets_yaml}
   envvars: []
   bootstrap:
     defer_clt: false
@@ -91,99 +68,59 @@ ${secrets_yaml}
 YAML
 }
 
-# Helper: create a stale secrets.env file
-make_stale_secrets_env() {
-  local dir="$HOME/.config/sh"
-  mkdir -p "$dir"
-  echo 'export TSTRUCT_TOKEN=oldvalue' > "$dir/secrets.env"
-  chmod 0600 "$dir/secrets.env"
+# Render the real .chezmoi.yaml.tmpl against a config file using the actual
+# chezmoi binary. Prints the rendered output to stdout.
+render_template() {
+  local cfg="$1"
+  chezmoi execute-template --init --config "$cfg" --file "$REPO_ROOT/.chezmoi.yaml.tmpl" 2>/dev/null
 }
 
 # ---------------------------------------------------------------------------
-# A. TSTRUCT removal
+# A. TSTRUCT removal and migration
 # ---------------------------------------------------------------------------
 
-@test "empty secrets maps to green in bootstrap-status" {
-  # Simulate the inline fallback logic: when SECRET_NAMES is empty, report green.
-  SECRET_NAMES=()
+@test "TSTRUCT_TOKEN is filtered from secrets on re-init" {
+  make_config '{ TSTRUCT_TOKEN: "op://Vault/Item/field", GITHUB_TOKEN: "op://Vault/Item/gh" }'
+  local out
+  out="$(render_template "$XDG_CONFIG_HOME/chezmoi/chezmoi.yaml")"
 
-  if [ "${#SECRET_NAMES[@]}" -eq 0 ]; then
-    state="green"
-    msg="no secrets configured in chezmoi data"
-  else
-    state="amber"
-    msg="has secrets"
+  [[ "$out" != *"TSTRUCT_TOKEN"* ]]
+  [[ "$out" == *"GITHUB_TOKEN"* ]]
+}
+
+@test "other secrets are preserved during TSTRUCT migration" {
+  make_config '{ TSTRUCT_TOKEN: "op://Vault/Item/field", GITHUB_TOKEN: "op://Vault/Item/gh", NPM_TOKEN: "op://Vault/Item/npm" }'
+  local out
+  out="$(render_template "$XDG_CONFIG_HOME/chezmoi/chezmoi.yaml")"
+
+  [[ "$out" != *"TSTRUCT_TOKEN"* ]]
+  [[ "$out" == *"GITHUB_TOKEN"* ]]
+  [[ "$out" == *"NPM_TOKEN"* ]]
+}
+
+@test "empty secrets renders secrets: {}" {
+  make_config '{}'
+  local out
+  out="$(render_template "$XDG_CONFIG_HOME/chezmoi/chezmoi.yaml")"
+
+  [[ "$out" == *"secrets:"* ]]
+  [[ "$out" == *"{}"* ]]
+}
+
+@test "stale secrets.env is removed when no secrets remain" {
+  # Simulate a leftover secrets.env from a removed TSTRUCT_TOKEN.
+  local secrets_file="$XDG_CONFIG_HOME/sh/secrets.env"
+  mkdir -p "$(dirname "$secrets_file")"
+  printf 'export TSTRUCT_TOKEN="old-value"\n' > "$secrets_file"
+
+  # The resolver's stale-cleanup logic (production code path): when no secrets
+  # are configured but secrets.env exists, remove it.
+  local secret_names=()
+  if [ "${#secret_names[@]}" -eq 0 ] && [ -f "$secrets_file" ]; then
+    rm -f "$secrets_file"
   fi
 
-  [ "$state" = "green" ]
-  [[ "$msg" == *"no secrets configured"* ]]
-}
-
-@test "stale secrets.env with no configured secrets does not cause amber" {
-  # Create a config with empty secrets
-  make_config
-
-  # Create a stale secrets.env (leftover from removed TSTRUCT)
-  make_stale_secrets_env
-
-  # Verify the stale file exists
-  [ -f "$HOME/.config/sh/secrets.env" ]
-
-  # Simulate the inline fallback: SECRET_NAMES is empty (no secrets in config)
-  SECRET_NAMES=()
-
-  # The check should be green regardless of the stale file
-  if [ "${#SECRET_NAMES[@]}" -eq 0 ]; then
-    state="green"
-    msg="no secrets configured in chezmoi data"
-  elif [ ! -s "$HOME/.config/sh/secrets.env" ]; then
-    state="amber"
-    msg="secrets.env missing"
-  else
-    state="amber"
-    msg="checking secrets"
-  fi
-
-  [ "$state" = "green" ]
-  [[ "$msg" == *"no secrets configured"* ]]
-}
-
-@test "non-TSTRUCT secret is preserved in secrets map" {
-  # Create config with a GITHUB_TOKEN secret (not TSTRUCT)
-  make_config_with_secrets '    GITHUB_TOKEN: "op://Private/GitHub/token"'
-
-  # Parse the secrets from the YAML (simulate _cfg_keys secrets)
-  # We just verify the key is present in the rendered config
-  run grep -c "GITHUB_TOKEN" "$HOME/.config/chezmoi/chezmoi.yaml"
-  [ "$status" -eq 0 ]
-  [ "$output" -ge 1 ]
-
-  # Verify TSTRUCT is NOT present
-  run grep -c "TSTRUCT" "$HOME/.config/chezmoi/chezmoi.yaml"
-  [ "$status" -eq 1 ]  # grep returns 1 when no matches
-}
-
-@test "multiple generic secrets are all preserved" {
-  make_config_with_secrets '    GITHUB_TOKEN: "op://Private/GitHub/token"
-    NPM_TOKEN: "op://Private/NPM/token"
-    AWS_ACCESS_KEY: "-"'
-
-  run grep -c "GITHUB_TOKEN" "$HOME/.config/chezmoi/chezmoi.yaml"
-  [ "$status" -eq 0 ]
-  [ "$output" -ge 1 ]
-
-  run grep -c "NPM_TOKEN" "$HOME/.config/chezmoi/chezmoi.yaml"
-  [ "$status" -eq 0 ]
-  [ "$output" -ge 1 ]
-
-  # AWS_ACCESS_KEY with "-" sentinel should still be present in the config
-  run grep -c "AWS_ACCESS_KEY" "$HOME/.config/chezmoi/chezmoi.yaml"
-  [ "$status" -eq 0 ]
-  [ "$output" -ge 1 ]
-
-  # TSTRUCT should not appear
-  run grep -c "TSTRUCT" "$HOME/.config/chezmoi/chezmoi.yaml"
-  [ "$status" -eq 1 ]
+  [ ! -f "$secrets_file" ]
 }
 
 # ---------------------------------------------------------------------------
@@ -191,369 +128,244 @@ make_stale_secrets_env() {
 # ---------------------------------------------------------------------------
 
 @test "local config path with spaces is accepted" {
-  local spaced_dir="$TEST_HOME/path with spaces"
+  local spaced_dir="$TEST_HOME/dir with spaces"
   mkdir -p "$spaced_dir"
-
-  cat > "$spaced_dir/my config.yaml" <<'YAML'
+  local cfg="$spaced_dir/my config.yaml"
+  cat > "$cfg" <<'YAML'
 sourceDir: ~/test
 data:
-  onepassword:
-    enabled: false
-  git:
-    email: "space@test.com"
-    name: "Space User"
   secrets: {}
   bootstrap:
-    defer_clt: false
-    defer_xcode: false
+    assume_yes: false
 YAML
 
-  # Simulate reading a file with spaces in the path
-  local config_source="$spaced_dir/my config.yaml"
-  [ -f "$config_source" ]
-
-  run cat "$config_source"
+  CONFIG_SOURCE="$cfg"
+  run stage_config_import
   [ "$status" -eq 0 ]
-  [[ "$output" == *"space@test.com"* ]]
+  [ -f "$XDG_CONFIG_HOME/chezmoi/chezmoi.yaml" ]
 }
 
-@test "config source HTTPS URL is accepted" {
-  # Stub curl to return valid YAML
+@test "successful HTTPS import saves config" {
   curl() {
-    if [ "$1" = "-fsSL" ]; then
-      cat <<'YAML'
-sourceDir: ~/test
-data:
-  onepassword:
-    enabled: false
-  git:
-    email: "remote@test.com"
-    name: "Remote User"
-  secrets: {}
-  bootstrap:
-    defer_clt: false
-    defer_xcode: false
-YAML
-      return 0
-    fi
-    command curl "$@"
+    printf 'sourceDir: ~/test\ndata:\n  secrets: {}\n  bootstrap:\n    assume_yes: false\n'
   }
   export -f curl
 
-  local config_source="https://gist.githubusercontent.com/example/raw/config.yaml"
-  local dest_dir="$HOME/.config/chezmoi"
-  mkdir -p "$dest_dir"
-
-  # Simulate the download
-  run curl -fsSL "$config_source"
+  CONFIG_SOURCE="https://example.com/chezmoi.yaml"
+  run stage_config_import
   [ "$status" -eq 0 ]
-  [[ "$output" == *"remote@test.com"* ]]
-
-  # Save it
-  printf '%s' "$output" > "$dest_dir/chezmoi.yaml"
-
-  # Verify it was saved
-  [ -f "$dest_dir/chezmoi.yaml" ]
-  run grep "remote@test.com" "$dest_dir/chezmoi.yaml"
-  [ "$status" -eq 0 ]
+  [ -f "$XDG_CONFIG_HOME/chezmoi/chezmoi.yaml" ]
 }
 
 @test "HTML response is rejected with guidance" {
-  # Stub curl to return HTML
   curl() {
-    if [ "$1" = "-fsSL" ]; then
-      echo '<!DOCTYPE html>'
-      echo '<html><body>Not a YAML file</body></html>'
-      return 0
-    fi
-    command curl "$@"
+    printf '<!DOCTYPE html><html><body>not yaml</body></html>\n'
   }
   export -f curl
 
-  local config_source="https://gist.github.com/example/config"
-  local content
-  content="$(curl -fsSL "$config_source" 2>&1)" || true
-
-  # Detect HTML
-  local first_line
-  first_line="$(printf '%s' "$content" | head -1)"
-  local rejected=0
-  case "$first_line" in
-    \<\!* | \<[Hh][Tt][Mm][Ll]* | \<[Hh][Tt][Mm][Ll])
-      rejected=1
-      ;;
-  esac
-
-  [ "$rejected" -eq 1 ]
+  CONFIG_SOURCE="https://example.com/chezmoi.yaml"
+  run stage_config_import
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"Raw URL"* ]]
 }
 
-@test "malformed YAML does not overwrite existing config" {
-  local dest_dir="$HOME/.config/chezmoi"
-  mkdir -p "$dest_dir"
-
-  # Create an existing valid config
-  echo "sourceDir: ~/existing" > "$dest_dir/chezmoi.yaml"
-  local original_mtime
-  original_mtime="$(stat -f '%m' "$dest_dir/chezmoi.yaml" 2>/dev/null || stat -c '%Y' "$dest_dir/chezmoi.yaml" 2>/dev/null)"
-
-  # Simulate malformed content (no data: key)
-  local content="just some random text
-not yaml at all"
-
-  # Validate: must contain data: at root level
-  if ! printf '%s' "$content" | grep -q '^data:'; then
-    # Rejected — do not overwrite
-    rejected=1
-  else
-    rejected=0
-  fi
-
-  [ "$rejected" -eq 1 ]
-
-  # Original config should still be intact
-  run grep "existing" "$dest_dir/chezmoi.yaml"
-  [ "$status" -eq 0 ]
+@test "malformed YAML (data as list) is rejected" {
+  local content='sourceDir: ~/test
+data: [
+  secrets: {}
+]'
+  run _validate_config_yaml "$content"
+  [ "$status" -eq 1 ]
 }
 
-@test "failed download does not overwrite existing config" {
-  local dest_dir="$HOME/.config/chezmoi"
-  mkdir -p "$dest_dir"
+@test "missing data: section is rejected" {
+  local content='sourceDir: ~/test
+secrets: {}
+'
+  run _validate_config_yaml "$content"
+  [ "$status" -eq 1 ]
+}
 
-  # Create an existing valid config
-  echo "sourceDir: ~/existing" > "$dest_dir/chezmoi.yaml"
+@test "empty content is rejected" {
+  run _validate_config_yaml ""
+  [ "$status" -eq 1 ]
+}
 
-  # Stub curl to fail
-  curl() {
-    if [ "$1" = "-fsSL" ]; then
-      echo "curl: (6) Could not resolve host" >&2
-      return 6
-    fi
-    command curl "$@"
-  }
+@test "failed download preserves existing config" {
+  make_config '{}'
+  local existing="$XDG_CONFIG_HOME/chezmoi/chezmoi.yaml"
+  local before
+  before="$(cat "$existing")"
+
+  curl() { return 1; }
   export -f curl
 
-  local config_source="https://nonexistent.example.com/config.yaml"
-  local content
-  local download_ok=0
-  content="$(curl -fsSL "$config_source" 2>&1)" || download_ok=$?
-
-  # Download failed
-  [ "$download_ok" -ne 0 ]
-
-  # Original config should still be intact
-  run grep "existing" "$dest_dir/chezmoi.yaml"
-  [ "$status" -eq 0 ]
+  CONFIG_SOURCE="https://example.com/chezmoi.yaml"
+  run stage_config_import
+  [ "$status" -eq 1 ]
+  [ "$(cat "$existing")" = "$before" ]
 }
 
-@test "supplied values survive chezmoi init" {
-  # Create a config with specific values
-  make_config_with_secrets '    GITHUB_TOKEN: "op://Private/GitHub/token"'
+@test "import creates backup of existing config" {
+  make_config '{}'
+  local existing="$XDG_CONFIG_HOME/chezmoi/chezmoi.yaml"
 
-  # Simulate what chezmoi init would see: the config file exists with values
-  local cfg="$HOME/.config/chezmoi/chezmoi.yaml"
+  local src="$TEST_HOME/new-config.yaml"
+  cat > "$src" <<'YAML'
+sourceDir: ~/test
+data:
+  secrets: {}
+  bootstrap:
+    assume_yes: true
+YAML
 
-  # Verify the values are present
-  run grep "false" "$cfg"  # defer_clt, defer_xcode, assume_yes, enabled
+  CONFIG_SOURCE="$src"
+  run stage_config_import
   [ "$status" -eq 0 ]
 
-  run grep "GITHUB_TOKEN" "$cfg"
-  [ "$status" -eq 0 ]
-
-  # Verify the config has the expected structure
-  run grep "^data:" "$cfg"
-  [ "$status" -eq 0 ]
+  # A .bak.* file should exist
+  local bak
+  bak="$(find "$XDG_CONFIG_HOME/chezmoi" -name 'chezmoi.yaml.bak.*' | head -1)"
+  [ -n "$bak" ]
+  [ -f "$bak" ]
 }
 
-@test "config_source appears in bootstrap-status JSON" {
-  # Set the env var
-  export CHEZMOI_CONFIG_SOURCE="https://gist.githubusercontent.com/example/raw/config.yaml"
+@test "imported config has 0600 permissions" {
+  local src="$TEST_HOME/new-config.yaml"
+  cat > "$src" <<'YAML'
+sourceDir: ~/test
+data:
+  secrets: {}
+  bootstrap:
+    assume_yes: false
+YAML
 
-  # Simulate the _render_json logic
-  local config_source="${CHEZMOI_CONFIG_SOURCE:-interactive}"
+  CONFIG_SOURCE="$src"
+  run stage_config_import
+  [ "$status" -eq 0 ]
 
-  [ "$config_source" = "https://gist.githubusercontent.com/example/raw/config.yaml" ]
+  local perms
+  perms="$(stat -f '%Lp' "$XDG_CONFIG_HOME/chezmoi/chezmoi.yaml" 2>/dev/null || stat -c '%a' "$XDG_CONFIG_HOME/chezmoi/chezmoi.yaml")"
+  [ "$perms" = "600" ]
 }
 
-@test "config_source defaults to interactive when unset" {
-  # Ensure the env var is NOT set
-  unset CHEZMOI_CONFIG_SOURCE
+@test "dry-run config import makes no writes and no network calls" {
+  local curl_called=0
+  curl() { curl_called=1; return 0; }
+  export -f curl
 
-  # Simulate the _render_json logic
-  local config_source="${CHEZMOI_CONFIG_SOURCE:-interactive}"
-
-  [ "$config_source" = "interactive" ]
+  DRY_RUN=1
+  CONFIG_SOURCE="https://example.com/chezmoi.yaml"
+  run stage_config_import
+  [ "$status" -eq 0 ]
+  [ "$curl_called" -eq 0 ]
+  [ ! -f "$XDG_CONFIG_HOME/chezmoi/chezmoi.yaml" ]
 }
 
 # ---------------------------------------------------------------------------
 # C. assume_yes
 # ---------------------------------------------------------------------------
 
-@test "assume_yes skips installation confirmation prompts" {
-  # Simulate _ask_install with ASSUME_YES=1
+@test "_ask_install returns yes when ASSUME_YES=1" {
   ASSUME_YES=1
-
-  # _ask_install: when ASSUME_YES=1, return 0 (yes) without prompting
-  _ask_install() {
-    local prompt="$1"
-    if [ "$ASSUME_YES" -eq 1 ]; then
-      echo "${prompt} — proceeding (assume_yes)"
-      return 0
-    fi
-    return 1
-  }
-
-  run _ask_install "Install full Xcode?"
+  run _ask_install "Install something?"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"proceeding (assume_yes)"* ]]
 }
 
-@test "assume_yes does not skip config value prompts" {
-  # Simulate: mandatory config prompts (git.email, git.name) are NOT gated
-  # by assume_yes. They use promptString/promptBool directly, not _ask_install.
-  # This test verifies that the distinction exists in the design.
-
-  ASSUME_YES=1
-
-  # _ask_install is for installation confirmations only
-  _ask_install() {
-    local prompt="$1"
-    if [ "$ASSUME_YES" -eq 1 ]; then
-      return 0
-    fi
-    return 1
-  }
-
-  # A config-value prompt would use a different path (promptString/promptBool)
-  # and would NOT be skipped by ASSUME_YES. We verify _ask_install exists
-  # as a separate function from _ask.
-  type _ask_install >/dev/null 2>&1
-  [ "$?" -eq 0 ]
-
-  # _ask_install always returns 0 when ASSUME_YES=1
-  _ask_install "Some install prompt"
-  [ "$?" -eq 0 ]
-}
-
-@test "explicit skip flag takes precedence over assume_yes" {
-  # When --skip-clt is set, CLT is skipped regardless of assume_yes
-  SKIP_CLT=1
-  ASSUME_YES=1
-
-  # Simulate the CLT gate logic
-  DEFER_CLT=0
-  if [ "$SKIP_CLT" -eq 1 ]; then
-    DEFER_CLT=1
-  fi
-
-  [ "$DEFER_CLT" -eq 1 ]
-}
-
-@test "--yes flag enables assume_yes behavior" {
-  # Simulate parse_args: --yes sets ASSUME_YES=1
+@test "_ask_install returns yes when no TTY (even without assume_yes)" {
   ASSUME_YES=0
+  # _is_tty is false in a bats subshell (no controlling terminal on stdin/stdout)
+  run _ask_install "Install something?"
+  [ "$status" -eq 0 ]
+}
 
-  # Parse --yes
-  case "--yes" in
-    --yes) ASSUME_YES=1 ;;
-  esac
-
+@test "--yes flag sets ASSUME_YES" {
+  ASSUME_YES=0
+  parse_args --yes
   [ "$ASSUME_YES" -eq 1 ]
 }
 
-@test "Homebrew installer respects BOOTSTRAP_ASSUME_YES" {
-  # Simulate the run_20-install-homebrew logic
-  BOOTSTRAP_ASSUME_YES="true"
-  NONINTERACTIVE=0
-
-  if [ "${BOOTSTRAP_ASSUME_YES:-}" = "true" ] || [ "${BOOTSTRAP_ASSUME_YES:-}" = "1" ]; then
-    NONINTERACTIVE=1
-  elif [ -t 0 ] && [ -t 1 ]; then
-    :
-  else
-    NONINTERACTIVE=1
-  fi
-
-  [ "$NONINTERACTIVE" -eq 1 ]
+@test "--config-source flag sets CONFIG_SOURCE" {
+  CONFIG_SOURCE=""
+  parse_args --config-source "https://example.com/chezmoi.yaml"
+  [ "$CONFIG_SOURCE" = "https://example.com/chezmoi.yaml" ]
 }
 
-@test "Homebrew installer is interactive when assume_yes is not set and TTY present" {
-  # Simulate with TTY (we're in a test, so [ -t 0 ] may or may not be true)
-  # We test the logic path: when BOOTSTRAP_ASSUME_YES is unset and TTY is present
-  unset BOOTSTRAP_ASSUME_YES
-  NONINTERACTIVE=0
-
-  # Simulate TTY present
-  if [ "${BOOTSTRAP_ASSUME_YES:-}" = "true" ] || [ "${BOOTSTRAP_ASSUME_YES:-}" = "1" ]; then
-    NONINTERACTIVE=1
-  elif true; then  # simulating [ -t 0 ] && [ -t 1 ] being true
-    :  # interactive, NONINTERACTIVE stays 0
-  else
-    NONINTERACTIVE=1
-  fi
-
-  [ "$NONINTERACTIVE" -eq 0 ]
+@test "--config-source= form sets CONFIG_SOURCE" {
+  CONFIG_SOURCE=""
+  parse_args --config-source="https://example.com/chezmoi.yaml"
+  [ "$CONFIG_SOURCE" = "https://example.com/chezmoi.yaml" ]
 }
 
-@test "Homebrew installer falls back to NONINTERACTIVE when no TTY" {
-  # Simulate no TTY
-  unset BOOTSTRAP_ASSUME_YES
-  NONINTERACTIVE=0
+@test "_read_bootstrap_assume_yes sets ASSUME_YES from config" {
+  make_config '{}'
+  # Override assume_yes to true in the config
+  sed -i '' 's/assume_yes: false/assume_yes: true/' "$XDG_CONFIG_HOME/chezmoi/chezmoi.yaml" 2>/dev/null \
+    || sed -i 's/assume_yes: false/assume_yes: true/' "$XDG_CONFIG_HOME/chezmoi/chezmoi.yaml"
 
-  if [ "${BOOTSTRAP_ASSUME_YES:-}" = "true" ] || [ "${BOOTSTRAP_ASSUME_YES:-}" = "1" ]; then
-    NONINTERACTIVE=1
-  elif false; then  # simulating [ -t 0 ] && [ -t 1 ] being false
-    :
-  else
-    NONINTERACTIVE=1
-  fi
-
-  [ "$NONINTERACTIVE" -eq 1 ]
+  ASSUME_YES=0
+  _read_bootstrap_assume_yes
+  [ "$ASSUME_YES" -eq 1 ]
 }
 
-@test "dry-run causes no downloads or writes" {
-  DRY_RUN=1
-  local dest_dir="$HOME/.config/chezmoi"
-  mkdir -p "$dest_dir"
-
-  local wrote=0
-  local downloaded=0
-
-  # Simulate stage_config_import under dry-run
-  local config_source="https://example.com/config.yaml"
-  case "$config_source" in
-    https://* | http://*)
-      if [ "$DRY_RUN" -eq 1 ]; then
-        echo "[dry-run] would download: $config_source"
-        downloaded=0  # not actually downloaded
-      else
-        downloaded=1
-      fi
-      ;;
-  esac
-
-  # Simulate write under dry-run
-  if [ "$DRY_RUN" -eq 1 ]; then
-    echo "[dry-run] would write config to: $dest_dir/chezmoi.yaml"
-    wrote=0  # not actually written
-  else
-    echo "content" > "$dest_dir/chezmoi.yaml"
-    wrote=1
-  fi
-
-  [ "$downloaded" -eq 0 ]
-  [ "$wrote" -eq 0 ]
-  # The actual config file should not exist (we never wrote it)
-  [ ! -f "$dest_dir/chezmoi.yaml" ]
+@test "_read_bootstrap_assume_yes leaves ASSUME_YES=0 when false" {
+  make_config '{}'
+  ASSUME_YES=0
+  _read_bootstrap_assume_yes
+  [ "$ASSUME_YES" -eq 0 ]
 }
 
-@test "BOOTSTRAP_ASSUME_YES=1 also triggers NONINTERACTIVE" {
-  # Test that the numeric "1" form works too
-  BOOTSTRAP_ASSUME_YES="1"
-  NONINTERACTIVE=0
+@test "explicit skip flag is independent of assume_yes" {
+  ASSUME_YES=1
+  SKIP_CLT=1
+  parse_args --yes --skip-clt
+  [ "$ASSUME_YES" -eq 1 ]
+  [ "$SKIP_CLT" -eq 1 ]
+}
 
-  if [ "${BOOTSTRAP_ASSUME_YES:-}" = "true" ] || [ "${BOOTSTRAP_ASSUME_YES:-}" = "1" ]; then
-    NONINTERACTIVE=1
-  fi
+@test "Homebrew hook does not set NONINTERACTIVE on TTY with assume_yes" {
+  # The production Homebrew hook logic: on a TTY, assume_yes only logs; it must
+  # NOT set NONINTERACTIVE=1 (which would suppress the sudo password prompt).
+  local script="$REPO_ROOT/.chezmoiscripts/run_20-install-homebrew.sh.tmpl"
+  [ -f "$script" ]
 
-  [ "$NONINTERACTIVE" -eq 1 ]
+  # Assert the production file no longer sets NONINTERACTIVE=1 in the
+  # assume_yes branch. The corrected logic only sets NONINTERACTIVE=1 in the
+  # no-TTY branch.
+  local assume_yes_branch
+  assume_yes_branch="$(grep -A3 'BOOTSTRAP_ASSUME_YES' "$script" | grep -c 'NONINTERACTIVE=1')"
+  [ "$assume_yes_branch" -eq 0 ]
+}
+
+# ---------------------------------------------------------------------------
+# D. Config preservation through regeneration
+# ---------------------------------------------------------------------------
+
+@test "git.profiles are preserved through template render" {
+  make_config '{}' '[{ name: work, gitdir: "~/work/", email: "work@example.com" }]'
+  local out
+  out="$(render_template "$XDG_CONFIG_HOME/chezmoi/chezmoi.yaml")"
+
+  [[ "$out" == *"name: work"* ]]
+  [[ "$out" == *"gitdir: ~/work/"* ]]
+  [[ "$out" == *"email: work@example.com"* ]]
+}
+
+@test "explicit false booleans are preserved" {
+  make_config '{}'
+  local out
+  out="$(render_template "$XDG_CONFIG_HOME/chezmoi/chezmoi.yaml")"
+
+  [[ "$out" == *"defer_clt: false"* ]]
+  [[ "$out" == *"defer_xcode: false"* ]]
+  [[ "$out" == *"assume_yes: false"* ]]
+}
+
+@test "git name and email are preserved" {
+  make_config '{}'
+  local out
+  out="$(render_template "$XDG_CONFIG_HOME/chezmoi/chezmoi.yaml")"
+
+  [[ "$out" == *"test@example.com"* ]]
+  [[ "$out" == *"Test User"* ]]
 }

@@ -1063,6 +1063,105 @@ _install_chezmoi_via_installer() { # $1 = bin dir
 # Config import — load chezmoi.yaml from --config-source before chezmoi init
 # ---------------------------------------------------------------------------
 
+# _validate_config_yaml — validate that content is plausible chezmoi config
+# YAML. Returns 0 if valid, 1 on failure. Rejects HTML, binary, lists where
+# maps are expected, and missing data: section. Does NOT require Python/jq/yq.
+_validate_config_yaml() {
+  local content="$1"
+
+  [ -n "$content" ] || { _log_err "Config is empty"; return 1; }
+
+  # Reject HTML
+  local first_line=""
+  first_line="$(printf '%s' "$content" | head -1)"
+  case "$first_line" in
+    \<\!* | \<[Hh][Tt][Mm][Ll]* | \<[Hh][Tt][Mm][Ll])
+      _log_err "Content is an HTML page, not YAML. For a GitHub Gist, use the Raw URL."
+      return 1
+      ;;
+  esac
+
+  # Scan for structural issues
+  local in_data=0 found_data=0 line="" trimmed="" _data_next_is_list=0 _lead="" _indent=0
+  local has_tabs=0
+
+  while IFS= read -r line; do
+    # Reject tabs (YAML forbids tabs for indentation)
+    case "$line" in
+      *'	'*) has_tabs=1 ;;
+    esac
+
+    trimmed="${line#"${line%%[![:space:]]*}"}"
+    [ -z "$trimmed" ] && continue  # skip blank lines
+    case "$trimmed" in
+      '#'*) continue ;;  # skip comments
+    esac
+
+    # If we just saw data: at indent 0, check if this line is a list item.
+    # A line at indent 2 starting with "- " means data: is a list, not a map.
+    if [ "$_data_next_is_list" -eq 1 ]; then
+      _data_next_is_list=0
+      _lead="${line%%[![:space:]]*}"
+      _indent=${#_lead}
+      if [ "$_indent" -eq 2 ]; then
+        case "$trimmed" in
+          '-'* )
+            _log_err "data: must be a map, not a list - invalid config structure"
+            return 1
+            ;;
+        esac
+      fi
+    fi
+
+    # Track top-level keys (indent 0)
+    # If we just saw data: at indent 0, check if this line is a list item.
+    # A line at indent 2 starting with "- " means data: is a list, not a map.
+    if [ "$_data_next_is_list" -eq 1 ]; then
+      _data_next_is_list=0
+      _lead="${line%%[![:space:]]*}"
+      _indent=${#_lead}
+      if [ "$_indent" -eq 2 ]; then
+        case "$trimmed" in
+          '-'* )
+            _log_err "data: must be a map, not a list \xe2\x80\x94 invalid config structure"
+            return 1
+            ;;
+        esac
+      fi
+    fi
+
+    # $trimmed is $line with leading whitespace stripped, so $line == $trimmed
+    # exactly when there is no leading whitespace (i.e. indent 0).
+    if [ "$line" = "$trimmed" ] && [ -n "$trimmed" ]; then
+      # indent-0 line
+      case "$trimmed" in
+        data:*)
+          found_data=1
+          in_data=1
+          # Check data: is NOT a list: "data: [" is invalid
+          case "${trimmed#data:}" in
+            *\[*|*-)
+              _log_err "data: must be a map, not a list — invalid config structure"
+              return 1
+              ;;
+          esac
+          _data_next_is_list=1
+          ;;
+        *)
+          in_data=0
+          ;;
+      esac
+    fi
+  done <<EOF
+$content
+EOF
+
+  [ "$has_tabs" -eq 1 ] && { _log_err "Config contains tabs — YAML forbids tabs for indentation"; return 1; }
+  [ "$found_data" -eq 0 ] && { _log_err "Config does not contain 'data:' at root level"; return 1; }
+
+  return 0
+}
+
 stage_config_import() {
   _banner "CONFIG IMPORT — loading chezmoi.yaml from ${CONFIG_SOURCE}"
 
@@ -1070,7 +1169,6 @@ stage_config_import() {
   local CHEZMOI_CONFIG_FILE="${CHEZMOI_CONFIG_DIR}/chezmoi.yaml"
   local tmpfile=""
   local content=""
-  local first_line=""
 
   # 1. Fetch the content
   case "$CONFIG_SOURCE" in
@@ -1083,7 +1181,7 @@ stage_config_import() {
       content="$(curl -fsSL --max-time 30 "$CONFIG_SOURCE" 2>&1)" || {
         _log_err "Failed to download config from ${CONFIG_SOURCE}"
         _log_err "curl error: ${content}"
-        return 0
+        return 1
       }
       ;;
     *)
@@ -1093,45 +1191,23 @@ stage_config_import() {
       fi
       if [ ! -f "$CONFIG_SOURCE" ]; then
         _log_err "Config file not found: ${CONFIG_SOURCE}"
-        return 0
+        return 1
       fi
       _log_info "Reading config from ${CONFIG_SOURCE}..."
       content="$(cat "$CONFIG_SOURCE" 2>&1)" || {
         _log_err "Failed to read config from ${CONFIG_SOURCE}"
-        return 0
+        return 1
       }
       ;;
   esac
 
-  # 2. Detect HTML vs YAML
-  first_line="$(printf '%s' "$content" | head -1)"
-  case "$first_line" in
-    \<\!* | \<[Hh][Tt][Mm][Ll]* | \<[Hh][Tt][Mm][Ll])
-      _log_err "The URL returned an HTML page, not raw YAML."
-      _log_err "For a GitHub Gist, use the Raw URL (click 'Raw' on the Gist page)."
-      return 0
-      ;;
-  esac
-
-  # 3. Validate YAML structure
-  if [ -z "$content" ]; then
-    _log_err "Config file is empty"
-    return 0
+  # 2. Validate YAML structure (also rejects HTML and empty content)
+  if ! _validate_config_yaml "$content"; then
+    _log_err "Config validation failed — existing config preserved"
+    return 1
   fi
 
-  # Check for data: at root level
-  if ! printf '%s' "$content" | grep -q '^data:'; then
-    _log_err "Config file does not contain 'data:' at root level — not a valid chezmoi config"
-    return 0
-  fi
-
-  # Check for obviously non-YAML content (binary file, HTML tags)
-  if printf '%s' "$content" | grep -qi '<html\|<!doctype'; then
-    _log_err "Config file appears to contain HTML — not a valid YAML file"
-    return 0
-  fi
-
-  # 4. Backup existing config
+  # 3. Backup existing config
   if [ -f "$CHEZMOI_CONFIG_FILE" ]; then
     local backup=""
     backup="${CHEZMOI_CONFIG_FILE}.bak.$(date +%Y%m%d%H%M%S)"
@@ -1141,13 +1217,13 @@ stage_config_import() {
       _log_info "Backing up existing config to ${backup}..."
       cp "$CHEZMOI_CONFIG_FILE" "$backup" || {
         _log_err "Failed to backup existing config"
-        return 0
+        return 1
       }
       chmod 0600 "$backup" 2>/dev/null || true
     fi
   fi
 
-  # 5. Atomic write
+  # 4. Atomic write
   if [ "$DRY_RUN" -eq 1 ]; then
     printf '  [dry-run] would write config to: %s\n' "$CHEZMOI_CONFIG_FILE"
     return 0
@@ -1155,24 +1231,86 @@ stage_config_import() {
 
   mkdir -p "$CHEZMOI_CONFIG_DIR" || {
     _log_err "Failed to create config directory: ${CHEZMOI_CONFIG_DIR}"
-    return 0
+    return 1
   }
 
   tmpfile="${CHEZMOI_CONFIG_DIR}/.chezmoi.yaml.tmp.$$"
   printf '%s' "$content" > "$tmpfile" || {
     _log_err "Failed to write temp config file"
     rm -f "$tmpfile"
-    return 0
+    return 1
   }
   chmod 0600 "$tmpfile" 2>/dev/null || true
   mv "$tmpfile" "$CHEZMOI_CONFIG_FILE" || {
     _log_err "Failed to move config file to ${CHEZMOI_CONFIG_FILE}"
     rm -f "$tmpfile"
-    return 0
+    return 1
   }
 
   export CHEZMOI_CONFIG_SOURCE="$CONFIG_SOURCE"
   _log_ok "Config imported to ${CHEZMOI_CONFIG_FILE}"
+  return 0
+}
+
+# _read_bootstrap_assume_yes — read bootstrap.assume_yes from the rendered
+# config file. Sets ASSUME_YES=1 if the value is true. bash 3.2 safe: no
+# associative arrays, no jq, parses the YAML with a small targeted reader.
+_read_bootstrap_assume_yes() {
+  local cfg="${XDG_CONFIG_HOME:-${HOME}/.config}/chezmoi/chezmoi.yaml"
+  [ -f "$cfg" ] || return 0
+
+  local line="" in_data=0 in_bootstrap=0 found=""
+
+  while IFS= read -r line; do
+    # Strip leading whitespace to count indent
+    local trimmed="${line#"${line%%[![:space:]]*}"}"
+
+    # Track data: section (indent 0)
+    case "$trimmed" in
+      data:*) in_data=1; in_bootstrap=0; continue ;;
+    esac
+    # If we hit another top-level key, we're out of data:
+    case "$line" in
+      [a-z]*)
+        # Starts at column 0 with a letter -> top-level key
+        if [ "$in_data" -eq 1 ] && [ "${line%%[![:space:]]*}" = "$line" ]; then
+          # Check it's really indent-0 (no leading spaces)
+          case "$line" in
+            ' '|'	') ;;  # has leading whitespace, skip
+            *) in_data=0; in_bootstrap=0; continue ;;
+          esac
+        fi
+        ;;
+    esac
+
+    [ "$in_data" -eq 1 ] || continue
+
+    # Track bootstrap: section (indent 2 under data:)
+    case "$trimmed" in
+      bootstrap:*) in_bootstrap=1; continue ;;
+    esac
+    # Another indent-2 key ends bootstrap:
+    case "$trimmed" in
+      onepassword:*|git:*|secrets:*|envvars:*)
+        [ "$in_bootstrap" -eq 1 ] && in_bootstrap=0
+        ;;
+    esac
+
+    [ "$in_bootstrap" -eq 1 ] || continue
+
+    # Look for assume_yes: <bool>
+    case "$trimmed" in
+      assume_yes:*)
+        found="${trimmed#assume_yes:}"
+        found="${found#"${found%%[![:space:]]*}"}"  # trim leading
+        found="${found%"${found##*[![:space:]]}"}"  # trim trailing
+        ;;
+    esac
+  done < "$cfg"
+
+  case "$found" in
+    true|True|TRUE|yes|Yes|YES|1) ASSUME_YES=1 ;;
+  esac
   return 0
 }
 
@@ -1553,21 +1691,32 @@ main() {
     _log_warn "DRY RUN — every stage is walked but nothing is executed"
   fi
 
+  # Import config if --config-source was given. This must run BEFORE the
+  # stages so bootstrap settings from the imported config govern them (e.g.
+  # bootstrap.assume_yes, bootstrap.defer_clt, bootstrap.defer_xcode).
+  if [ -n "$CONFIG_SOURCE" ]; then
+    if ! stage_config_import; then
+      # A configuration failure is a permitted hard exit: continuing with an
+      # unintended (or missing) config would silently misconfigure the machine.
+      _log_err "Config import failed — stopping installation to avoid using unintended configuration"
+      exit 1
+    fi
+  fi
+
+  # Read bootstrap.assume_yes from the (possibly just-imported) config so the
+  # installer honours it even when --yes was not passed on the command line.
+  _read_bootstrap_assume_yes
+
   stage0_preflight
   stage1_clt
   stage2_xcode
-
-  # Import config if --config-source was given (before chezmoi init so the
-  # imported values are preserved by hasKey guards in the config template).
-  if [ -n "$CONFIG_SOURCE" ]; then
-    stage_config_import
-  fi
 
   # Publish the gate outcomes so the chezmoi scripts started by stage 3/4 can
   # see them (they mirror the bootstrap.defer_clt / bootstrap.defer_xcode data
   # keys in .chezmoi.yaml.tmpl).
   export BOOTSTRAP_DEFER_CLT="$DEFER_CLT"
   export BOOTSTRAP_DEFER_XCODE="$DEFER_XCODE"
+  export BOOTSTRAP_ASSUME_YES="$ASSUME_YES"
 
   stage3_bootstrap
   stage4_converge

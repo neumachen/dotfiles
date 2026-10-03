@@ -108,7 +108,7 @@ Verbatim from `install.sh --help`:
 
 | Flag | Effect |
 | --- | --- |
-| `--yes` | skip installation confirmations (same as `bootstrap.assume_yes=true`). Missing config values still prompt. Explicit skip/defer settings take precedence |
+| `--yes` | skip installation confirmations (same as `bootstrap.assume_yes=true`). Missing config values still prompt. Explicit `--skip-clt`/`--skip-xcode` take precedence. |
 | `--reprompt` | pass `--prompt` to `chezmoi init` so every `prompt*Once` value is re-asked. **This is the recovery path for a poisoned `~/.config/chezmoi/chezmoi.yaml`.** |
 | `--config-source URL\|PATH` | load `chezmoi.yaml` from an HTTPS URL (raw content) or local file path before `chezmoi init`. A GitHub Gist HTML page is rejected with guidance to use the Raw URL. |
 | `--max-passes N` | max `chezmoi apply` passes in the converge loop (default 5; `0` skips the loop and goes straight to the report). `--max-passes=N` also accepted |
@@ -135,12 +135,17 @@ When `assume_yes` is active, the installer skips confirmation prompts for:
 - Xcode installation and license acceptance
 
 It does **not** skip:
-- Missing configuration value prompts (git email, 1Password vault, etc.)
+- Missing configuration value prompts (git email, 1Password vault, etc.) —
+  these **always** prompt regardless of `assume_yes`
 - Password entry (`sudo`)
 - 1Password authentication and approval prompts
 - App Store sign-in
 - macOS approval dialogs (driver extensions, accessibility, etc.)
 - The converge-loop "fix and press Enter" prompt
+
+On a TTY, Homebrew's "Press RETURN" confirmation is still shown (you can press
+it yourself), and password entry is preserved. Without a TTY,
+`NONINTERACTIVE=1` is used, which requires passwordless `sudo`.
 
 ### Importing a prepared configuration (`--config-source`)
 
@@ -159,15 +164,18 @@ Rules:
 - The content must be raw YAML, not an HTML page. For a GitHub Gist, click
   **Raw** and copy that URL — the gist page URL (`gist.github.com/...`) will
   be rejected with actionable guidance.
-- The file must contain a `data:` section. Malformed YAML or a download failure
-  never overwrites an existing config.
+- The file must contain a `data:` section. Validation rejects HTML, malformed
+  YAML, tab indentation, and lists where maps are expected.
+- A failed import (download, validation, backup, or write error) **stops the
+  installer with exit 1** — it never silently continues, and an existing
+  config is left untouched.
 - An existing `chezmoi.yaml` is backed up to `chezmoi.yaml.bak.<timestamp>`
   (mode 0600) before the new one is atomically installed.
+- The import runs **before** the prerequisite stages (CLT, Xcode), so
+  `bootstrap` settings take effect on those stages.
 - After import, `chezmoi init` preserves supplied values via its `hasKey`
   guards and only prompts for missing required/configurable values.
 - `--reprompt` still re-asks every promptable value after import.
-- The import runs early enough that `bootstrap` settings affect prerequisite
-  and installation stages.
 - Supplied `false` booleans, custom `secrets` entries, and `git.profiles` are
   preserved across `chezmoi init`.
 
@@ -214,7 +222,7 @@ Exit codes:
 | Code | Meaning |
 | --- | --- |
 | `0` | finished — possibly with deferred items still listed in the postflight report |
-| `1` | unsupported OS, `bash` absent, or chezmoi could not be fetched (no `curl`, `wget` or `brew`) |
+| `1` | unsupported OS, `bash` absent, chezmoi could not be fetched (no `curl`, `wget` or `brew`), **or config import failed (`--config-source` download/validation/backup/write error)** |
 | `2` | usage/flag error, **or** a failed form-2 self-heal: `bash` missing, the re-fetch failed, or the fetched payload failed its sanity check |
 | `130` | interrupted (Ctrl-C or SIGTERM) — re-run to resume; nothing is broken |
 
@@ -473,11 +481,13 @@ data:
       [user]
         email = <email>
         name = <name>
-    profiles: []
+    profiles: []               # directory-specific git profiles; preserved from
+                               # existing config. Each entry: {name, gitdir, email?, signingKey?}
   secrets:
     <NAME>: <op-reference>    # arbitrary map of ENV_VAR → op://vault/item/field
                                # e.g., GITHUB_TOKEN: op://Private/GitHub/token
                                # "-" to skip, absent to not ask
+                               # TSTRUCT_TOKEN is dropped on re-init (legacy)
   envvars: []                  # LEGACY list of "NAME=value"
   bootstrap:
     defer_clt: <bool>
@@ -590,6 +600,7 @@ amber  secrets  no .secrets configured — legacy .envvars still holds 1 entry;
 | `secrets` red | `~/.config/sh/secrets.env` is missing, not `0600`, or stale | unlock 1Password, re-run `chezmoi apply` |
 | `exec bash sh` / `cannot open sh` when running the one-liner, or prompts are skipped without asking | an older `install.sh` whose re-exec guard assumed `$0` is a file; or stdin is a pipe with no `/dev/tty` | use form 3 (download then run), or re-run `install.sh --reprompt` |
 | The fetched copy was rejected as invalid (empty, or missing the content marker) | a proxy or CDN returned an error page instead of the script | retry, or use form 3 to download it and inspect it before running |
+| Config import failed (HTML, malformed YAML, download error) | `--config-source` validation failed — existing config preserved, installer exits 1 | check the URL/content, fix the YAML, retry |
 | What is outstanding right now? | — | `bootstrap-status` (read-only) |
 
 **Re-running a single script.** `chezmoi state delete-bucket` takes only

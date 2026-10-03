@@ -113,6 +113,10 @@
 {{- if and (hasKey . "envvars") .envvars -}}
   {{- $envvars = .envvars -}}
 {{- end -}}
+{{- $gitProfiles := list -}}
+{{- if and (hasKey . "git") (hasKey .git "profiles") .git.profiles -}}
+  {{- $gitProfiles = .git.profiles -}}
+{{- end -}}
 {{- $deferCLT := false -}}
 {{- if and (hasKey . "bootstrap") (hasKey .bootstrap "defer_clt") -}}
   {{- $deferCLT = .bootstrap.defer_clt -}}
@@ -170,22 +174,40 @@ data:
     #       email: work@example.com
     #       # name: Optional (inherits from git.name if omitted)
     #       # signingKey: Optional (inherits from onepassword.ssh_signing_key if omitted)
+{{- if $gitProfiles }}
+    profiles:
+{{- range $gitProfiles }}
+    - name: {{ .name }}
+    {{- if hasKey . "gitdir" }}
+      gitdir: {{ .gitdir }}
+    {{- end }}
+    {{- if hasKey . "email" }}
+      email: {{ .email }}
+    {{- end }}
+    {{- if hasKey . "signingKey" }}
+      signingKey: {{ .signingKey }}
+    {{- end }}
+{{- end }}
+{{- else }}
     profiles: []
+{{- end }}
   secrets:
 {{- $hasSecrets := false -}}
 {{- if hasKey . "secrets" -}}
   {{- range $name, $ref := .secrets -}}
-    {{- if and $ref (ne (trim $ref) "") -}}
+    {{- if and $ref (ne (trim $ref) "") (ne $name "TSTRUCT_TOKEN") -}}
       {{- $hasSecrets = true -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}
 {{- if $hasSecrets }}
 {{- range $name, $ref := .secrets }}
+{{- if ne $name "TSTRUCT_TOKEN" -}}
 {{- $ref = trim $ref }}
 {{- if ne $ref "" }}
     {{ $name }}: {{ $ref | quote }}
 {{- end }}
+{{- end -}}
 {{- end }}
 {{- else }}
     {}

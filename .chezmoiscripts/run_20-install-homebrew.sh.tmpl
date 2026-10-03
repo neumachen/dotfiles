@@ -35,17 +35,17 @@ _log_info "Installing Homebrew..."
 
 INSTALLER_URL="https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh"
 
-# The installer needs sudo. With a TTY attached, leave it interactive so the
-# user can type their password; without one (CI, a detached bootstrap, or
-# chezmoi apply run from a non-terminal context) NONINTERACTIVE=1 stops it
-# hanging forever on a prompt nobody can answer. When bootstrap.assume_yes is
-# active (exported by install.sh as BOOTSTRAP_ASSUME_YES), also skip the
-# "Press RETURN to continue" prompt.
-if [ "${BOOTSTRAP_ASSUME_YES:-}" = "true" ] || [ "${BOOTSTRAP_ASSUME_YES:-}" = "1" ]; then
-  _log_info "bootstrap.assume_yes is active — running the Homebrew installer with NONINTERACTIVE=1"
-  export NONINTERACTIVE=1
-  /bin/bash -c "$(curl -fsSL "${INSTALLER_URL}")"
-elif [ -t 0 ] && [ -t 1 ]; then
+# The Homebrew installer has two interactive moments: a "Press RETURN to
+# continue" confirmation and a sudo password prompt. We separate them:
+#   - Confirmation: on a TTY the user can press RETURN (assume_yes means
+#     they already approved). Without a TTY we must use NONINTERACTIVE=1.
+#   - Password: NONINTERACTIVE=1 also suppresses the sudo password prompt,
+#     making the installer fail if a password is needed. So we only set it
+#     when there is no TTY to enter a password anyway.
+if [ -t 0 ] && [ -t 1 ]; then
+  if [ "${BOOTSTRAP_ASSUME_YES:-}" = "true" ] || [ "${BOOTSTRAP_ASSUME_YES:-}" = "1" ]; then
+    _log_info "bootstrap.assume_yes is active — running Homebrew installer (press RETURN at the confirmation prompt)"
+  fi
   /bin/bash -c "$(curl -fsSL "${INSTALLER_URL}")"
 else
   _log_warn "No TTY available; running the Homebrew installer with NONINTERACTIVE=1 (passwordless sudo required)."
