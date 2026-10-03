@@ -220,6 +220,7 @@ SKIP_CLT=0
 SKIP_XCODE=0
 VERBOSE=0
 DRY_RUN=0
+CONFIG_SOURCE=""   # --config-source <HTTPS-URL-or-local-path>
 
 DEFER_CLT=0
 DEFER_XCODE=0
@@ -297,6 +298,17 @@ _ask() {
   esac
 }
 
+# _ask_install PROMPT — for installation confirmations only. When assume_yes is
+# active, proceeds without asking. Always defaults to "yes".
+_ask_install() {
+  local prompt="$1"
+  if [ "$ASSUME_YES" -eq 1 ] || ! _is_tty; then
+    _log_info "${prompt} — proceeding (assume_yes)"
+    return 0
+  fi
+  _ask "$prompt" y
+}
+
 # _run CMD... — honours --dry-run and --verbose. Never aborts the installer.
 _run() {
   if [ "$DRY_RUN" -eq 1 ]; then
@@ -355,7 +367,9 @@ Form 3 is the most robust: it survives a flaky network mid-run and is re-runnabl
 The URL serves the `main` branch.
 
 Flags:
-  --yes             never prompt; take the default and defer anything ambiguous
+  --config-source URL|PATH   load chezmoi.yaml from an HTTPS URL or local file
+  --yes             skip installation confirmations (same as bootstrap.assume_yes=true);
+                    missing config values will still prompt
   --reprompt        pass --prompt to `chezmoi init` so every prompt*Once value
                     is re-asked. This is the recovery path for a poisoned
                     ~/.config/chezmoi/chezmoi.yaml
@@ -396,6 +410,15 @@ parse_args() {
       --skip-xcode) SKIP_XCODE=1 ;;
       --verbose) VERBOSE=1 ;;
       --dry-run) DRY_RUN=1 ;;
+      --config-source)
+        if [ "$#" -lt 2 ]; then
+          _log_err "--config-source requires a URL or path"
+          exit 2
+        fi
+        CONFIG_SOURCE="$2"
+        shift
+        ;;
+      --config-source=*) CONFIG_SOURCE="${1#--config-source=}" ;;
       -h | --help)
         usage
         exit 0
@@ -930,7 +953,7 @@ stage2_xcode() {
   fi
 
   if [ ! -d /Applications/Xcode.app ]; then
-    if _ask "Install full Xcode? (Command Line Tools are sufficient for this repo)" n; then
+    if _ask_install "Install full Xcode?"; then
       _log_info "Full Xcode is not installed. Two ways to get it:"
       _log_info "  1. Mac App Store -> search \"Xcode\" -> Install"
       _log_info "  2. \`brew install xcodesorg/made/xcodes\` then \`xcodes install --latest\`,"
@@ -973,7 +996,7 @@ stage2_xcode() {
     _log_warn "Xcode is installed but its license / first-launch is not complete (attempt ${attempt}/3)."
     _log_warn "The exact fix is:  sudo xcodebuild -license accept"
 
-    if _ask "Run 'sudo xcodebuild -license accept' now?" n; then
+    if _ask_install "Run 'sudo xcodebuild -license accept' now?"; then
       if ! sudo -n true >/dev/null 2>&1; then
         _log_info "sudo is not cached, so a password prompt will appear."
       fi
@@ -1034,6 +1057,123 @@ _install_chezmoi_via_installer() { # $1 = bin dir
     _log_err "To install chezmoi, you must have curl or wget installed."
     return 1
   fi
+}
+
+# ---------------------------------------------------------------------------
+# Config import — load chezmoi.yaml from --config-source before chezmoi init
+# ---------------------------------------------------------------------------
+
+stage_config_import() {
+  _banner "CONFIG IMPORT — loading chezmoi.yaml from ${CONFIG_SOURCE}"
+
+  local CHEZMOI_CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/chezmoi"
+  local CHEZMOI_CONFIG_FILE="${CHEZMOI_CONFIG_DIR}/chezmoi.yaml"
+  local tmpfile=""
+  local content=""
+  local first_line=""
+
+  # 1. Fetch the content
+  case "$CONFIG_SOURCE" in
+    https://* | http://*)
+      if [ "$DRY_RUN" -eq 1 ]; then
+        printf '  [dry-run] would download: %s\n' "$CONFIG_SOURCE"
+        return 0
+      fi
+      _log_info "Downloading config from ${CONFIG_SOURCE}..."
+      content="$(curl -fsSL --max-time 30 "$CONFIG_SOURCE" 2>&1)" || {
+        _log_err "Failed to download config from ${CONFIG_SOURCE}"
+        _log_err "curl error: ${content}"
+        return 0
+      }
+      ;;
+    *)
+      if [ "$DRY_RUN" -eq 1 ]; then
+        printf '  [dry-run] would read: %s\n' "$CONFIG_SOURCE"
+        return 0
+      fi
+      if [ ! -f "$CONFIG_SOURCE" ]; then
+        _log_err "Config file not found: ${CONFIG_SOURCE}"
+        return 0
+      fi
+      _log_info "Reading config from ${CONFIG_SOURCE}..."
+      content="$(cat "$CONFIG_SOURCE" 2>&1)" || {
+        _log_err "Failed to read config from ${CONFIG_SOURCE}"
+        return 0
+      }
+      ;;
+  esac
+
+  # 2. Detect HTML vs YAML
+  first_line="$(printf '%s' "$content" | head -1)"
+  case "$first_line" in
+    \<\!* | \<[Hh][Tt][Mm][Ll]* | \<[Hh][Tt][Mm][Ll])
+      _log_err "The URL returned an HTML page, not raw YAML."
+      _log_err "For a GitHub Gist, use the Raw URL (click 'Raw' on the Gist page)."
+      return 0
+      ;;
+  esac
+
+  # 3. Validate YAML structure
+  if [ -z "$content" ]; then
+    _log_err "Config file is empty"
+    return 0
+  fi
+
+  # Check for data: at root level
+  if ! printf '%s' "$content" | grep -q '^data:'; then
+    _log_err "Config file does not contain 'data:' at root level — not a valid chezmoi config"
+    return 0
+  fi
+
+  # Check for obviously non-YAML content (binary file, HTML tags)
+  if printf '%s' "$content" | grep -qi '<html\|<!doctype'; then
+    _log_err "Config file appears to contain HTML — not a valid YAML file"
+    return 0
+  fi
+
+  # 4. Backup existing config
+  if [ -f "$CHEZMOI_CONFIG_FILE" ]; then
+    local backup=""
+    backup="${CHEZMOI_CONFIG_FILE}.bak.$(date +%Y%m%d%H%M%S)"
+    if [ "$DRY_RUN" -eq 1 ]; then
+      printf '  [dry-run] would backup: %s -> %s\n' "$CHEZMOI_CONFIG_FILE" "$backup"
+    else
+      _log_info "Backing up existing config to ${backup}..."
+      cp "$CHEZMOI_CONFIG_FILE" "$backup" || {
+        _log_err "Failed to backup existing config"
+        return 0
+      }
+      chmod 0600 "$backup" 2>/dev/null || true
+    fi
+  fi
+
+  # 5. Atomic write
+  if [ "$DRY_RUN" -eq 1 ]; then
+    printf '  [dry-run] would write config to: %s\n' "$CHEZMOI_CONFIG_FILE"
+    return 0
+  fi
+
+  mkdir -p "$CHEZMOI_CONFIG_DIR" || {
+    _log_err "Failed to create config directory: ${CHEZMOI_CONFIG_DIR}"
+    return 0
+  }
+
+  tmpfile="${CHEZMOI_CONFIG_DIR}/.chezmoi.yaml.tmp.$$"
+  printf '%s' "$content" > "$tmpfile" || {
+    _log_err "Failed to write temp config file"
+    rm -f "$tmpfile"
+    return 0
+  }
+  chmod 0600 "$tmpfile" 2>/dev/null || true
+  mv "$tmpfile" "$CHEZMOI_CONFIG_FILE" || {
+    _log_err "Failed to move config file to ${CHEZMOI_CONFIG_FILE}"
+    rm -f "$tmpfile"
+    return 0
+  }
+
+  export CHEZMOI_CONFIG_SOURCE="$CONFIG_SOURCE"
+  _log_ok "Config imported to ${CHEZMOI_CONFIG_FILE}"
+  return 0
 }
 
 stage3_bootstrap() {
@@ -1416,6 +1556,12 @@ main() {
   stage0_preflight
   stage1_clt
   stage2_xcode
+
+  # Import config if --config-source was given (before chezmoi init so the
+  # imported values are preserved by hasKey guards in the config template).
+  if [ -n "$CONFIG_SOURCE" ]; then
+    stage_config_import
+  fi
 
   # Publish the gate outcomes so the chezmoi scripts started by stage 3/4 can
   # see them (they mirror the bootstrap.defer_clt / bootstrap.defer_xcode data

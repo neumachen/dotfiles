@@ -21,8 +21,7 @@
   all count. It is handled two ways:
     * MANDATORY values (git.email, git.name) store "", so empty-means-unset asks
       again on the next `chezmoi init`.
-    * OPTIONAL values (onepassword.account, onepassword.ssh_key_item,
-      secrets.TSTRUCT_TOKEN) -- and onepassword.vault, which has a real default
+    * OPTIONAL values (onepassword.account, onepassword.ssh_key_item) -- and onepassword.vault, which has a real default
       of "Private" but may still be answered with the sentinel -- store the
       literal "-" verbatim. Storing "" there made a deliberate skip
       indistinguishable from "never asked", so the value was re-prompted on
@@ -62,7 +61,6 @@
 {{- $vault := "" -}}
 {{- $sshKeyItem := "" -}}
 {{- $opAccount := "" -}}
-{{- $tstructTokenRef := "" -}}
 {{- if $opEnabled -}}
   {{- if and (hasKey . "onepassword") (hasKey .onepassword "vault") -}}
     {{- $vault = .onepassword.vault -}}
@@ -97,23 +95,7 @@
   {{- /* OPTIONAL: keep the sentinel verbatim (trimmed, case-insensitive). */ -}}
   {{- $opAccount = trim $opAccount -}}
   {{- if or (eq $opAccount "-") (eq (lower $opAccount) "none") -}}{{- $opAccount = "-" -}}{{- end -}}
-  {{- if and (hasKey . "secrets") (hasKey .secrets "TSTRUCT_TOKEN") -}}
-    {{- $tstructTokenRef = .secrets.TSTRUCT_TOKEN -}}
   {{- end -}}
-  {{- if eq $tstructTokenRef "" -}}
-    {{- /* Only offer a derived default when the vault is a real name. With an
-           empty OR skipped ("-") vault the derived form would be the malformed
-           "op:///Tstruct/token" or the meaningless "op://-/Tstruct/token". */ -}}
-    {{- if and (ne $vault "") (ne $vault "-") -}}
-      {{- $tstructTokenRef = promptString "1Password reference for TSTRUCT_TOKEN (op://vault/item/field; enter - to skip permanently)" (printf "op://%s/Tstruct/token" $vault) -}}
-    {{- else -}}
-      {{- $tstructTokenRef = promptString "1Password reference for TSTRUCT_TOKEN (op://vault/item/field; enter - to skip permanently)" -}}
-    {{- end -}}
-  {{- end -}}
-  {{- /* OPTIONAL: keep the sentinel verbatim (trimmed, case-insensitive). */ -}}
-  {{- $tstructTokenRef = trim $tstructTokenRef -}}
-  {{- if or (eq $tstructTokenRef "-") (eq (lower $tstructTokenRef) "none") -}}{{- $tstructTokenRef = "-" -}}{{- end -}}
-{{- end -}}
 {{- /* LEGACY: kept so hosts configured before the resolve-1password hook keep
      rendering. New machines leave it empty; the key now lives in a 1Password
      item and is resolved into ~/.config/git/ssh-signing-key at apply time. */ -}}
@@ -142,6 +124,12 @@
   {{- $deferXcode = .bootstrap.defer_xcode -}}
 {{- else -}}
   {{- $deferXcode = promptBool "Defer full Xcode install during bootstrap" false -}}
+{{- end -}}
+{{- $assumeYes := false -}}
+{{- if and (hasKey . "bootstrap") (hasKey .bootstrap "assume_yes") -}}
+  {{- $assumeYes = .bootstrap.assume_yes -}}
+{{- else -}}
+  {{- $assumeYes = promptBool "Skip installation confirmations during bootstrap (config values still prompt)" false -}}
 {{- end -}}
 {{- /* Emit exactly one newline before sourceDir: (see commit dddbafd9). */}}
 sourceDir: ~/MeinCodex/Codebasis/github.com/neumachen/dotfiles
@@ -184,12 +172,24 @@ data:
     #       # signingKey: Optional (inherits from onepassword.ssh_signing_key if omitted)
     profiles: []
   secrets:
-    # Map of ENV_VAR_NAME -> 1Password reference (op://vault/item/field).
-    # "-" (or "") means skip; "-" is stored verbatim so a deliberate skip is
-    # not re-asked on every future `chezmoi init`. Resolved by the
-    # resolve-1password hook into ~/.config/sh/secrets.env (mode 0600);
-    # never rendered inline.
-    TSTRUCT_TOKEN: {{ $tstructTokenRef | quote }}
+{{- $hasSecrets := false -}}
+{{- if hasKey . "secrets" -}}
+  {{- range $name, $ref := .secrets -}}
+    {{- if and $ref (ne (trim $ref) "") -}}
+      {{- $hasSecrets = true -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- if $hasSecrets }}
+{{- range $name, $ref := .secrets }}
+{{- $ref = trim $ref }}
+{{- if ne $ref "" }}
+    {{ $name }}: {{ $ref | quote }}
+{{- end }}
+{{- end }}
+{{- else }}
+    {}
+{{- end }}
 {{- if $envvars }}
   # LEGACY/DEPRECATED: carried forward verbatim from the previous config so a
   # re-init never drops a live entry. Migrate these to `secrets` above; the
@@ -208,4 +208,5 @@ data:
   bootstrap:
     defer_clt: {{ $deferCLT }}
     defer_xcode: {{ $deferXcode }}
+    assume_yes: {{ $assumeYes }}
 

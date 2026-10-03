@@ -108,8 +108,9 @@ Verbatim from `install.sh --help`:
 
 | Flag | Effect |
 | --- | --- |
-| `--yes` | never prompt; take the default and defer anything ambiguous |
+| `--yes` | skip installation confirmations (same as `bootstrap.assume_yes=true`). Missing config values still prompt. Explicit skip/defer settings take precedence |
 | `--reprompt` | pass `--prompt` to `chezmoi init` so every `prompt*Once` value is re-asked. **This is the recovery path for a poisoned `~/.config/chezmoi/chezmoi.yaml`.** |
+| `--config-source URL\|PATH` | load `chezmoi.yaml` from an HTTPS URL (raw content) or local file path before `chezmoi init`. A GitHub Gist HTML page is rejected with guidance to use the Raw URL. |
 | `--max-passes N` | max `chezmoi apply` passes in the converge loop (default 5; `0` skips the loop and goes straight to the report). `--max-passes=N` also accepted |
 | `--skip-clt` | do not raise or wait for the Command Line Tools dialog |
 | `--skip-xcode` | do not ask about full Xcode or its license |
@@ -128,6 +129,74 @@ Environment overrides read by `install.sh`:
 These are `install.sh`'s own. `bootstrap-status` has a separate set — see
 [Cache files](#cache-files) — and `DOTFILES_INSTALL_URL` and `CLT_TIMEOUT` have
 no effect on it.
+
+When `assume_yes` is active, the installer skips confirmation prompts for:
+- Homebrew installation
+- Xcode installation and license acceptance
+
+It does **not** skip:
+- Missing configuration value prompts (git email, 1Password vault, etc.)
+- Password entry (`sudo`)
+- 1Password authentication and approval prompts
+- App Store sign-in
+- macOS approval dialogs (driver extensions, accessibility, etc.)
+- The converge-loop "fix and press Enter" prompt
+
+### Importing a prepared configuration (`--config-source`)
+
+You can seed `~/.config/chezmoi/chezmoi.yaml` from a URL or local file before
+`chezmoi init` runs:
+
+```sh
+# From a raw GitHub Gist URL:
+sh install.sh --config-source https://gist.githubusercontent.com/.../raw/.../chezmoi.yaml
+
+# From a local file (including paths with spaces):
+sh install.sh --config-source "/Volumes/Setup Disk/chezmoi.yaml"
+```
+
+Rules:
+- The content must be raw YAML, not an HTML page. For a GitHub Gist, click
+  **Raw** and copy that URL — the gist page URL (`gist.github.com/...`) will
+  be rejected with actionable guidance.
+- The file must contain a `data:` section. Malformed YAML or a download failure
+  never overwrites an existing config.
+- An existing `chezmoi.yaml` is backed up to `chezmoi.yaml.bak.<timestamp>`
+  (mode 0600) before the new one is atomically installed.
+- After import, `chezmoi init` preserves supplied values via its `hasKey`
+  guards and only prompts for missing required/configurable values.
+- `--reprompt` still re-asks every promptable value after import.
+- The import runs early enough that `bootstrap` settings affect prerequisite
+  and installation stages.
+- Supplied `false` booleans, custom `secrets` entries, and `git.profiles` are
+  preserved across `chezmoi init`.
+
+#### Configuration precedence
+
+1. `--config-source <URL-or-path>` — explicit seed (highest priority)
+2. Existing `~/.config/chezmoi/chezmoi.yaml` — preserved when no `--config-source`
+3. Interactive prompts — fill in anything missing from the above
+
+#### Sanitized sample
+
+```yaml
+# Save this as a raw Gist, or place it on a mounted volume.
+data:
+  git:
+    email: "you@example.com"
+    name: "Your Name"
+  onepassword:
+    enabled: true
+    vault: "Private"
+    account: "-"           # skip (optional)
+    ssh_key_item: "-"      # skip (optional)
+  secrets:
+    GITHUB_TOKEN: "op://Private/GitHub/token"
+  bootstrap:
+    defer_clt: false
+    defer_xcode: true
+    assume_yes: true
+```
 
 ### Guarantees
 
@@ -165,13 +234,13 @@ is absent:
 | --- | --- | --- | --- |
 | 1 | `Git user email` | — | mandatory; leave empty and it asks again next `chezmoi init` |
 | 2 | `Git user name` | — | mandatory; same as above |
-| 3 | `Use 1Password for git SSH signing and secrets` | `true` | answer `false` (skips prompts 4–7) |
+| 3 | `Use 1Password for git SSH signing and secrets` | `true` | answer `false` (skips prompts 4–6) |
 | 4 | `1Password vault name (e.g. Private)` | `Private` | `-` |
 | 5 | `1Password item NAME or UUID holding your SSH key` | — | `-` |
 | 6 | `1Password account shorthand` | — | `-` |
-| 7 | `1Password reference for TSTRUCT_TOKEN (op://vault/item/field)` | `op://<vault>/Tstruct/token` | `-` |
-| 8 | `Defer Command Line Tools install during bootstrap` | `false` | — |
-| 9 | `Defer full Xcode install during bootstrap` | `false` | — |
+| 7 | `Defer Command Line Tools install during bootstrap` | `false` | — |
+| 8 | `Defer full Xcode install during bootstrap` | `false` | — |
+| 9 | `Skip installation confirmations during bootstrap (config values still prompt)` | `false` | — |
 
 Two rules make this a one-shot install:
 
@@ -406,11 +475,14 @@ data:
         name = <name>
     profiles: []
   secrets:
-    TSTRUCT_TOKEN: <string>    # op://vault/item/field reference, or "-" to skip
+    <NAME>: <op-reference>    # arbitrary map of ENV_VAR → op://vault/item/field
+                               # e.g., GITHUB_TOKEN: op://Private/GitHub/token
+                               # "-" to skip, absent to not ask
   envvars: []                  # LEGACY list of "NAME=value"
   bootstrap:
     defer_clt: <bool>
     defer_xcode: <bool>
+    assume_yes: <bool>         # skip installation confirmations; missing config values still prompt
 ```
 
 The git **signing block no longer lives in the data**. It moved to

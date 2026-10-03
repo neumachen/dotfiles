@@ -1,4 +1,5 @@
 # neumachen specific
+tests/
 _git-ignored/
 **/.keep
 

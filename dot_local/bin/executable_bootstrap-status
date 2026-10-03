@@ -1332,8 +1332,8 @@ ev_secrets() {
       _ST="amber"
       _MSG="no .secrets configured — legacy .envvars still holds ${legacy} entry; run 'install.sh --reprompt' to migrate it"
     else
-      _ST="amber"
-      _MSG="no secrets configured (.secrets is empty)"
+      _ST="green"
+      _MSG="no secrets configured in chezmoi data"
     fi
     return 0
   fi
@@ -1548,6 +1548,7 @@ _render_json() { # $1=generated_at  $2=hostname  $3=overall
   printf '  "version": %d,\n' "$STATUS_VERSION"
   printf '  "generated_at": "%s",\n' "$(_json_escape "$ts")"
   printf '  "hostname": "%s",\n' "$(_json_escape "$host")"
+  printf '  "config_source": "%s",\n' "$(_json_escape "${CHEZMOI_CONFIG_SOURCE:-interactive}")"
   printf '  "overall": "%s",\n' "$(_json_escape "$overall")"
   # One check per line, compact. This is deliberately byte-identical to the
   # layout emitted by the inline fallback reporter in
