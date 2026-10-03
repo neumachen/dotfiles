@@ -10,13 +10,19 @@ machine by the manual steps in docs/macos-preferences.md.
 
 State lives under $FAKE_DEFAULTS_ROOT/<scope>/<domain>.plist where scope is
 "user" or "currentHost". Every invocation is appended to
-$FAKE_DEFAULTS_ROOT/calls.jsonl.
+$FAKE_DEFAULTS_ROOT/calls.jsonl, and the interpreter that ran it to
+$FAKE_DEFAULTS_ROOT/python.log (tests use that to prove which `python3` a
+subprocess resolved).
 
 Fault injection (comma-separated, matched as substrings):
   FAKE_DEFAULTS_FAIL_ON     write/delete whose argv contains one of these fails
   FAKE_DEFAULTS_MISPARSE    compound XML values for these key names are stored
                             as a string, like a parser that did not understand
-                            the fragment
+                            the fragment. A bare key name ("AppleSymbolicHotKeys")
+                            matches the key and every -dict-add entry under it;
+                            "Key/entry" ("AppleSymbolicHotKeys/64") matches only
+                            that one entry. With no limit (below) the misparse
+                            is persistent, so a recovery write misparses too.
   FAKE_DEFAULTS_MISPARSE_LIMIT  misparse only the first N such values (so a
                             revert through the same path can succeed)
   FAKE_DEFAULTS_EXPORT_FAIL `export` of these domains fails
@@ -124,6 +130,8 @@ def main():
     os.makedirs(ROOT, exist_ok=True)
     with open(os.path.join(ROOT, 'calls.jsonl'), 'a') as log:
         log.write(json.dumps({'scope': scope, 'argv': argv}) + '\n')
+    with open(os.path.join(ROOT, 'python.log'), 'a') as log:
+        log.write(sys.executable + '\n')
     if not argv:
         die('fake defaults: no command')
     command, rest = argv[0], argv[1:]
@@ -163,7 +171,7 @@ def main():
             existing = data.get(key, {})
             if not isinstance(existing, dict):
                 die('Cannot add key to non-dictionary %s' % key)
-            existing[entry] = parse_value(value_tokens, key)
+            existing[entry] = parse_value(value_tokens, '%s/%s' % (key, entry))
             data[key] = existing
         else:
             data[key] = parse_value(tail, key)

@@ -7,6 +7,7 @@ backed by a temporary directory):
     python3 -m unittest discover -s private_dot_config/macos-preferences/tests -v
 """
 
+import copy
 import datetime
 import hashlib
 import importlib.machinery
@@ -28,11 +29,15 @@ from unittest import mock
 sys.dont_write_bytecode = True   # never leave __pycache__ next to the tool in the source tree
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
 REPO = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 # MACOS_PREFERENCES_TOOL lets the mutation check run this suite against a deliberately broken copy.
 TOOL = os.environ.get('MACOS_PREFERENCES_TOOL') or os.path.join(REPO, 'dot_local', 'bin', 'executable_macos-preferences')
 FAKE = os.path.join(HERE, 'fake_defaults')
 SHIPPED_PROFILE = os.path.join(REPO, 'private_dot_config', 'macos-preferences', 'profile.json')
+
+
+import pinned_python  # noqa: E402  (sibling helper; needs HERE on sys.path)
 
 
 def load_tool():
@@ -87,7 +92,7 @@ class MemoryBackend(object):
         self.writes = []
 
     def export(self, domain, scope):
-        return dict(self.data.get((domain, scope), {}))
+        return copy.deepcopy(self.data.get((domain, scope), {}))
 
     def domains(self):
         names = [d for (d, s) in self.data if s == mp.USER]
@@ -117,7 +122,9 @@ class Sandbox(object):
         os.makedirs(self.home)
         self.backups = os.path.join(self.dir, 'backups')
         self.profile = os.path.join(self.dir, 'profile.json')
-        patcher = mock.patch.dict(os.environ, {'FAKE_DEFAULTS_ROOT': self.root})
+        # In-process DefaultsBackend calls inherit this environment, so pin the interpreter here too.
+        patcher = mock.patch.dict(os.environ, {'FAKE_DEFAULTS_ROOT': self.root,
+                                               'PATH': pinned_python.path_with_pinned(self.dir)})
         patcher.start()
         test.addCleanup(patcher.stop)
 
@@ -152,7 +159,7 @@ class Sandbox(object):
         out = {}
         for base, _dirs, files in os.walk(self.root):
             for name in files:
-                if name != 'calls.jsonl':
+                if name not in ('calls.jsonl', 'python.log'):
                     with open(os.path.join(base, name), 'rb') as handle:
                         out[os.path.relpath(os.path.join(base, name), self.root)] = hashlib.sha256(handle.read()).hexdigest()
         return out
@@ -172,7 +179,8 @@ class Sandbox(object):
 
     def env(self, **extra):
         env = {
-            'PATH': os.environ.get('PATH', '/usr/bin:/bin'),
+            # The interpreter under test first, so `#!/usr/bin/env python3` never lands on a PATH shim.
+            'PATH': pinned_python.path_with_pinned(self.dir),
             'HOME': self.home,
             'XDG_STATE_HOME': os.path.join(self.dir, 'state'),
             'XDG_CONFIG_HOME': os.path.join(self.dir, 'config'),
@@ -951,6 +959,326 @@ class FailureTests(unittest.TestCase):
             with mock.patch.object(mp.sys, 'platform', 'linux'):
                 with self.assertRaises(mp.ToolError):
                     mp.make_backend()
+
+
+# --- recovery after a write that did not land -------------------------------
+
+IGNORE = object()   # script marker: the command "succeeds" but changes nothing
+
+
+class ScriptedBackend(MemoryBackend):
+    """A MemoryBackend whose writes and recovery can be made to misbehave.
+
+    set_key_script: per-call transforms of the value actually stored (call 0 is
+        the write under test, call 1 is the recovery write); IGNORE stores nothing.
+    entry_script: {entry name: transform or IGNORE} for set_entry.
+    delete_works: False makes delete_key a silent no-op.
+    export_fail_on: the Nth export (1-based, any domain) raises BackendError.
+    """
+
+    def __init__(self, data=None, set_key_script=(), entry_script=None, delete_works=True, export_fail_on=None):
+        super().__init__(data)
+        self.set_key_script = list(set_key_script)
+        self.entry_script = dict(entry_script or {})
+        self.delete_works = delete_works
+        self.export_fail_on = export_fail_on
+        self.set_key_calls = 0
+        self.export_calls = 0
+
+    def export(self, domain, scope):
+        self.export_calls += 1
+        if self.export_fail_on == self.export_calls:
+            raise mp.BackendError('injected export failure')
+        return super().export(domain, scope)
+
+    def set_key(self, domain, scope, key, value):
+        index, self.set_key_calls = self.set_key_calls, self.set_key_calls + 1
+        step = self.set_key_script[index] if index < len(self.set_key_script) else None
+        if step is IGNORE:
+            self.writes.append(('set_key(ignored)', domain, scope, key))
+            return
+        super().set_key(domain, scope, key, step(value) if step else value)
+
+    def set_entry(self, domain, scope, key, entry, value):
+        step = self.entry_script.get(entry)
+        if step is IGNORE:
+            self.writes.append(('set_entry(ignored)', domain, scope, key, entry))
+            return
+        super().set_entry(domain, scope, key, entry, step(value) if step else value)
+
+    def delete_key(self, domain, scope, key):
+        if not self.delete_works:
+            self.writes.append(('delete_key(ignored)', domain, scope, key))
+            return
+        super().delete_key(domain, scope, key)
+
+
+def garbage(_value):
+    return 'garbage'
+
+
+def drift_to_real(value):
+    return float(value)
+
+
+def run_apply(backend, groups, backup='/backups/run-1'):
+    """Plan `groups` against `backend` and apply them; returns (result, log text)."""
+    doc = mp.parse_document(profile_text(*groups), 'profile', 'test')
+    plan = mp.build_plan(doc, backend)
+    stream = io.StringIO()
+    result = mp.apply_plan(backend, plan, mp.Log(stream), backup=backup)
+    return result, stream.getvalue()
+
+
+INPUT_SOURCES_PREVIOUS = [{'InputSourceKind': 'Keyboard Layout', 'KeyboardLayout ID': 252, 'KeyboardLayout Name': 'ABC'}]
+INPUT_SOURCES_WANTED = [{'InputSourceKind': 'Keyboard Layout', 'KeyboardLayout ID': 0, 'KeyboardLayout Name': 'U.S.'}]
+
+
+class RecoveryVerificationTests(unittest.TestCase):
+    """A recovery is only reported once the destination is read back and matches."""
+
+    def setUp(self):
+        self.sb = Sandbox(self)
+
+    def seed_input_sources(self):
+        self.sb.seed('com.apple.HIToolbox', {'AppleEnabledInputSources': copy.deepcopy(INPUT_SOURCES_PREVIOUS)})
+        self.sb.write_profile(
+            group('com.apple.HIToolbox', 'user', {'AppleEnabledInputSources': INPUT_SOURCES_WANTED}),
+            group('com.apple.dock', 'user', {'orientation': 'right'}),
+        )
+
+    def test_persistent_misparse_makes_recovery_fail_and_the_cli_says_so(self):
+        sb = self.sb
+        self.seed_input_sources()
+        proc = sb.run('restore', '--profile', sb.profile, '--yes', FAKE_DEFAULTS_MISPARSE='AppleEnabledInputSources')
+        self.assertEqual(1, proc.returncode)
+        stored = sb.read('com.apple.HIToolbox')['AppleEnabledInputSources']
+        self.assertIsInstance(stored, str)          # the original array really was not put back
+        self.assertNotIn('reverted', proc.stderr)   # so nothing may claim it was
+        (name,) = sb.backup_dirs()
+        backup = os.path.join(sb.backups, name)
+        failure = [l for l in proc.stderr.splitlines() if 'could not restore com.apple.HIToolbox [user] AppleEnabledInputSources' in l]
+        self.assertEqual(1, len(failure), proc.stderr)
+        self.assertIn('rollback ' + backup, failure[0])           # guidance sits on the failure itself
+        self.assertIn(os.path.join(backup, 'before.json'), failure[0])
+        self.assertIn('could NOT be confirmed back at their previous value', proc.stderr)
+        self.assertEqual({}, sb.read('com.apple.dock'))           # the run still stops early
+        saved = mp.load_document(os.path.join(backup, 'before.json'), 'backup')
+        self.assertTrue(mp.strict_eq(INPUT_SOURCES_PREVIOUS, saved['preferences'][0]['keys']['AppleEnabledInputSources']))
+
+    def test_structured_result_carries_the_failed_recovery_and_the_backup_path(self):
+        sb = self.sb
+        self.seed_input_sources()
+        doc = mp.load_document(sb.profile, 'profile')
+        backend = sb.backend()
+        with mock.patch.dict(os.environ, {'FAKE_DEFAULTS_MISPARSE': 'AppleEnabledInputSources'}):
+            plan = mp.build_plan(doc, backend)
+            stream = io.StringIO()
+            result = mp.apply_plan(backend, plan, mp.Log(stream), backup='/somewhere/backup')
+        self.assertTrue(result.aborted)
+        self.assertEqual('/somewhere/backup', result.backup)
+        (recovery,) = result.recoveries
+        self.assertEqual(('com.apple.HIToolbox', 'user', 'AppleEnabledInputSources'), (recovery.domain, recovery.scope, recovery.key))
+        self.assertFalse(recovery.verified)
+        self.assertIn('read back', recovery.detail)
+        self.assertEqual([recovery], result.unrecovered)
+        self.assertTrue([f for f in result.failures if 'recovery not verified' in f and 'AppleEnabledInputSources' in f], result.failures)
+        self.assertIn('rollback /somewhere/backup', stream.getvalue())
+        self.assertNotIn('reverted', stream.getvalue())
+
+    def test_a_recovery_that_does_stick_is_reported_as_reverted_after_read_back(self):
+        sb = self.sb
+        self.seed_input_sources()
+        proc = sb.run('restore', '--profile', sb.profile, '--yes', FAKE_DEFAULTS_MISPARSE='AppleEnabledInputSources',
+                      FAKE_DEFAULTS_MISPARSE_LIMIT='1')
+        self.assertEqual(1, proc.returncode)
+        self.assertIn('reverted com.apple.HIToolbox [user] AppleEnabledInputSources to its previous value (confirmed by read-back)',
+                      proc.stderr)
+        self.assertNotIn('could not restore', proc.stderr)
+        self.assertEqual(INPUT_SOURCES_PREVIOUS, sb.read('com.apple.HIToolbox')['AppleEnabledInputSources'])
+
+    def groups(self, key, value, domain='com.apple.dock'):
+        return [group(domain, 'user', {key: value})]
+
+    def test_recovery_must_restore_the_exact_type_not_just_an_equal_value(self):
+        backend = ScriptedBackend({('com.apple.dock', 'user'): {'largesize': 1}},
+                                  set_key_script=[garbage, drift_to_real])      # recovery stores 1.0 for 1
+        result, log = run_apply(backend, self.groups('largesize', 64.0))
+        (recovery,) = result.recoveries
+        self.assertFalse(recovery.verified)
+        self.assertIn('expected 1 ', recovery.detail + ' ')
+        self.assertIn('read back 1.0', recovery.detail)
+        self.assertIn('could not restore', log)
+        self.assertNotIn('reverted', log)
+        self.assertEqual(1, len(result.unrecovered))
+
+    def test_recovery_of_an_absent_key_is_verified_by_absence(self):
+        backend = ScriptedBackend({}, set_key_script=[garbage])
+        result, log = run_apply(backend, self.groups('tilesize', 64.0))
+        (recovery,) = result.recoveries
+        self.assertTrue(recovery.verified)
+        self.assertNotIn('tilesize', backend.data.get(('com.apple.dock', 'user'), {}))
+        self.assertIn('reverted com.apple.dock [user] tilesize', log)
+        self.assertEqual([], result.unrecovered)
+
+    def test_a_delete_that_leaves_the_key_behind_is_an_unverified_recovery(self):
+        backend = ScriptedBackend({}, set_key_script=[garbage], delete_works=False)
+        result, log = run_apply(backend, self.groups('tilesize', 64.0))
+        (recovery,) = result.recoveries
+        self.assertFalse(recovery.verified)
+        self.assertIn('expected <absent>', recovery.detail)
+        self.assertIn('read back "garbage"', recovery.detail)
+        self.assertNotIn('reverted', log)
+
+    def test_a_write_that_never_took_effect_is_confirmed_unchanged_not_reverted(self):
+        backend = ScriptedBackend({('com.apple.dock', 'user'): {'largesize': 1}}, set_key_script=[IGNORE])
+        result, log = run_apply(backend, self.groups('largesize', 64.0))
+        (recovery,) = result.recoveries
+        self.assertTrue(recovery.verified)
+        self.assertFalse(recovery.wrote)
+        self.assertIn('still at its previous value', log)
+        self.assertNotIn('reverted', log)
+        self.assertEqual(['set_key(ignored)'], [w[0] for w in backend.writes])    # recovery wrote nothing
+
+    def test_an_unreadable_destination_makes_the_recovery_unverifiable(self):
+        # exports: 1 = plan, 2 = write verification, 3 = recovery read-back
+        backend = ScriptedBackend({('com.apple.dock', 'user'): {'largesize': 1}}, set_key_script=[garbage], export_fail_on=3)
+        result, log = run_apply(backend, self.groups('largesize', 64.0))
+        (recovery,) = result.recoveries
+        self.assertFalse(recovery.verified)
+        self.assertIn('cannot read back', recovery.detail)
+        self.assertIn('injected export failure', recovery.detail)
+        self.assertNotIn('reverted', log)
+        self.assertTrue(any('recovery not verified' in f for f in result.failures))
+        self.assertTrue(result.aborted)
+
+    def test_a_failing_recovery_command_is_reported_even_if_the_state_cannot_be_checked(self):
+        # The recovery write is ignored (state stays 'garbage'): command "succeeds", read-back disagrees.
+        backend = ScriptedBackend({('com.apple.dock', 'user'): {'largesize': 1}}, set_key_script=[garbage, IGNORE])
+        result, log = run_apply(backend, self.groups('largesize', 64.0))
+        self.assertFalse(result.recoveries[0].verified)
+        self.assertIn('read back "garbage"', result.recoveries[0].detail)
+
+
+class AppliedCountTests(unittest.TestCase):
+    """`applied` counts changes verified AND still in effect after any recovery."""
+
+    ORIGINAL = {'999': {'enabled': True, 'value': {'parameters': [1, 2, 3], 'type': 'standard'}}}
+
+    def setUp(self):
+        self.sb = Sandbox(self)
+
+    def hotkey_groups(self):
+        return [group(HOTKEYS_DOMAIN, 'user', {'AppleSymbolicHotKeys': {'34': HOTKEYS['34'], '64': HOTKEYS['64']}})]
+
+    def test_cli_reports_zero_verified_when_recovery_undoes_the_earlier_entry(self):
+        sb = self.sb
+        sb.seed(HOTKEYS_DOMAIN, {'AppleSymbolicHotKeys': copy.deepcopy(self.ORIGINAL)})
+        sb.write_profile(*self.hotkey_groups())
+        proc = sb.run('restore', '--profile', sb.profile, '--yes', FAKE_DEFAULTS_MISPARSE='AppleSymbolicHotKeys/64')
+        self.assertEqual(1, proc.returncode)
+        calls = [c['argv'] for c in sb.writes()]
+        self.assertTrue([a for a in calls if a[3:5] == ['-dict-add', '34']])    # 34 was written and verified...
+        self.assertEqual(self.ORIGINAL, sb.read(HOTKEYS_DOMAIN)['AppleSymbolicHotKeys'])   # ...then undone with the key
+        self.assertIn('1 problem(s); 0 change(s) verified', proc.stderr)
+        self.assertIn('1 earlier change(s) were undone or can no longer be confirmed', proc.stderr)
+        self.assertNotIn('1 change(s) verified', proc.stderr)
+
+    def test_structured_result_has_zero_retained_changes_and_no_counted_domain(self):
+        sb = self.sb
+        sb.seed(HOTKEYS_DOMAIN, {'AppleSymbolicHotKeys': copy.deepcopy(self.ORIGINAL)})
+        backend = sb.backend()
+        doc = mp.parse_document(profile_text(*self.hotkey_groups()), 'profile', 'test')
+        with mock.patch.dict(os.environ, {'FAKE_DEFAULTS_MISPARSE': 'AppleSymbolicHotKeys/64'}):
+            plan = mp.build_plan(doc, backend)
+            result = mp.apply_plan(backend, plan, silent_log(), backup='/b')
+        self.assertEqual(0, result.applied)
+        self.assertEqual(1, result.undone)
+        self.assertEqual(0, result.domains)
+        self.assertEqual([], result.unrecovered)
+        self.assertEqual(self.ORIGINAL, sb.read(HOTKEYS_DOMAIN)['AppleSymbolicHotKeys'])
+
+    def test_changes_in_other_keys_and_domains_stay_counted(self):
+        sb = self.sb
+        sb.seed(HOTKEYS_DOMAIN, {'AppleSymbolicHotKeys': copy.deepcopy(self.ORIGINAL)})
+        sb.seed('com.apple.AppleMultitouchTrackpad', {})
+        backend = sb.backend()
+        groups = [group('com.apple.AppleMultitouchTrackpad', 'user', {'Clicking': True, 'DragLock': 0})] + self.hotkey_groups()
+        doc = mp.parse_document(profile_text(*groups), 'profile', 'test')
+        with mock.patch.dict(os.environ, {'FAKE_DEFAULTS_MISPARSE': 'AppleSymbolicHotKeys/64'}):
+            plan = mp.build_plan(doc, backend)
+            result = mp.apply_plan(backend, plan, silent_log(), backup='/b')
+        self.assertEqual(2, result.applied)      # the two trackpad keys, verified in an earlier domain
+        self.assertEqual(1, result.undone)       # entry 34, undone by the hotkey recovery
+        self.assertEqual(1, result.domains)
+
+    def test_when_recovery_fails_only_changes_still_confirmed_in_effect_are_counted(self):
+        backend = ScriptedBackend({(HOTKEYS_DOMAIN, 'user'): {'AppleSymbolicHotKeys': copy.deepcopy(self.ORIGINAL)}},
+                                  set_key_script=[IGNORE], entry_script={'64': garbage})
+        result, log = run_apply(backend, self.hotkey_groups())
+        self.assertFalse(result.recoveries[0].verified)          # whole-key recovery write was ignored
+        self.assertEqual(1, result.applied)                      # 34 is still in effect after the failed recovery
+        self.assertEqual(0, result.undone)
+        self.assertEqual(1, result.domains)
+        self.assertIn('could not restore', log)
+
+    def test_unconfirmable_changes_are_not_counted_when_the_read_back_after_recovery_fails(self):
+        # exports: 1 = plan, 2 = write verification, 3 = recovery read-back
+        backend = ScriptedBackend({(HOTKEYS_DOMAIN, 'user'): {'AppleSymbolicHotKeys': copy.deepcopy(self.ORIGINAL)}},
+                                  entry_script={'64': garbage}, export_fail_on=3)
+        result, _log = run_apply(backend, self.hotkey_groups())
+        self.assertFalse(result.recoveries[0].verified)
+        self.assertEqual(0, result.applied)
+        self.assertEqual(1, result.undone)
+
+
+class InterpreterPinningTests(unittest.TestCase):
+    """Subprocesses must run the interpreter under test, not a PATH shim needing the real HOME."""
+
+    def shim_dir(self, sb):
+        directory = tempfile.mkdtemp(prefix='shims-', dir=sb.dir)
+        path = os.path.join(directory, 'python3')
+        with open(path, 'w') as handle:
+            handle.write('#!/bin/sh\necho "mise shim: no python version is set for HOME=$HOME" >&2\nexit 97\n')
+        os.chmod(path, 0o755)
+        return directory
+
+    def test_the_simulated_shim_really_would_break_a_bare_env_python3(self):
+        sb = Sandbox(self)
+        shim = self.shim_dir(sb)
+        probe = subprocess.run(['/usr/bin/env', 'python3', '--version'], env={'PATH': shim + os.pathsep + '/usr/bin:/bin', 'HOME': sb.home},
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        self.assertEqual(97, probe.returncode)
+
+    def test_cli_runs_with_shims_first_on_the_callers_path_and_a_fixture_home(self):
+        sb = Sandbox(self)
+        shim = self.shim_dir(sb)
+        sb.write_profile(group('com.apple.dock', 'user', {'orientation': 'right'}))
+        with mock.patch.dict(os.environ, {'PATH': shim + os.pathsep + os.environ.get('PATH', '/usr/bin:/bin')}):
+            env = sb.env()
+            self.assertEqual(sb.home, env['HOME'])                 # HOME really is the fixture
+            self.assertNotEqual(shim, env['PATH'].split(os.pathsep)[0])
+            proc = sb.run('restore', '--profile', sb.profile, '--yes')
+        self.assertEqual(0, proc.returncode, proc.stderr)
+        self.assertEqual({'orientation': 'right'}, sb.read('com.apple.dock'))
+
+    def test_in_process_backend_also_ignores_a_shim_first_on_the_callers_path(self):
+        base = tempfile.mkdtemp(prefix='shimbase-', dir=os.environ.get('TMPDIR'))
+        self.addCleanup(shutil.rmtree, base, True)
+        shim = os.path.join(base, 'python3')
+        with open(shim, 'w') as handle:
+            handle.write('#!/bin/sh\necho "shim: no version for HOME=$HOME" >&2\nexit 97\n')
+        os.chmod(shim, 0o755)
+        with mock.patch.dict(os.environ, {'PATH': base + os.pathsep + os.environ.get('PATH', '/usr/bin:/bin')}):
+            sb = Sandbox(self)         # built while the shim is first on the caller's PATH
+            self.assertEqual({}, sb.backend().export('com.apple.dock', 'user'))
+
+    def test_the_pinned_python3_is_exactly_the_interpreter_running_the_tests(self):
+        sb = Sandbox(self)
+        first = sb.env()['PATH'].split(os.pathsep)[0]
+        out = subprocess.run([os.path.join(first, 'python3'), '-c', 'import sys; print(sys.executable)'],
+                             stdout=subprocess.PIPE, universal_newlines=True, env={'PATH': '/usr/bin:/bin', 'HOME': sb.home})
+        self.assertEqual(sys.executable, out.stdout.strip())
 
 
 # --- the shipped profile ----------------------------------------------------

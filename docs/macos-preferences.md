@@ -108,8 +108,18 @@ Skip it for one apply with `DOTFILES_SKIP_MACOS_PREFERENCES=1`.
   date. Comparison is type-exact (`0` ≠ `false` ≠ `0.0`); the two trackpad
   domains on the source Mac genuinely disagree on `DragLock` (`0` vs `false`) and
   both are kept.
-- **Verified.** After writing a domain the tool reads it back and compares each
-  value type-exactly. A value that did not land is reverted and the run stops.
+- **Verified, including recovery.** After writing a domain the tool reads it
+  back and compares each value type-exactly. A value that did not land makes the
+  tool put the whole key back to its pre-run value and stop, and that recovery is
+  **read back too**: it is only reported as `reverted … (confirmed by read-back)`
+  when the key matches its previous state exactly, type included, or is absent
+  again. If the recovery cannot be confirmed (the write misparsed again, a delete
+  left the key behind, or the destination could not be read) the run says
+  `could not restore <key>`, exits 1, names the backup holding the previous
+  value, and the structured result keeps the failed recovery. The number reported
+  as `verified` counts only changes still confirmed in effect afterwards: putting
+  a dictionary back also undoes entries that had already verified (for example
+  shortcut 34 added before shortcut 64 failed), and those are not counted.
 - **No live-file access.** It never imports a domain and never copies files under
   `Library/Preferences`, so `cfprefsd` stays consistent.
 
@@ -177,12 +187,16 @@ The tool never restarts anything itself.
    between the two files apart from the rule's description. Decide which is
    intended, then update one side. The enabled system shortcuts in the profile
    include IDs 34, 35, 36, 37, 79, 81 and 163; whether one of them is what this
-   F19 rule is meant to trigger has not been checked.
-2. **Hammerspoon.** The live `~/.config/hammerspoon/init.lua` (424 lines) differs
-   from the modified working-tree `private_dot_config/exact_hammerspoon/init.lua`
-   (467 lines) and from `HEAD` (269 lines). The live file implements a WezTerm
-   ⌘C-triggered fenced-code chooser; the working tree implements a ⌘⌥V
-   paste-time one. Neither application configuration was re-added.
+   F19 rule is meant to trigger has not been checked. Still different as of
+   2026-10-01.
+2. **Hammerspoon: no longer different (checked 2026-10-01).** When this section
+   was first written the live `~/.config/hammerspoon/init.lua` (424 lines) differed
+   from the uncommitted working-tree `private_dot_config/exact_hammerspoon/init.lua`
+   (467 lines) and from `HEAD` (269 lines). The paste-fence work has since been
+   committed (`524c2091`), and the live file, `HEAD` and the working tree are now
+   byte-identical (467 lines). Re-check with `diff ~/.config/hammerspoon/init.lua
+   private_dot_config/exact_hammerspoon/init.lua`. This profile never manages
+   Hammerspoon, and nothing was re-added by this work.
 
 ## Verification status
 
@@ -192,10 +206,12 @@ The tool never restarts anything itself.
 | Capture is byte-identical across runs and across Python 3.14 and the system 3.9.6 | Verified |
 | `diff` of the shipped profile against this live Mac: 0 to add, 0 to change, 232 identical (type-exact) | Verified |
 | Preview cannot write: the backend is wrapped so a write raises; verified by test and by running `diff`/`restore --dry-run` live (no backup directory appeared) | Verified |
-| Restore/rollback logic: merge, unrelated entries preserved, disabled and field-less records, `SAE1.0`, current-host scope, repeat run, backup, rollback, failure and read-back mismatch reporting | Verified against `tests/fake_defaults`, a **model** of `defaults` (70 tests, plus mutation checks) |
+| Restore/rollback logic: merge, unrelated entries preserved, disabled and field-less records, `SAE1.0`, current-host scope, repeat run, backup, rollback, failure and read-back mismatch reporting | Verified against `tests/fake_defaults`, a **model** of `defaults` (89 tests, plus mutation checks) |
+| Recovery after a write that did not land: the recovery is read back (value, type, absence); an unconfirmable recovery is a failure carrying the backup path and is kept in the structured result; the `verified` count excludes entries a whole-key recovery undid | Verified against `tests/fake_defaults` and scripted in-memory backends (persistent misparse, type drift, a delete that leaves the key, an unreadable destination) |
 | Darwin hook renders, lints, hashes both inputs, non-Darwin renders to `exit 0` and does nothing, hook never captures | Verified (real `chezmoi execute-template`) |
 | The exact `defaults write` argument forms (`-bool/-int/-float/-string`, bare XML fragments for dictionaries/arrays, `-dict-add` with an XML value, `-currentHost write`) are accepted by the real `defaults` and store the intended types | **UNVERIFIED.** No write was run against the real `defaults`. The tool's own read-back catches a mismatch at run time; check on the destination first. |
-| Restoring onto a new Mac reproduces the settings | **UNVERIFIED** until run there |
+| Restoring onto a fresh Mac reproduces the settings | **UNVERIFIED** until run there |
+| Actual current-host writes: `defaults -currentHost write` / `delete` against a real `ByHost` store (only the scope and argument shape are checked, against the fake) | **UNVERIFIED** |
 | Shortcuts physically behave the same after logout/login | **UNVERIFIED** |
 | The restart guidance table | **UNVERIFIED** |
 
@@ -219,7 +235,11 @@ python3 -m unittest discover -s private_dot_config/macos-preferences/tests -v
 ```
 
 Nothing in the tests touches real preferences: the tool is pointed at
-`tests/fake_defaults` through `MACOS_PREFERENCES_DEFAULTS_BIN`. The hook tests
+`tests/fake_defaults` through `MACOS_PREFERENCES_DEFAULTS_BIN`. Test subprocesses
+(the tool, the fake, the hook) resolve `python3` through `tests/pinned_python.py`,
+a wrapper that runs exactly the interpreter running the tests, so a caller whose
+`PATH` starts with mise shims, or a fixture `HOME`, cannot change which Python
+runs. The hook tests
 render with the real `chezmoi execute-template` from a small temporary source
 directory (a full source-tree render trips over an unrelated dangling symlink
 under `.aider-desk/`). `chezmoi apply` is never run.

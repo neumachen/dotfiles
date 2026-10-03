@@ -21,8 +21,10 @@ SUBCOMMANDS
   restore   Apply the profile with `defaults write` (never `defaults import`,
             never by copying files under Library/Preferences). Backs up every
             affected value first, then reads each write back and compares it
-            type-exactly. Exit 0 = done, 1 = a write failed, 2 = usage/profile/
-            environment error.
+            type-exactly. A write that did not land is put back, and that
+            recovery is read back too; one that cannot be confirmed is reported
+            as a failure naming the backup. Exit 0 = done, 1 = a write or
+            recovery failed, 2 = usage/profile/environment error.
   rollback  Put the values recorded in a restore backup back (deleting keys that
             did not exist before). Takes its own backup first.
   validate  Check a profile against the allowlist and schema. Needs no macOS.
@@ -1048,11 +1050,34 @@ def _dest_matches(change: Change, current: Dict[str, Any]) -> bool:
 
 
 @dataclass
+class Recovery:
+    """What happened when a key was put back after its write failed verification.
+
+    `verified` is True only when the destination was exported again and the key
+    matched its previous state exactly: same value *and type*, or still absent.
+    """
+
+    domain: str
+    scope: str
+    key: str
+    verified: bool
+    wrote: bool  # False: the key was already at its previous value, nothing to undo
+    detail: str = ''
+
+
+@dataclass
 class ApplyResult:
-    applied: int = 0
+    applied: int = 0  # changes verified and still confirmed in effect at the end
+    undone: int = 0  # verified changes a whole-key recovery undid, or could no longer confirm
     failures: List[str] = field(default_factory=list)
+    recoveries: List[Recovery] = field(default_factory=list)
+    backup: Optional[str] = None  # where this run's pre-write values are saved
     aborted: bool = False
-    domains: int = 0
+    domains: int = 0  # domains that still hold at least one applied change
+
+    @property
+    def unrecovered(self) -> List[Recovery]:
+        return [r for r in self.recoveries if not r.verified]
 
 
 def _write(backend, ch: Change) -> None:
@@ -1064,26 +1089,75 @@ def _write(backend, ch: Change) -> None:
         backend.delete_key(ch.domain, ch.scope, ch.key)
 
 
-def _revert(backend, plan: Plan, ch: Change, log: Log) -> None:
+def _same_state(a: Any, b: Any) -> bool:
+    """Exact comparison where MISSING means "absent" and equals only itself."""
+    if a is MISSING or b is MISSING:
+        return a is b
+    return strict_eq(a, b)
+
+
+def _where(domain: str, scope: str, key: str, entry: Optional[str] = None) -> str:
+    return '%s [%s] %s%s' % (domain, scope, key, '' if entry is None else ' / ' + entry)
+
+
+def recovery_hint(backup: Optional[str]) -> str:
+    if backup:
+        return 'the previous value is saved in %s; recover with: %s rollback %s' % (
+            os.path.join(backup, 'before.json'), TOOL, backup)
+    return 'recover with: %s rollback <the backup directory printed above>' % TOOL
+
+
+def _revert(backend, plan: Plan, ch: Change, current: Dict[str, Any], log: Log,
+            backup: Optional[str]) -> Tuple[Recovery, Optional[Dict[str, Any]]]:
+    """Put `ch.key` back to its pre-run state and confirm it by reading it back.
+
+    `current` is the destination as just read after the writes. Returns the
+    Recovery and the destination as read after recovery (None if unreadable).
+    "reverted" is only logged once that read-back matches the previous state,
+    including its type, or its absence.
+    """
+    where = _where(ch.domain, ch.scope, ch.key)
     before = plan.current[(ch.domain, ch.scope)].get(ch.key, MISSING)
+    if _same_state(before, current.get(ch.key, MISSING)):
+        log.info('%s is still at its previous value; nothing to revert' % where)
+        return Recovery(ch.domain, ch.scope, ch.key, True, False), current
+    problem = ''
     try:
         if before is MISSING:
             backend.delete_key(ch.domain, ch.scope, ch.key)
         else:
             backend.set_key(ch.domain, ch.scope, ch.key, before)
-        log.warn('reverted %s [%s] %s to its previous value' % (ch.domain, ch.scope, ch.key))
     except BackendError as exc:
-        log.err('could not revert %s [%s] %s (%s); use `%s rollback` with the backup' % (ch.domain, ch.scope, ch.key, exc, TOOL))
+        problem = 'the recovery command failed: %s' % exc
+    try:
+        after = backend.export(ch.domain, ch.scope)
+    except BackendError as exc:
+        detail = '; '.join(p for p in (problem, 'cannot read back to confirm: %s' % exc) if p)
+        log.err('could not restore %s (%s); %s' % (where, detail, recovery_hint(backup)))
+        return Recovery(ch.domain, ch.scope, ch.key, False, True, detail), None
+    have = after.get(ch.key, MISSING)
+    if _same_state(before, have):
+        log.warn('reverted %s to its previous value (confirmed by read-back)' % where)
+        return Recovery(ch.domain, ch.scope, ch.key, True, True, problem), after
+    detail = 'expected %s after recovery but read back %s' % (_show(before), _show(have))
+    if problem:
+        detail += '; ' + problem
+    log.err('could not restore %s (%s); %s' % (where, detail, recovery_hint(backup)))
+    return Recovery(ch.domain, ch.scope, ch.key, False, True, detail), after
 
 
-def apply_plan(backend, plan: Plan, log: Log) -> ApplyResult:
+def apply_plan(backend, plan: Plan, log: Log, backup: Optional[str] = None) -> ApplyResult:
     """Write every change, then read each domain back and compare type-exactly.
 
     A failing `defaults` call is recorded and the run continues with the next
     change. A read-back mismatch means a value did not land as intended, which
-    may be systematic, so that key is reverted and the run stops.
+    may be systematic, so the whole key is put back to its pre-run value, that
+    recovery is itself read back and compared, and the run stops. A recovery
+    that cannot be confirmed is a failure (`result.recoveries`, `result.failures`)
+    and its guidance names `backup`. `result.applied` counts only changes that
+    were verified and are still confirmed in effect after any recovery.
     """
-    result = ApplyResult()
+    result = ApplyResult(backup=backup)
     by_group: Dict[Tuple[str, str], List[Change]] = {}
     for ch in plan.changes:
         by_group.setdefault((ch.domain, ch.scope), []).append(ch)
@@ -1094,7 +1168,7 @@ def apply_plan(backend, plan: Plan, log: Log) -> ApplyResult:
                 _write(backend, ch)
                 written.append(ch)
             except BackendError as exc:
-                where = '%s [%s] %s%s' % (domain, scope, ch.key, '' if ch.entry is None else ' / ' + ch.entry)
+                where = _where(domain, scope, ch.key, ch.entry)
                 result.failures.append('%s: %s' % (where, exc))
                 log.err('%s: %s' % (where, exc))
         if not written:
@@ -1107,21 +1181,39 @@ def apply_plan(backend, plan: Plan, log: Log) -> ApplyResult:
             result.aborted = True
             break
         mismatched = [ch for ch in written if not _dest_matches(ch, current)]
-        result.applied += len(written) - len(mismatched)
-        result.domains += 1
+        verified = [ch for ch in written if _dest_matches(ch, current)]
         if mismatched:
-            reverted = set()
             for ch in mismatched:
-                where = '%s [%s] %s%s' % (domain, scope, ch.key, '' if ch.entry is None else ' / ' + ch.entry)
+                where = _where(domain, scope, ch.key, ch.entry)
                 got = current.get(ch.key, MISSING)
                 if ch.entry is not None and isinstance(got, dict):
                     got = got.get(ch.entry, MISSING)
                 result.failures.append('%s: wrote %s but read back %s' % (where, _show(ch.new), _show(got)))
                 log.err('verification failed for %s: wrote %s, read back %s' % (where, _show(ch.new), _show(got)))
-                if (ch.domain, ch.scope, ch.key) not in reverted:
-                    reverted.add((ch.domain, ch.scope, ch.key))
-                    _revert(backend, plan, ch, log)
+            after_by_key: Dict[Tuple[str, str, str], Optional[Dict[str, Any]]] = {}
+            for ch in mismatched:
+                ident = (ch.domain, ch.scope, ch.key)
+                if ident in after_by_key:
+                    continue
+                recovery, after_by_key[ident] = _revert(backend, plan, ch, current, log, backup)
+                result.recoveries.append(recovery)
+                if not recovery.verified:
+                    result.failures.append('%s: recovery not verified: %s' % (_where(*ident), recovery.detail))
+            # A whole-key recovery also undoes this key's entries that had verified;
+            # keep counting only those the post-recovery read-back still shows.
+            retained = []
+            for ch in verified:
+                after = after_by_key.get((ch.domain, ch.scope, ch.key), current)
+                if after is not None and _dest_matches(ch, after):
+                    retained.append(ch)
+                else:
+                    result.undone += 1
+            verified = retained
             result.aborted = True
+        result.applied += len(verified)
+        if verified:
+            result.domains += 1
+        if result.aborted:
             break
     return result
 
@@ -1216,12 +1308,19 @@ def _apply(doc: Dict[str, Any], source_sha: str, args, log: Log, backend, exact:
         return 0
     backup = create_backup(plan, source_sha)
     log.info('backed up the %d affected key(s) to %s' % (len({(c.domain, c.scope, c.key) for c in plan.changes}), backup))
-    result = apply_plan(backend, plan, log)
+    result = apply_plan(backend, plan, log, backup=backup)
     areas = sorted({spec_for(c.domain, c.scope, c.key).area for c in plan.changes})
     if result.failures:
         log.err('%d problem(s); %d change(s) verified' % (len(result.failures), result.applied))
+        if result.undone:
+            log.err('%d earlier change(s) were undone or can no longer be confirmed after a recovery' % result.undone)
         if result.aborted:
             log.err('stopped early; remaining changes were not attempted')
+        if result.unrecovered:
+            names = ', '.join(_where(r.domain, r.scope, r.key) for r in result.unrecovered)
+            log.err('%d key(s) could NOT be confirmed back at their previous value: %s' % (len(result.unrecovered), names))
+            log.err('their previous values are saved in %s; if `%s rollback` fails too (it uses the same write path), '
+                    'set them by hand with `defaults write` or `defaults delete`' % (os.path.join(backup, 'before.json'), TOOL))
         log.info('undo with: %s rollback %s' % (TOOL, backup))
         return 1
     log.ok('applied and verified %d change(s) in %d domain(s)' % (result.applied, result.domains))

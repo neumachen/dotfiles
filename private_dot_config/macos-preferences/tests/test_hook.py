@@ -22,6 +22,7 @@ import unittest
 sys.dont_write_bytecode = True   # never leave __pycache__ in the source tree
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
 REPO = os.path.abspath(os.path.join(HERE, '..', '..', '..'))
 HOOK_REL = os.path.join('.chezmoiscripts', 'run_onchange_after_55-macos-preferences.sh.tmpl')
 # MACOS_PREFERENCES_HOOK lets the mutation check run this suite against a deliberately broken hook.
@@ -30,6 +31,8 @@ TOOL_REL = os.path.join('dot_local', 'bin', 'executable_macos-preferences')
 PROFILE_REL = os.path.join('private_dot_config', 'macos-preferences', 'profile.json')
 TEMPLATE_REL = os.path.join('.chezmoitemplates', 'script_darwin_only')
 FAKE = os.path.join(HERE, 'fake_defaults')
+
+import pinned_python  # noqa: E402  (sibling helper; needs HERE on sys.path)
 
 FIXTURE_PROFILE = {
     'schema': 1,
@@ -99,7 +102,8 @@ class HookTests(unittest.TestCase):
         return home, state
 
     def run_hook(self, script, home, state, path=None, **extra):
-        path_dirs = [os.path.dirname(sys.executable), '/usr/bin', '/bin']
+        # Pinned interpreter first: the installed tool's `env python3` must not resolve to a shim needing the real HOME.
+        path_dirs = [pinned_python.pinned_bin(home), '/usr/bin', '/bin']
         env = {
             'HOME': home, 'PATH': path if path is not None else os.pathsep.join(path_dirs),
             'XDG_STATE_HOME': os.path.join(home, 'state'), 'TMPDIR': home, 'NO_COLOR': '1',
@@ -192,6 +196,14 @@ class HookTests(unittest.TestCase):
         self.assertEqual(0, proc.returncode, proc.stdout + proc.stderr)
         self.assertEqual(3, len([c for c in self.calls(state) if c['argv'][0] == 'write']))
         self.assertEqual(1, len(os.listdir(os.path.join(home, 'backups'))))
+
+    def test_hook_environment_resolves_python3_to_the_interpreter_under_test(self):
+        script = self.render('darwin')
+        home, state = self.sandbox()
+        proc = self.run_hook(script, home, state)
+        self.assertEqual(0, proc.returncode, proc.stdout + proc.stderr)
+        ran = {os.path.realpath(line) for line in read(os.path.join(state, 'python.log')).decode().split()}
+        self.assertEqual({os.path.realpath(sys.executable)}, ran)
 
     def test_a_failing_restore_makes_the_hook_fail_so_chezmoi_retries_it(self):
         script = self.render('darwin')
